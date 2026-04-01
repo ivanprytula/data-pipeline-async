@@ -66,6 +66,30 @@ class RecordResponse(BaseModel):
     model_config = {"from_attributes": True}
 ```
 
+**Docstring style** — use [Google Python docstring style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings) for all functions, classes, and modules:
+```python
+def get_record(db: AsyncSession, record_id: int) -> Record | None:
+    """Fetch a single record by primary key.
+
+    Args:
+        db: Active async database session.
+        record_id: Primary key of the record to retrieve.
+
+    Returns:
+        The matching Record ORM instance, or None if not found.
+    """
+```
+
+**Comments vs docstrings** — if an inline comment would cause Ruff's line-length violation, use a docstring on the field's class, function, or module instead of a `# noqa: E501` suppression:
+```python
+# WRONG — inline comment breaks line length, suppressed with noqa
+log_level: str = "INFO"  # Override with LOG_LEVEL env var (DEBUG, INFO, WARNING, ERROR, CRITICAL)  # noqa: E501
+
+# CORRECT — move explanation to Field(description=) or a docstring
+log_level: str = "INFO"
+"""Logging verbosity. Override with LOG_LEVEL env var. Accepts: DEBUG, INFO, WARNING, ERROR, CRITICAL."""
+```
+
 **Logging** — structured JSON via `python-json-logger`. Pass event name as first arg, context in `extra={}`:
 ```python
 logger.info("record_created", extra={"cid": str(uuid4()), "record_id": record.id})
@@ -88,7 +112,7 @@ Key environment variables (see `app/config.py`, defaults from `.env`):
 |----------|---------|-------|
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline` | Must include `+asyncpg` |
 | `SQL_ECHO` | `False` | SQLAlchemy query logging |
-| `DEBUG` | `False` | |
+| `LOG_LEVEL` | `INFO` | Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL |
 
 ## Learning Docs
 

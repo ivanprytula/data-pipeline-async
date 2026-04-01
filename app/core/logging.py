@@ -4,13 +4,20 @@ import logging
 
 from pythonjsonlogger.json import JsonFormatter
 
+from app.config import settings
+
 
 def setup_logging() -> logging.Logger:
     """Initialize structured JSON logging for the entire application.
 
     Call once at app startup (in lifespan hook or main).
     Returns the root logger configured for JSON output.
+    Log level is controlled by the LOG_LEVEL environment variable (default: INFO).
     """
+    level = logging.getLevelName(settings.log_level.upper())
+    if not isinstance(level, int):
+        level = logging.INFO
+
     # Use root logger so all child loggers inherit the formatter
     logger = logging.getLogger()
 
@@ -19,6 +26,7 @@ def setup_logging() -> logging.Logger:
         handler = logging.StreamHandler()
         handler.setFormatter(JsonFormatter())
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+
+    logger.setLevel(level)
 
     return logging.getLogger(__name__)
