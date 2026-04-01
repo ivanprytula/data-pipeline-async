@@ -11,7 +11,7 @@ uv run pytest tests/ -v                         # run all tests (no Postgres nee
 uv run pytest tests/ --cov=app                  # with coverage
 uv run ruff check . && uv run ruff format .     # lint + format
 uv run uvicorn app.main:app --reload            # dev server (needs Postgres)
-docker compose up --build                       # full stack (app + Postgres 16)
+docker compose up --build                       # full stack (app + Postgres 17)
 ```
 
 ## Architecture
@@ -22,7 +22,7 @@ FastAPI routes (app/main.py)
   └─ DbDep = Annotated[AsyncSession, Depends(get_db)]
        └─ CRUD layer (app/crud.py)  ← pure async functions
             └─ AsyncSessionLocal (app/database.py)
-                 └─ asyncpg → PostgreSQL 16
+                 └─ asyncpg → PostgreSQL 17
 ```
 
 | File | Responsibility |

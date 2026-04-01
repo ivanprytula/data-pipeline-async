@@ -183,8 +183,8 @@ sync/ (and async/ — identical layout)
 - [x] **Milestone 2** — All tests pass (`pytest tests/ -v`)
 - [x] **Milestone 3** — Understand the `PATCH /process` endpoint you got for free; add a
   `DELETE /api/v1/records/{id}` that hard-deletes; `TimestampMixin` adds `deleted_at` for future soft-delete
-- [ ] **Milestone 4** — Confirm JSON logs appear on every request (`docker compose logs app`)
-- [ ] **Milestone 5** — Run `test_performance.py -s`, note the numbers; revisit after
+- [x] **Milestone 4** — Confirm JSON logs appear on every request (`docker compose logs app`)
+- [x] **Milestone 5** — Run `test_performance.py -s`, note the numbers; revisit after
   adding caching in Week 3
 
 ---

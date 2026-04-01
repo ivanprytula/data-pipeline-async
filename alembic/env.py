@@ -5,12 +5,13 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.models  # noqa: F401 — registers all ORM models to Base.metadata
 from alembic import context
 
 # Project imports — metadata for autogenerate, URL from pydantic-settings
 from app.config import settings
 from app.database import Base
-import app.models  # noqa: F401 — registers all ORM models to Base.metadata
+
 
 # Alembic Config object (access to alembic.ini values)
 config = context.config

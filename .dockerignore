@@ -1,0 +1,36 @@
+# .dockerignore for Python/FastAPI project
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.coverage
+.coverage*
+.cache/
+pytest_cache/
+.env
+.env.*
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+node_modules/
+dist/
+build/
+.eggs/
+*.egg-info/
+*.egg
+alembic/versions/
+# Exclude test and local dev files
+*.md
+learning_docs/
+tests/
+scripts/
+# Exclude Docker artifacts
+Dockerfile*
+.dockerignore
+# Exclude local volumes
+pg_data/

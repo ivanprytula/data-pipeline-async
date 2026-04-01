@@ -38,6 +38,7 @@ addopts = "-v"
 [tool.ruff]
 line-length = 88
 target-version = "py314"
+extend-exclude = ["tests", "alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
