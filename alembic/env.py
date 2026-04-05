@@ -17,6 +17,10 @@ from app.database import Base
 config = context.config
 
 # Wire up the DB URL from settings — never rely on the hardcoded alembic.ini value
+# Instead of:
+#   config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+#
+# Do this:
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Interpret the config file for Python logging.

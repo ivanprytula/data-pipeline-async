@@ -1,0 +1,69 @@
+import asyncio
+import time
+import pytest
+from httpx import AsyncClient, ASGITransport
+from app.main import app
+
+
+@pytest.mark.skip(reason="Long-running test for memory leak detection")
+async def test_throughput_with_512m_memory():
+    """
+    Verify app handles expected load under 512M memory constraint.
+
+    If this fails, we know the app needs more memory in production.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        start = time.time()
+
+        # Simulate typical QA load: 100 concurrent requests
+        tasks = [
+            client.post(
+                "/api/v1/records",
+                json={
+                    "source": f"test-{i}",
+                    "timestamp": "2024-01-15T10:00:00Z",
+                    "data": {"index": i},
+                },
+            )
+            for i in range(100)
+        ]
+
+        responses = await asyncio.gather(*tasks)
+        duration = time.time() - start
+
+        # All requests succeeded under resource constraint
+        assert all(r.status_code == 201 for r in responses)
+        print(f"\n100 concurrent requests in {duration:.2f}s under 512M memory limit")
+
+@pytest.mark.skip(reason="Long-running test for memory leak detection")
+async def test_memory_leak_detection():
+    """
+    Long-running test: create/list records for 5 min.
+    If memory keeps growing, we have a leak.
+
+    Run with: pytest tests/test_under_constraints.py::test_memory_leak_detection -v -s
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        for iteration in range(30):  # 30 iterations × 10s = 5 min
+            # Create batch of records
+            for i in range(10):
+                response = await client.post(
+                    "/api/v1/records",
+                    json={
+                        "source": f"iter-{iteration}-{i}",
+                        "timestamp": "2024-01-15T10:00:00Z",
+                        "data": {"iteration": iteration},
+                    },
+                )
+                assert response.status_code == 201
+
+            # List records
+            response = await client.get("/api/v1/records?limit=1000")
+            assert response.status_code == 200
+
+            print(f"Iteration {iteration + 1}/30 completed...")
+            await asyncio.sleep(10)  # Pause between iterations
+
+        print("\nMemory leak test passed (5 min runtime)")

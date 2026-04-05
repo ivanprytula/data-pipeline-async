@@ -122,7 +122,16 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+
+# NEVER commit this
 .env
+
+# For local overrides (e.g. secrets, local database URLs, etc.) that should not be shared
+.env.local
+
+# For per-environment overrides (e.g. .env.development.local, .env.production.local, etc.) that should not be shared
+.env.*.local
+
 .venv
 env/
 venv/

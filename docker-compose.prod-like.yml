@@ -1,0 +1,26 @@
+# Production-like overrides (resource constraints matching staging/prod)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod-like.yml up
+# Use this locally to catch resource exhaustion bugs before production
+
+version: '3.9'
+
+services:
+  db:
+    deploy:
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: '512M'
+        limits:
+          cpus: '1.0'          # Tight (prod-like)
+          memory: '1G'         # Tight (prod-like)
+
+  app:
+    deploy:
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+        limits:
+          cpus: '0.5'          # Tight (prod-like) — will OOM if app leaks memory
+          memory: '512M'       # Tight (prod-like) — catch memory leaks early

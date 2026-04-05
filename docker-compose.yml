@@ -1,6 +1,10 @@
+version: '3.9'
+
+# Base configuration shared across all environments
 services:
   db:
     image: postgres:17
+    container_name: data-pipeline-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -16,9 +20,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
+    # K8s-like resource management (overridden per environment)
+    deploy:
+      # Restart policy (matches k8s restartPolicy)
+      restart_policy:
+        condition: on-failure        # on-failure | any | none
+        delay: 5s                    # Delay before restart
+        max_attempts: 5              # Max restart attempts (0 = unlimited)
+        window: 120s                 # Observation window
+      
+      # Resource constraints (matches k8s requests/limits)
+      resources:
+        # Minimum guaranteed (k8s requests → docker-compose reservations)
+        reservations:
+          cpus: '0.5'
+          memory: '512M'
+        # Hard limits (k8s limits → docker-compose limits)
+        limits:
+          cpus: '1.0'
+          memory: '1G'
 
   app:
     build: .
+    container_name: data-pipeline-app
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
@@ -32,6 +57,22 @@ services:
         - action: sync+restart
           path: ./app
           target: /app/app
+    # K8s-like resource management (overridden per environment)
+    deploy:
+      # Restart policy
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      
+      # Resource constraints (matches k8s requests/limits)
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
 
 volumes:
   pg_data:

@@ -3,7 +3,7 @@
 Two self-contained, production-shaped implementations of the same data-pipeline API.
 Pick one (or study both side-by-side to understand the difference).
 
-```
+```text
 week1_data_pipeline/
 ├── sync/   ← pip + requirements.txt + SQLAlchemy sync + psycopg2
 └── async/  ← uv + pyproject.toml  + SQLAlchemy async + asyncpg
@@ -15,16 +15,16 @@ Both use **Python 3.14**, **FastAPI**, **Pydantic v2**, and **python-json-logger
 
 ## Sync vs Async — What Changes and Why
 
-| Concern | sync/ | async/ |
-|---------|-------|--------|
-| Dep management | `pip` + `requirements.txt` | `uv` + `pyproject.toml` |
-| DB driver | `psycopg2-binary` (C extension, blocking) | `asyncpg` (pure async, fastest PG driver) |
-| SQLAlchemy session | `Session` (thread-local) | `AsyncSession` (coroutine-safe) |
-| Route handlers | `def` | `async def` |
-| CRUD calls | direct `session.commit()` | `await session.commit()` |
-| Test fixtures | `pytest` fixtures, `TestClient` | `pytest-asyncio`, `AsyncClient` (httpx) |
-| In-proc test DB | `sqlite:///:memory:` | `sqlite+aiosqlite:///:memory:` |
-| Dockerfile base image | `python:3.14-slim` | `python:3.14-slim` + uv layer |
+| Concern               | sync/                                     | async/                                    |
+| --------------------- | ----------------------------------------- | ----------------------------------------- |
+| Dep management        | `pip` + `requirements.txt`                | `uv` + `pyproject.toml`                   |
+| DB driver             | `psycopg2-binary` (C extension, blocking) | `asyncpg` (pure async, fastest PG driver) |
+| SQLAlchemy session    | `Session` (thread-local)                  | `AsyncSession` (coroutine-safe)           |
+| Route handlers        | `def`                                     | `async def`                               |
+| CRUD calls            | direct `session.commit()`                 | `await session.commit()`                  |
+| Test fixtures         | `pytest` fixtures, `TestClient`           | `pytest-asyncio`, `AsyncClient` (httpx)   |
+| In-proc test DB       | `sqlite:///:memory:`                      | `sqlite+aiosqlite:///:memory:`            |
+| Dockerfile base image | `python:3.14-slim`                        | `python:3.14-slim` + uv layer             |
 
 **When to choose async**: Any production service that handles concurrent I/O (database
 queries, external HTTP calls). FastAPI is async-first; `async def` routes process
@@ -60,22 +60,27 @@ open http://localhost:8000/docs
 ## Quick Start — async
 
 ```bash
-cd async
+# 1. One-time setup:
+cp .env.example .env
+# Edit .env with your local values (PostgreSQL running in Docker, etc.)
 
-# 1. Install uv (if missing)
+# 2. From now on, everything "just works"
+docker compose up -d db      # Start container
+
+# 3. Install uv (if missing)
 pip install uv   # or: curl -Ls https://astral.sh/uv/install.sh | sh
 
-# 2. Sync dependencies
+# 4. Sync dependencies
 uv sync
 
-# 3. Run tests (aiosqlite in-memory — no Docker needed)
+# 5. Run tests (aiosqlite in-memory — no Docker needed)
 uv run pytest tests/ -v
 
-# 4. Start the full stack
-cp .env.example .env
-docker compose up --build
+# 6. Start the app (auto-reloads on code changes)
+uv run alembic upgrade head   # Alembic reads from settings
+uv run uvicorn app.main:app   # App reads settings
 
-# 5. Open API docs
+# 7. Open API docs
 open http://localhost:8000/docs
 ```
 
@@ -90,21 +95,14 @@ Schema is managed by Alembic — **never** run `Base.metadata.create_all` alongs
 docker compose run --rm app uv run alembic upgrade head
 
 # Run Alembic locally (outside Docker — use localhost instead of db)
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline \
-  uv run alembic upgrade head
+# No prepending needed
+uv run alembic upgrade head
 
-# Create a new revision after changing a model
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline \
-  uv run alembic revision --autogenerate -m "describe_your_change"
-
-# Roll back one revision
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline \
-  uv run alembic downgrade -1
+# This reads DATABASE_URL from:
+# 1. Environment variable (if set)
+# 2. .env file (if exists)
+# 3. Settings default (if neither exists)
 ```
-
-> **Hostname note**: `.env` uses `db:5432` (Docker Compose service name). When running
-> Alembic directly on the host, override with `localhost:5432` via the `DATABASE_URL`
-> environment variable as shown above.
 
 Migration files live in `alembic/versions/` and are named
 `YYYYMMDD_HHmmss_<revhash>_<slug>.py` — the datetime prefix keeps them sorted
@@ -114,15 +112,15 @@ chronologically; the rev hash guarantees uniqueness.
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/api/v1/records` | Create a record |
-| `POST` | `/api/v1/records/batch` | Bulk create (up to 1 000) |
-| `GET` | `/api/v1/records` | List with pagination + source filter |
-| `GET` | `/api/v1/records/{id}` | Get by ID |
-| `PATCH` | `/api/v1/records/{id}/process` | Mark as processed |
-| `DELETE` | `/api/v1/records/{id}` | Hard-delete a record |
+| Method   | Path                           | Description                          |
+| -------- | ------------------------------ | ------------------------------------ |
+| `GET`    | `/health`                      | Health check                         |
+| `POST`   | `/api/v1/records`              | Create a record                      |
+| `POST`   | `/api/v1/records/batch`        | Bulk create (up to 1 000)            |
+| `GET`    | `/api/v1/records`              | List with pagination + source filter |
+| `GET`    | `/api/v1/records/{id}`         | Get by ID                            |
+| `PATCH`  | `/api/v1/records/{id}/process` | Mark as processed                    |
+| `DELETE` | `/api/v1/records/{id}`         | Hard-delete a record                 |
 
 ### Create a record (curl)
 
@@ -153,7 +151,7 @@ print(json.dumps({'records': records}))
 
 ## Project Structure
 
-```
+```text
 sync/ (and async/ — identical layout)
 ├── app/
 │   ├── __init__.py
