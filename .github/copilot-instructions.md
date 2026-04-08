@@ -10,12 +10,12 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 ## Build and Test
 
 ```bash
-uv sync                                         # install deps
-uv run pytest tests/ -v                         # run all tests (no Postgres needed)
-uv run pytest tests/ --cov=app                  # with coverage
-uv run ruff check . && uv run ruff format .     # lint + format
-uv run uvicorn app.main:app --reload            # dev server (needs Postgres)
-docker compose up --build                       # full stack (app + Postgres 17)
+uv sync                                              # install deps
+uv run pytest tests/ -v                            # run all tests (no Postgres needed)
+uv run pytest tests/ --cov=app                     # with coverage
+uv run ruff check . && uv run ruff format .        # lint + format
+uv run uvicorn app.main:app --reload               # dev server (needs Postgres)
+docker compose up --build                          # full stack (app + Postgres 17)
 ```
 
 ## Architecture

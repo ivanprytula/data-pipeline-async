@@ -8,7 +8,7 @@ Advanced resource constraint management for local development, testing, and prod
 
 **Problem**: App works fine locally but fails in production under resource constraints (OOMKilled, throttled CPU).
 
-**Solution**: Test locally under production-like resource constraints using docker-compose environment profiles.
+**Solution**: Test locally under production-like resource constraints using `docker compose` environment profiles.
 
 ---
 
@@ -46,7 +46,7 @@ services:
 
 ## K8s → Docker Compose Mapping
 
-| Kubernetes | docker-compose | Meaning |
+| Kubernetes | `docker compose` | Meaning |
 |-----------|-----------------|---------|
 | `requests.cpu: 500m` | `reservations.cpus: '0.5'` | Minimum guaranteed CPU (50% of core) |
 | `limits.cpu: 1000m` | `limits.cpus: '1.0'` | Hard CPU limit |

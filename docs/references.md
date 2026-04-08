@@ -106,7 +106,7 @@
 
 ### Tools
 
-- `docker-compose` — Local dev (built into Docker Desktop)
+- `docker compose` — Local dev (built into Docker Desktop)
 - `kubectl` — Kubernetes CLI
 - `helm` — Kubernetes package manager
 - `OrbStack` or `Colima` — Lightweight Docker replacements

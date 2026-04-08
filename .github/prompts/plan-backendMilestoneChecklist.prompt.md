@@ -147,7 +147,7 @@
   - `ps`, `top`, `htop`, `lsof`, `netstat` for process/network inspection
   - `systemd` service basics (if deploying bare-metal)
 
-- **Project build**: ✅ `docker-compose.yml` exists; harden `Dockerfile` with multi-stage build + non-root user; add `healthcheck` to compose
+- **Project build**: ✅ `docker-compose.yml` exists; harden `Dockerfile` with multi-stage build + non-root user; add `healthcheck` to compose (run with `docker compose up`)
 
 ---
 
@@ -210,7 +210,7 @@
   - `/metrics` endpoint for Prometheus scraping
   - Grafana: connect data source, build dashboard (request rate, error rate, latency P95)
 
-- **Project build**: ✅ correlation ID logging already exists; add `prometheus-fastapi-instrumentator`, expose `/metrics`; add `docker-compose` with Prometheus + Grafana
+- **Project build**: ✅ correlation ID logging already exists; add `prometheus-fastapi-instrumentator`, expose `/metrics`; add Prometheus + Grafana services to `docker-compose.yml` (run with `docker compose up`)
 
 ---
 

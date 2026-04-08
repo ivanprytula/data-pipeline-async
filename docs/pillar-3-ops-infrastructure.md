@@ -165,7 +165,7 @@ resource "google_cloud_run_service" "app" {
 ## You Should Be Able To
 
 ✅ Write Dockerfile with multi-stage builds, non-root user, proper caching  
-✅ Use `docker-compose` for local dev (app + postgres + redis)  
+✅ Use `docker compose` for local dev (app + postgres + redis)  
 ✅ Debug container issues: `docker logs`, `docker exec`  
 ✅ Create GitHub Actions workflow for lint → test → build  
 ✅ Deploy containerized FastAPI to Cloud Run or ECS  
