@@ -19,10 +19,13 @@ logger = setup_logging()
 
 
 # ---------------------------------------------------------------------------
-# Lifespan: create tables on startup (idempotent), drop engine on shutdown
+# Lifespan: startup and shutdown events (e.g. for resource management)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
+    """Replaces the deprecated `@app.on_event("startup")` pattern.
+    Everything before `yield` is startup; after `yield` is shutdown.
+    """
     logger.info("startup", extra={"event": "application_started"})
     yield
     await engine.dispose()

@@ -73,5 +73,10 @@
             "connectString": "postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline",
             "name": "data_pipeline_async"
         }
-    ]
+    ],
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

@@ -1,4 +1,9 @@
-"""Async database engine, session factory, and dependency injection."""
+"""Async database engine, session factory, and dependency injection.
+
+Why `expire_on_commit=False` — after `await session.commit()`
+SQA would expire every attribute. In an async context we cannot lazily reload them
+(no sync DB round-trips allowed), so `expire_on_commit=False` keeps the values in-memory
+"""
 
 from collections.abc import AsyncGenerator
 

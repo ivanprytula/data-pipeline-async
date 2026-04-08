@@ -12,11 +12,10 @@ async def test_throughput_with_512m_memory():
 
     If this fails, we know the app needs more memory in production.
     """
+    # Arrange
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         start = time.time()
-
-        # Simulate typical QA load: 100 concurrent requests
         tasks = [
             client.post(
                 "/api/v1/records",
@@ -29,12 +28,15 @@ async def test_throughput_with_512m_memory():
             for i in range(100)
         ]
 
+        # Act
         responses = await asyncio.gather(*tasks)
         duration = time.time() - start
 
+        # Assert
         # All requests succeeded under resource constraint
         assert all(r.status_code == 201 for r in responses)
         print(f"\n100 concurrent requests in {duration:.2f}s under 512M memory limit")
+
 
 @pytest.mark.skip(reason="Long-running test for memory leak detection")
 async def test_memory_leak_detection():
@@ -44,8 +46,10 @@ async def test_memory_leak_detection():
 
     Run with: pytest tests/test_under_constraints.py::test_memory_leak_detection -v -s
     """
+    # Arrange
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Act & Assert
         for iteration in range(30):  # 30 iterations × 10s = 5 min
             # Create batch of records
             for i in range(10):

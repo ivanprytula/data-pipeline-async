@@ -3,6 +3,10 @@
 Async FastAPI + SQLAlchemy 2.0 REST API for ingesting and querying pipeline records.
 Single `records` resource, full CRUD. Learning project demonstrating production-style async patterns.
 
+## Communication Style
+
+**Concise and direct.** No fluff, extra politeness, or filler. Answer questions with minimal explanation; assume technical competence. Skip preambles like "Here's the answer," "Let me explain," "First, let me...". Facts > narrative. Code > prose.
+
 ## Build and Test
 
 ```bash
