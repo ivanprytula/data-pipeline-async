@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -52,10 +51,13 @@ type DbDep = Annotated[AsyncSession, Depends(get_db)]
     status_code=status.HTTP_201_CREATED,
 )
 async def create_record(request: RecordRequest, db: DbDep) -> RecordResponse:
-    cid = str(uuid.uuid4())
-    logger.info("record_create", extra={"source": request.source, "cid": cid})
+    """Create a single record.
+
+    Logs are automatically tagged with request correlation ID (cid).
+    """
+    logger.info("record_create", extra={"source": request.source})
     record = await create_record_op(db, request)
-    logger.info("record_created", extra={"id": record.id, "cid": cid})
+    logger.info("record_created", extra={"id": record.id})
     return record  # type: ignore[return-value]
 
 
@@ -67,10 +69,13 @@ async def create_record(request: RecordRequest, db: DbDep) -> RecordResponse:
     status_code=status.HTTP_201_CREATED,
 )
 async def create_records_batch(request: BatchRecordsRequest, db: DbDep) -> dict:
-    cid = str(uuid.uuid4())
-    logger.info("batch_create", extra={"count": len(request.records), "cid": cid})
+    """Create multiple records in batch.
+
+    Logs are automatically tagged with request correlation ID (cid).
+    """
+    logger.info("batch_create", extra={"count": len(request.records)})
     records = await create_records_batch_op(db, request.records)
-    logger.info("batch_created", extra={"count": len(records), "cid": cid})
+    logger.info("batch_created", extra={"count": len(records)})
     return {"created": len(records)}
 
 
@@ -84,6 +89,7 @@ async def list_records(
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     source: str | None = None,
 ) -> RecordListResponse:
+    """List records with pagination and optional filtering by source."""
     records, total = await get_records(db, skip, limit, source)
     return RecordListResponse(
         records=records,  # type: ignore[arg-type]
@@ -104,6 +110,7 @@ async def list_records(
     response_model=RecordResponse,
 )
 async def get_record(record_id: int, db: DbDep) -> RecordResponse:
+    """Retrieve a single record by ID."""
     record = await get_record_op(db, record_id)
     if record is None:
         raise HTTPException(
@@ -120,6 +127,7 @@ async def get_record(record_id: int, db: DbDep) -> RecordResponse:
     response_model=RecordResponse,
 )
 async def process_record(record_id: int, db: DbDep) -> RecordResponse:
+    """Mark a record as processed."""
     record = await mark_processed(db, record_id)
     if record is None:
         raise HTTPException(
@@ -136,15 +144,18 @@ async def process_record(record_id: int, db: DbDep) -> RecordResponse:
     response_model=RecordResponse,
 )
 async def archive_record(record_id: int, db: DbDep) -> RecordResponse:
-    cid = str(uuid.uuid4())
-    logger.info("record_archive", extra={"id": record_id, "cid": cid})
+    """Soft-delete (archive) a record.
+
+    Logs are automatically tagged with request correlation ID (cid).
+    """
+    logger.info("record_archive", extra={"id": record_id})
     record = await soft_delete_record(db, record_id)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Record not found or already archived",
         )
-    logger.info("record_archived", extra={"id": record_id, "cid": cid})
+    logger.info("record_archived", extra={"id": record_id})
     return record  # type: ignore[return-value]
 
 
@@ -156,11 +167,14 @@ async def archive_record(record_id: int, db: DbDep) -> RecordResponse:
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_record(record_id: int, db: DbDep) -> None:
-    cid = str(uuid.uuid4())
-    logger.info("record_delete", extra={"id": record_id, "cid": cid})
+    """Hard-delete a record.
+
+    Logs are automatically tagged with request correlation ID (cid).
+    """
+    logger.info("record_delete", extra={"id": record_id})
     record = await delete_record_op(db, record_id)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
-    logger.info("record_deleted", extra={"id": record_id, "cid": cid})
+    logger.info("record_deleted", extra={"id": record_id})

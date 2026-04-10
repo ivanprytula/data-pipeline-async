@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
-from app.core.logging import setup_logging
+from app.core.logging import set_cid, setup_logging
 from app.database import engine
 from app.routers import records
 
@@ -16,6 +18,29 @@ from app.routers import records
 # Structured JSON logging (setup once at app initialization)
 # ---------------------------------------------------------------------------
 logger = setup_logging()
+
+
+# ---------------------------------------------------------------------------
+# Request correlation ID middleware
+# ---------------------------------------------------------------------------
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Middleware that extracts or generates request correlation ID (cid).
+
+    For each request:
+    - Extract cid from X-Correlation-ID header if present
+    - Otherwise generate a new UUID
+    - Store in context (available via get_cid() for the request lifetime)
+    Auto-injects cid into all log messages within this request.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        """Extract/generate cid and set in context before handling request."""
+        # Try to get cid from X-Correlation-ID header; fallback to new UUID
+        cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+        set_cid(cid)
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = cid
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +66,9 @@ app = FastAPI(
     description="Week 1 data pipeline — **async** SQLAlchemy + asyncpg.",
     lifespan=lifespan,
 )
+
+# Add correlation ID middleware early (runs before route handlers)
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(records.router)
 
