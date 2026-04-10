@@ -19,17 +19,20 @@ from app.config import settings
 
 engine = create_async_engine(
     settings.database_url,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    echo=settings.sql_echo,
+    pool_size=settings.db_pool_size,  # Permanent connections in pool
+    max_overflow=settings.db_max_overflow,  # Temporary connections during spikes
+    pool_timeout=settings.db_pool_timeout,  # Wait time for connection
+    pool_recycle=settings.db_pool_recycle,  # Prevent stale connections
+    pool_pre_ping=True,  # Verify connection before use
+    echo=settings.db_echo,  # SQL logging for debugging
 )
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
-    autocommit=False,
-    autoflush=False,
-    expire_on_commit=False,  # avoids lazy-load errors after commit
+    class_=AsyncSession,
+    autoflush=False,  # Manual control over flushing
+    expire_on_commit=False,  # Keep data accessible after commit, avoids lazy-load error
+    autocommit=False,  # Require explicit commits
 )
 
 

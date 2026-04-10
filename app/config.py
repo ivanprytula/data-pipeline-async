@@ -18,7 +18,17 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline",
         description="PostgreSQL connection string (asyncpg driver)",
     )
-    sql_echo: bool = Field(
+
+    # Connection pool settings
+    # Adjust based on expected load and PostgreSQL max_connections
+    # Formula: (max_connections / instances) to avoid "too many connections" errors
+    db_pool_size: int = 5  # Number of connections to keep open
+    db_max_overflow: int = 10  # Extra connections beyond pool_size when demand spikes
+    db_pool_timeout: int = 30  # Seconds to wait for available connection before raising an error  # noqa: E501
+    db_pool_recycle: int = 1800  # Recycle connections after 30 min (avoid stale)
+
+    # Echo SQL statements for debugging (disable in production)
+    db_echo: bool = Field(
         default=False,
         description="Enable SQL query logging",
     )

@@ -1,41 +1,41 @@
-import asyncio
+"""Alembic environment config.
+
+Use a SQLAlchemy sync Engine (psycopg dialect) for online migrations.
+This provides a SQLAlchemy `Connection` object (with `.dialect`) which
+Alembic expects. Running migrations via the Alembic CLI is a top-level
+process so creating a sync engine here is safe.
+
+See docs/gotchas.md for Python 3.14 notes and alternatives.
+"""
+
 from logging.config import fileConfig
 
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
-import app.models  # noqa: F401 — registers all ORM models to Base.metadata
+from sqlalchemy import create_engine, pool
 from alembic import context
 
-# Project imports — metadata for autogenerate, URL from pydantic-settings
+import app.models  # noqa: F401 — registers all ORM models to Base.metadata
 from app.config import settings
 from app.database import Base
 
 
-# Alembic Config object (access to alembic.ini values)
 config = context.config
-
-# Wire up the DB URL from settings — never rely on the hardcoded alembic.ini value
-# Instead of:
-#   config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
-#
-# Do this:
-config.set_main_option("sqlalchemy.url", settings.database_url)
-
-# Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Metadata for autogenerate: Alembic diffs this against the live schema
+
 target_metadata = Base.metadata
+
+# Convert app async URL into a SQLAlchemy sync psycopg URL
+# Example: postgresql+asyncpg://user:pass@host:port/db -> postgresql+psycopg://user:pass@host:port/db
+_sync_url = settings.database_url.replace(
+    "postgresql+asyncpg://", "postgresql+psycopg://"
+)
 
 
 def run_migrations_offline() -> None:
-    """Offline mode: emit SQL to stdout without a live DB connection."""
-    url = config.get_main_option("sqlalchemy.url")
+    """Run migrations in 'offline' mode (emit SQL)."""
     context.configure(
-        url=url,
+        url=_sync_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -46,34 +46,25 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection: Connection) -> None:
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        compare_type=True,
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-async def run_async_migrations() -> None:
-    """Online mode: connect to the live DB and run migrations."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
-
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    """Run migrations in 'online' mode using a SQLAlchemy Engine.
+
+    We create a sync Engine using the psycopg dialect and pass a SQLAlchemy
+    Connection to Alembic. This ensures `connection.dialect` exists.
+    """
+    connectable = create_engine(_sync_url, poolclass=pool.NullPool)
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+    connectable.dispose()
 
 
 if context.is_offline_mode():
