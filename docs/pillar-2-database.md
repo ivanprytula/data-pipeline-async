@@ -221,7 +221,7 @@ SELECT * FROM records WHERE id = 123 AND deleted_at IS NULL;
 
 ---
 
-#### N+1 Detection: Enable `SQL_ECHO=True`, Count Queries per Endpoint
+#### N+1 Detection: Enable `DB_ECHO=True`, Count Queries per Endpoint
 
 **What it is**:
 
@@ -236,7 +236,7 @@ SELECT * FROM records WHERE id = 123 AND deleted_at IS NULL;
 
 ```python
 # app/config.py
-SQL_ECHO = True  # Log every SQL statement
+DB_ECHO = True  # Log every SQL statement
 
 # Run your endpoint
 # Terminal shows:

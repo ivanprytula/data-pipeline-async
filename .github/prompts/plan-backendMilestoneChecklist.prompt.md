@@ -103,7 +103,7 @@
   - B-tree index for single columns; composite index column order rule: equality before range
   - Partial index: `WHERE processed = false` — only index active rows
   - Covering index: include non-key columns to avoid heap fetch
-  - N+1 detection: enable `SQL_ECHO=True`, count queries per endpoint; fix with `selectinload` / explicit JOIN
+  - N+1 detection: enable `DB_ECHO=True`, count queries per endpoint; fix with `selectinload` / explicit JOIN
 
 - **PostgreSQL advanced**
   - Connection pooling: `pool_size`, `max_overflow`, `pool_pre_ping=True`; formula: `(max_connections / instances)`

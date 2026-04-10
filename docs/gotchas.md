@@ -77,7 +77,7 @@ for user in users:
 stmt = select(User).options(selectinload(User.profile))
 users = await db.scalars(stmt)
 
-# Spot it: Enable SQL_ECHO=True, count queries in logs
+# Spot it: Enable DB_ECHO=True, count queries in logs
 ```
 
 ---
@@ -133,6 +133,102 @@ CREATE INDEX idx_records_source ON records(source);
 -- Now fast
 -- Index Scan using idx_records_source (cost=0.01..10.00 rows=10)
 ```
+
+---
+
+### [gotcha] Alembic Migrations on Python 3.14 + SQLAlchemy Async
+
+**Problem**: `alembic upgrade head` hangs or fails with `psycopg.OperationalError: server closed the connection unexpectedly` on Python 3.14 + sqlalchemy 2.0 + asyncpg.
+
+**Root cause**: SQLAlchemy's sync `engine_from_config()` uses greenlet spawning internally. Python 3.14's event loop changes (asyncio rewrite in CPython) broke greenlet interop in certain contexts. Even raw `psycopg.connect()` fails because the underlying psycopg SCRAM-SHA-256 auth handshake involves thread/greenlet transitions that Python 3.14 rejects.
+
+**Solution**: Use `async_engine_from_config()` + `run_sync()` wrapper + `asyncio.run()` at top-level:
+
+```python
+# alembic/env.py
+import asyncio
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+async def run_migrations_async():
+    """Async engine avoids sync greenlet issues."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=None,
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
+
+def run_migrations_online():
+    """Call async via asyncio.run() at top-level.
+    
+    Top-level asyncio.run() avoids greenlet spawning issues from inside
+    existing event loops (which happen if Alembic is called from within app).
+    """
+    asyncio.run(run_migrations_async())
+```
+
+**Why this works**: 
+- `async_engine_from_config()` creates an async engine (no greenlets)
+- `asyncio.run()` at top-level creates fresh event loop (no existing loop conflicts)
+- `run_sync()` wraps sync DDL execution, but from a "clean" async context
+
+**Caveats**:
+- `alembic upgrade head` and `alembic revision` work fine
+- Do NOT call Alembic from within FastAPI's running event loop (e.g., startup hook) — Python 3.14 will refuse to spawn the new event loop
+- If you must auto-create schema on app startup, use `Base.metadata.create_all()` via `run_sync()` instead (that's safe because it's inside existing async app context)
+
+**Testing** (migrations don't run):
+- Tests use in-memory SQLite (`aiosqlite`), not PostgreSQL
+- So test suite passes even if Alembic would fail
+- To test Alembic on Python 3.14, run manually: `uv run alembic upgrade head`
+
+**Expected in Python 3.14.1+**: This is likely fixed in later Python 3.14 releases or upstream in asyncpg/psycopg3.
+
+---
+
+### [gotcha] PostgreSQL Authentication: Dev vs Prod (Localhost vs Network)
+
+**Problem**: Want fast, password-free connections for localhost dev/migrations but secure password auth for remote connections (DBeaver, pgAdmin, prod servers).
+
+**Solution**: Use `pg_hba.conf` with role-based auth rules:
+
+```
+# pg_hba.conf
+# IPv4 local connections : trust (no password)
+host    all             all             127.0.0.1/32            trust
+# IPv4 remote connections: password required
+host    all             all             0.0.0.0/0               scram-sha-256
+# Unix socket (local psql, Alembic): trust
+local   all             all                                     trust
+```
+
+**Result**:
+- `psql -h localhost -U postgres` (dev/Alembic) → no password prompt
+- `psql -h remote-host -U postgres` (DBeaver, pgAdmin, prod) → password required
+- `docker compose exec db psql -U postgres` (socket) → no password
+
+**Docker setup**:
+```yaml
+# docker-compose.yml
+services:
+  db:
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./infra/database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+```
+
+**Caveats**:
+- `trust` auth only secure for localhost (can't reach from outside)
+- Production: use VPC/network security, SSL certs, strong passwords
+- Alembic URL in alembic.ini can be bare (no password) → works with `trust` auth
 
 ---
 
@@ -329,7 +425,7 @@ logger.info("Returning response", extra={"cid": request_id})
 
 1. **Enable linting**: `ruff check` catches many issues
 2. **Write tests**: Gotchas appear as test failures
-3. **Use `SQL_ECHO=True` in dev**: Spot N+1 queries
+3. **Use `DB_ECHO=True` in dev**: Spot N+1 queries
 4. **Profile in production**: Use `prometheus-fastapi-instrumentator` to find slow endpoints
 5. **Read error messages carefully**: They usually tell you exactly what's wrong
 6. **Ask LLM to explain errors**: "Why am I getting 'too many connections'?"

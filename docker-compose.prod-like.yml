@@ -2,8 +2,6 @@
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod-like.yml up
 # Use this locally to catch resource exhaustion bugs before production
 
-version: '3.9'
-
 services:
   db:
     deploy:

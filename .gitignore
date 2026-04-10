@@ -171,8 +171,7 @@ cython_debug/
 .idea/
 
 # VS Code — ignore personal files, but track shared tooling config
-.vscode/*
-!.vscode/settings.json
+.vscode/
 
 # Mac OS
 .DS_Store

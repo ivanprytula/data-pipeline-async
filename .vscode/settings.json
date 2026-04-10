@@ -64,16 +64,7 @@
     "ruff.nativeServer": "auto",
     "ruff.format.preview": false,
     "ruff.lint.preview": true,
-    "sqltools.connections": [
-        {
-            "ssh": "Disabled",
-            "previewLimit": 50,
-            "server": "localhost",
-            "driver": "PostgreSQL",
-            "connectString": "postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline",
-            "name": "data_pipeline_async"
-        }
-    ],
+    "sqltools.connections": [],
     "python.testing.pytestArgs": [
         "tests"
     ],

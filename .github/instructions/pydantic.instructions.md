@@ -238,7 +238,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str
     debug: bool = False
-    sql_echo: bool = False
+    db_echo: bool = False
 
     model_config = {
         "env_file": ".env",

@@ -115,8 +115,14 @@ Key environment variables (see `app/config.py`, defaults from `.env`):
 | Variable | Default | Notes |
 |----------|---------|-------|
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline` | Must include `+asyncpg` |
-| `SQL_ECHO` | `False` | SQLAlchemy query logging |
+| `DB_ECHO` | `False` | SQLAlchemy query logging |
 | `LOG_LEVEL` | `INFO` | Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL |
+
+## Documentation
+
+**File naming in `docs/`** — all `.md` files must be lowercase with hyphens as separators (kebab-case):
+- ✅ CORRECT: `alembic-python314-fix.md`, `database-auth-strategy.md`
+- ❌ WRONG: `ALEMBIC_PYTHON314_FIX.md`, `DatabaseAuthStrategy.md`, `alembic_fix.md`
 
 ## Learning Docs
 
