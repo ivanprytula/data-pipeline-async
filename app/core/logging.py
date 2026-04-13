@@ -53,26 +53,86 @@ class ContextAwareJsonFormatter(JsonFormatter):
             log_data["cid"] = cid
 
 
-def setup_logging() -> logging.Logger:
+# ---------------------------------------------------------------------------
+# AppLogger wrapper
+# ---------------------------------------------------------------------------
+class AppLogger:
+    """Thin wrapper around a standard logging.Logger.
+
+    Features:
+    - Callable interface: `logger("event_name", level="debug", **extra)`
+      where `level` may be a string like 'debug' or an int. If `level` is
+      omitted, defaults to INFO.
+    - Exposes standard logger methods (`debug`, `info`, `warning`, `error`,
+      `exception`, `critical`) by delegating to the underlying logger so
+      existing callsites continue to work.
+    - Provides `set_level()` helper to change level at runtime.
+    """
+
+    def __init__(self, logger: logging.Logger) -> None:
+        self._logger = logger
+
+    def __call__(
+        self, event: str, level: str | int | None = None, **extra: Any
+    ) -> None:
+        """Log an event using the provided level or INFO by default.
+
+        The `event` is used as the message and also injected into `extra` as
+        the `event` field for structured logging consumers.
+        """
+        if level is None:
+            lvl = logging.INFO
+        elif isinstance(level, int):
+            lvl = level
+        else:
+            lvl = logging.getLevelName(str(level).upper())
+            if not isinstance(lvl, int):
+                lvl = logging.INFO
+
+        extra_with_event = {"event": event}
+        extra_with_event.update(extra)
+        # Use Logger.log to support dynamic level values
+        self._logger.log(lvl, event, extra=extra_with_event)
+
+    def set_level(self, level: str | int) -> None:
+        """Set the logger level at runtime."""
+        if isinstance(level, int):
+            lvl = level
+        else:
+            lvl = logging.getLevelName(str(level).upper())
+            if not isinstance(lvl, int):
+                lvl = logging.INFO
+        self._logger.setLevel(lvl)
+
+    def __getattr__(self, name: str):
+        # Delegate attribute access to the underlying logger (info, debug, etc.)
+        return getattr(self._logger, name)
+
+
+def setup_logging() -> AppLogger:
     """Initialize structured JSON logging for the entire application.
 
     Call once at app startup (in lifespan hook or main).
     Returns the root logger configured for JSON output.
     Log level is controlled by the LOG_LEVEL environment variable (default: INFO).
     """
-    level = logging.getLevelName(settings.log_level.upper())
+    # Resolve configured level (fall back to INFO for invalid values)
+    configured = str(settings.log_level or "").upper()
+    level = logging.getLevelName(configured)
     if not isinstance(level, int):
         level = logging.INFO
 
     # Use root logger so all child loggers inherit the formatter
-    logger = logging.getLogger()
+    root_logger = logging.getLogger()
 
     # Only add handler if not already present (prevents duplication on reload)
-    if not logger.handlers:
+    if not root_logger.handlers:
         handler = logging.StreamHandler()
         handler.setFormatter(ContextAwareJsonFormatter())
-        logger.addHandler(handler)
+        root_logger.addHandler(handler)
 
-    logger.setLevel(level)
+    root_logger.setLevel(level)
 
-    return logging.getLogger(__name__)
+    # Return an AppLogger wrapping a module-level logger so callsites keep
+    # working with `logger.info(...)` and also gain callable-style logging.
+    return AppLogger(logging.getLogger(__name__))
