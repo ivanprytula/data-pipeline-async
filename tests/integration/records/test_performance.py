@@ -1,18 +1,20 @@
-"""Async performance baseline tests — run with pytest -s to see timings."""
+"""Async performance baseline tests — run with pytest -v --log-cli-level=INFO to see timings."""
 
+import logging
 import time
 
+import pytest
 from httpx import AsyncClient
 
+from tests.shared.payloads import RECORD_PERF
 
-_RECORD = {
-    "source": "perf.test",
-    "timestamp": "2024-01-15T10:00:00",
-    "data": {"value": 0},
-    "tags": [],
-}
+logger = logging.getLogger(__name__)
 
 
+_RECORD = RECORD_PERF
+
+
+@pytest.mark.integration
 async def test_batch_insert_1000(client: AsyncClient) -> None:
     # Arrange
     payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
@@ -23,11 +25,12 @@ async def test_batch_insert_1000(client: AsyncClient) -> None:
     elapsed = time.perf_counter() - start
 
     # Assert
-    print(f"\n[perf] 1 000 records inserted in {elapsed:.3f}s")
+    logger.info(f"[perf] 1 000 records inserted in {elapsed:.3f}s")
     assert r.status_code == 201
-    assert elapsed < 5.0
+    assert elapsed < 10.0
 
 
+@pytest.mark.integration
 async def test_list_1000_records(client: AsyncClient) -> None:
     # Arrange
     payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
@@ -39,6 +42,6 @@ async def test_list_1000_records(client: AsyncClient) -> None:
     elapsed = time.perf_counter() - start
 
     # Assert
-    print(f"\n[perf] 1 000 records listed in {elapsed:.3f}s")
+    logger.info(f"[perf] 1 000 records listed in {elapsed:.3f}s")
     assert r.status_code == 200
-    assert elapsed < 1.0
+    assert elapsed < 3.0

@@ -1,11 +1,15 @@
 import asyncio
 import time
+
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
+from tests.shared.payloads import RECORD_E2E
 
 
 @pytest.mark.skip(reason="Long-running test for memory leak detection")
+@pytest.mark.e2e
 async def test_throughput_with_512m_memory():
     """
     Verify app handles expected load under 512M memory constraint.
@@ -20,9 +24,8 @@ async def test_throughput_with_512m_memory():
             client.post(
                 "/api/v1/records",
                 json={
+                    **RECORD_E2E,
                     "source": f"test-{i}",
-                    "timestamp": "2024-01-15T10:00:00Z",
-                    "data": {"index": i},
                 },
             )
             for i in range(100)
@@ -39,6 +42,7 @@ async def test_throughput_with_512m_memory():
 
 
 @pytest.mark.skip(reason="Long-running test for memory leak detection")
+@pytest.mark.e2e
 async def test_memory_leak_detection():
     """
     Long-running test: create/list records for 5 min.
@@ -56,9 +60,8 @@ async def test_memory_leak_detection():
                 response = await client.post(
                     "/api/v1/records",
                     json={
+                        **RECORD_E2E,
                         "source": f"iter-{iteration}-{i}",
-                        "timestamp": "2024-01-15T10:00:00Z",
-                        "data": {"iteration": iteration},
                     },
                 )
                 assert response.status_code == 201

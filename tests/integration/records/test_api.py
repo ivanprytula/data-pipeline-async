@@ -1,19 +1,18 @@
 """Async API integration tests."""
 
+import pytest
 from httpx import AsyncClient
 
+from tests.shared.payloads import RECORD_API
 
-_RECORD = {
-    "source": "api.example.com",
-    "data": {"price": 123.45},
-    "tags": ["Stock", "NASDAQ"],
-    # timestamp is optional — defaults to current UTC if omitted
-}
+
+_RECORD = RECORD_API
 
 
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_health(client: AsyncClient) -> None:
     # Act
     r = await client.get("/health")
@@ -26,6 +25,7 @@ async def test_health(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Create single record
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_create_record(client: AsyncClient) -> None:
     # Act
     r = await client.post("/api/v1/records", json=_RECORD)
@@ -39,6 +39,7 @@ async def test_create_record(client: AsyncClient) -> None:
     assert body["processed"] is False
 
 
+@pytest.mark.integration
 async def test_create_record_missing_source(client: AsyncClient) -> None:
     bad = {**_RECORD}
     del bad["source"]
@@ -48,12 +49,14 @@ async def test_create_record_missing_source(client: AsyncClient) -> None:
     assert r.status_code == 422
 
 
+@pytest.mark.integration
 async def test_create_record_empty_source(client: AsyncClient) -> None:
     r = await client.post("/api/v1/records", json={**_RECORD, "source": ""})
 
     assert r.status_code == 422
 
 
+@pytest.mark.integration
 async def test_create_record_future_timestamp(client: AsyncClient) -> None:
     r = await client.post(
         "/api/v1/records", json={**_RECORD, "timestamp": "2099-01-01T00:00:00"}
@@ -65,6 +68,7 @@ async def test_create_record_future_timestamp(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Batch create
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_create_batch(client: AsyncClient) -> None:
     payload = {"records": [_RECORD, {**_RECORD, "source": "b.example.com"}]}
 
@@ -74,6 +78,7 @@ async def test_create_batch(client: AsyncClient) -> None:
     assert r.json()["created"] == 2
 
 
+@pytest.mark.integration
 async def test_batch_too_large(client: AsyncClient) -> None:
     payload = {"records": [_RECORD] * 1001}
 
@@ -85,6 +90,7 @@ async def test_batch_too_large(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # List / pagination
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_list_records_empty(client: AsyncClient) -> None:
     r = await client.get("/api/v1/records")
 
@@ -95,6 +101,7 @@ async def test_list_records_empty(client: AsyncClient) -> None:
     assert body["pagination"]["has_more"] is False
 
 
+@pytest.mark.integration
 async def test_list_records_pagination(client: AsyncClient) -> None:
     for i in range(5):
         await client.post("/api/v1/records", json={**_RECORD, "source": f"src-{i}"})
@@ -107,6 +114,7 @@ async def test_list_records_pagination(client: AsyncClient) -> None:
     assert body["pagination"]["has_more"] is True
 
 
+@pytest.mark.integration
 async def test_list_records_filter_source(client: AsyncClient) -> None:
     await client.post("/api/v1/records", json={**_RECORD, "source": "alpha"})
     await client.post("/api/v1/records", json={**_RECORD, "source": "beta"})
@@ -121,6 +129,7 @@ async def test_list_records_filter_source(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Get by ID
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_get_record(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/records", json=_RECORD)).json()
 
@@ -130,6 +139,7 @@ async def test_get_record(client: AsyncClient) -> None:
     assert r.json()["id"] == created["id"]
 
 
+@pytest.mark.integration
 async def test_get_nonexistent_record(client: AsyncClient) -> None:
     r = await client.get("/api/v1/records/99999")
 
@@ -139,6 +149,7 @@ async def test_get_nonexistent_record(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Mark as processed
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_mark_processed(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/records", json=_RECORD)).json()
 
@@ -148,6 +159,7 @@ async def test_mark_processed(client: AsyncClient) -> None:
     assert r.json()["processed"] is True
 
 
+@pytest.mark.integration
 async def test_mark_processed_nonexistent(client: AsyncClient) -> None:
     r = await client.patch("/api/v1/records/99999/process")
 
@@ -157,6 +169,7 @@ async def test_mark_processed_nonexistent(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Delete
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_delete_record(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/records", json=_RECORD)).json()
 
@@ -168,6 +181,7 @@ async def test_delete_record(client: AsyncClient) -> None:
     assert r.status_code == 404
 
 
+@pytest.mark.integration
 async def test_delete_record_not_found(client: AsyncClient) -> None:
     r = await client.delete("/api/v1/records/99999")
 
@@ -177,6 +191,7 @@ async def test_delete_record_not_found(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Archive (soft-delete)
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 async def test_archive_record(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/records", json=_RECORD)).json()
     record_id = created["id"]
@@ -193,12 +208,14 @@ async def test_archive_record(client: AsyncClient) -> None:
     assert all(rec["id"] != record_id for rec in listing["records"])
 
 
+@pytest.mark.integration
 async def test_archive_record_not_found(client: AsyncClient) -> None:
     r = await client.patch("/api/v1/records/99999/archive")
 
     assert r.status_code == 404
 
 
+@pytest.mark.integration
 async def test_archive_record_idempotent(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/records", json=_RECORD)).json()
     record_id = created["id"]

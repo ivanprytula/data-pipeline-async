@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 from app.config import settings
 from app.core.logging import setup_logging
 
@@ -8,6 +10,7 @@ def _messages(records):
     return [(r.getMessage(), r.levelno) for r in records]
 
 
+@pytest.mark.unit
 def test_logging_respects_log_level_and_callable_interface(caplog):
     # DEBUG level: debug messages should be emitted
     settings.log_level = "DEBUG"

@@ -35,7 +35,12 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v"
+addopts = "-v -m 'not e2e'"
+markers = [
+    "unit: Fast, isolated unit tests (no I/O, no DB)",
+    "integration: Tests that touch DB/ASGI client",
+    "e2e: End-to-end or long-running tests (skipped by default)",
+]
 
 [tool.ruff]
 line-length = 88
