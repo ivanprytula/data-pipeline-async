@@ -41,6 +41,20 @@ class Base(DeclarativeBase):
 
 
 async def get_db() -> AsyncGenerator[AsyncSession]:
-    """FastAPI dependency: yields an async DB session, always closes on exit."""
+    """FastAPI dependency: yields a fresh async DB session for each request.
+
+    How it solves AsyncSession concurrency:
+    - Each request gets its own session instance (no sharing between requests)
+    - SQLAlchemy warns "AsyncSession is not safe for use in concurrent tasks"
+      but this means: don't share a single session across multiple concurrent tasks
+    - FastAPI's dependency injection ensures each request has isolated session
+    - Request 1 → AsyncSession A, Request 2 → AsyncSession B, etc.
+    - Even though multiple requests are concurrent (async), they don't share sessions
+
+    Session lifecycle:
+    - Context manager: yields session on enter, auto-closes on exit (cleanup guaranteed)
+    - Sessions created fresh per request (stateless pattern)
+    - Implicit by on_exit: session rolls back if exc before yield, commits if explicit
+    """
     async with AsyncSessionLocal() as session:
         yield session
