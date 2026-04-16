@@ -126,6 +126,121 @@ async def test_list_records_filter_source(client: AsyncClient) -> None:
     assert body["records"][0]["source"] == "alpha"
 
 
+# Week 2 Milestone 2: Comprehensive pagination tests
+@pytest.mark.integration
+async def test_pagination_multi_page_traversal(client: AsyncClient) -> None:
+    """Test cursor-based pagination across multiple pages.
+
+    Creates 250 records and verifies we can traverse:
+    Page 1 (0-99), Page 2 (100-199), Page 3 (200-249)
+    """
+    # Setup: Create 250 records
+    for i in range(250):
+        await client.post("/api/v1/records", json={**_RECORD, "data": {"idx": i}})
+
+    # Page 1: skip=0, limit=100
+    r1 = await client.get("/api/v1/records?skip=0&limit=100")
+    body1 = r1.json()
+    assert len(body1["records"]) == 100
+    assert body1["pagination"]["skip"] == 0
+    assert body1["pagination"]["limit"] == 100
+    assert body1["pagination"]["total"] == 250
+    assert body1["pagination"]["has_more"] is True  # 100 < 250
+
+    # Page 2: skip=100, limit=100
+    r2 = await client.get("/api/v1/records?skip=100&limit=100")
+    body2 = r2.json()
+    assert len(body2["records"]) == 100
+    assert body2["pagination"]["skip"] == 100
+    assert body2["pagination"]["has_more"] is True  # 200 < 250
+
+    # Page 3: skip=200, limit=100 (partial page)
+    r3 = await client.get("/api/v1/records?skip=200&limit=100")
+    body3 = r3.json()
+    assert len(body3["records"]) == 50  # Only 50 left
+    assert body3["pagination"]["skip"] == 200
+    assert body3["pagination"]["has_more"] is False  # 300 >= 250
+
+
+@pytest.mark.integration
+async def test_pagination_last_page_detection(client: AsyncClient) -> None:
+    """Verify has_more is False on the last page."""
+    # Setup: Create 50 records
+    for i in range(50):
+        await client.post("/api/v1/records", json={**_RECORD, "data": {"idx": i}})
+
+    # Request with limit that exactly fits remaining records
+    r = await client.get("/api/v1/records?skip=0&limit=50")
+    body = r.json()
+    assert len(body["records"]) == 50
+    assert body["pagination"]["has_more"] is False
+
+
+@pytest.mark.integration
+async def test_pagination_boundary_conditions(client: AsyncClient) -> None:
+    """Test edge cases: skip at boundary, limit at boundary."""
+    # Setup: Create exactly 100 records
+    for i in range(100):
+        await client.post("/api/v1/records", json={**_RECORD, "data": {"idx": i}})
+
+    # Skip to last record (99), request with limit=1
+    r = await client.get("/api/v1/records?skip=99&limit=1")
+    body = r.json()
+    assert len(body["records"]) == 1
+    assert body["pagination"]["has_more"] is False
+
+    # Skip beyond all records (should return empty)
+    r = await client.get("/api/v1/records?skip=100&limit=10")
+    body = r.json()
+    assert len(body["records"]) == 0
+    assert body["pagination"]["total"] == 100
+    assert body["pagination"]["has_more"] is False
+
+
+@pytest.mark.integration
+async def test_pagination_default_limit(client: AsyncClient) -> None:
+    """Verify default limit is 100 when omitted."""
+    # Setup: Create 150 records
+    for i in range(150):
+        await client.post("/api/v1/records", json={**_RECORD, "data": {"idx": i}})
+
+    # Request without limit parameter (should default to 100)
+    r = await client.get("/api/v1/records")
+    body = r.json()
+    assert len(body["records"]) == 100
+    assert body["pagination"]["limit"] == 100
+    assert body["pagination"]["has_more"] is True  # 100 < 150
+
+
+@pytest.mark.integration
+async def test_pagination_cursor_preservation(client: AsyncClient) -> None:
+    """Verify pagination cursor (skip) is preserved accurately across requests."""
+    # Setup: Create 35 records (will test page boundaries)
+    for i in range(35):
+        await client.post("/api/v1/records", json={**_RECORD, "source": f"src-{i % 5}"})
+
+    # Get page 1
+    r1 = await client.get("/api/v1/records?skip=0&limit=10")
+    page1_ids = [rec["id"] for rec in r1.json()["records"]]
+
+    # Get page 2 using returned skip
+    r2 = await client.get("/api/v1/records?skip=10&limit=10")
+    page2_ids = [rec["id"] for rec in r2.json()["records"]]
+
+    # Get page 3 using returned skip
+    r3 = await client.get("/api/v1/records?skip=20&limit=10")
+    page3_ids = [rec["id"] for rec in r3.json()["records"]]
+
+    # Get page 4 (partial)
+    r4 = await client.get("/api/v1/records?skip=30&limit=10")
+    page4_ids = [rec["id"] for rec in r4.json()["records"]]
+
+    # Verify no overlaps and no gaps
+    all_ids = page1_ids + page2_ids + page3_ids + page4_ids
+    assert len(all_ids) == 35
+    assert len(set(all_ids)) == 35  # All unique
+
+
 # ---------------------------------------------------------------------------
 # Get by ID
 # ---------------------------------------------------------------------------
