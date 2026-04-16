@@ -16,6 +16,7 @@ _RECORD = RECORD_PERF
 
 @pytest.mark.integration
 async def test_batch_insert_1000(client: AsyncClient) -> None:
+    """Baseline: How fast can we insert 1000 records?"""
     # Arrange
     payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
     start = time.perf_counter()
@@ -32,6 +33,7 @@ async def test_batch_insert_1000(client: AsyncClient) -> None:
 
 @pytest.mark.integration
 async def test_list_1000_records(client: AsyncClient) -> None:
+    """Baseline: How fast can we list 1000 records?"""
     # Arrange
     payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
     await client.post("/api/v1/records/batch", json=payload)

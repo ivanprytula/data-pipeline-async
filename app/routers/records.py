@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging import setup_logging
 from app.crud import (
     create_record as create_record_op,
 )
@@ -35,7 +35,7 @@ from app.schemas import (
 )
 
 
-logger = setup_logging()
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/records", tags=["records"])
 

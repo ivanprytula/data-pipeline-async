@@ -1,7 +1,25 @@
-"""Structured JSON logging setup — runs once at app startup."""
+"""Environment-aware logging setup — runs once at app startup.
+
+Development:
+- Human-readable format with IDE-clickable source info (pathname:lineno:funcName)
+- Console output + rotating file handler (logs/app.log)
+
+Production:
+- Minimal JSON (message + context fields only)
+- No source location metadata (reduces noise in aggregation systems)
+
+Provides:
+- Global log level control via LOG_LEVEL env var
+- Per-call log level control (logger.debug(), logger.info(), etc.)
+- Correlation ID auto-injection via ContextVar
+- Dependency lib logging control (sqlalchemy, httpx, asyncio, etc.)
+"""
 
 import logging
+import sys
 from contextvars import ContextVar
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Any
 
 from pythonjsonlogger.json import JsonFormatter
@@ -13,15 +31,11 @@ from app.config import settings
 # Context variable for request correlation ID (cid)
 # ─────────────────────────────────────────────────────────────────────────────
 # Stores the unique request ID (cid) during request handling.
-# Access via get_cid() to retrieve the current request's correlation ID.
 request_cid: ContextVar[str | None] = ContextVar("request_cid", default=None)
 
 
 def get_cid() -> str | None:
-    """Get the current request's correlation ID.
-
-    Returns None if called outside a request context.
-    """
+    """Get the current request's correlation ID, or None outside a request."""
     return request_cid.get()
 
 
@@ -31,13 +45,83 @@ def set_cid(cid: str) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Custom JSON formatter with automatic context injection
+# Formatters: Development (human-readable) vs Production (minimal JSON)
 # ─────────────────────────────────────────────────────────────────────────────
-class ContextAwareJsonFormatter(JsonFormatter):
-    """JSON formatter that automatically includes request context (cid).
+class DevelopmentFormatter(logging.Formatter):
+    """Human-readable format with IDE-clickable source info.
 
-    Injects correlation ID (cid) into every log record if available in context.
-    This ensures all logs for a given request are linked via the same cid.
+    Format: YYYY-MM-DD HH:MM:SS | LEVEL | pathname:lineno:funcName | [cid] msg extra_dict
+
+    Example:
+    2026-04-15 10:30:45 | INFO | app/routers/records.py:45:create_record | [abc-123]
+    record created {'user': 'alice', 'record_id': 42}
+
+    The pathname:lineno:funcName part is clickable in most IDEs (VS Code, PyCharm, etc.)
+    allowing Ctrl+Click to jump directly to the source line.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as human-readable with IDE-clickable link."""
+        # Timestamp
+        timestamp = self.formatTime(record, datefmt="%Y-%m-%d %H:%M:%S")
+
+        # Level (right-padded for alignment)
+        level_name = record.levelname.ljust(8)
+
+        # Source location as IDE-clickable format
+        source_link = f"{record.pathname}:{record.lineno}:{record.funcName}"
+
+        # Correlation ID if available
+        cid = get_cid()
+        cid_str = f"[{cid}]" if cid else ""
+
+        # Message
+        message = record.getMessage()
+
+        # Extra fields (formatted as dict if present)
+        extra_dict = {
+            k: v
+            for k, v in record.__dict__.items()
+            if k
+            not in {
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "taskName",
+            }
+        }
+        extra_str = f" {extra_dict}" if extra_dict else ""
+
+        return f"{timestamp} | {level_name} | {source_link} | {cid_str} {message}{extra_str}"
+
+
+class ProductionJsonFormatter(JsonFormatter):
+    """Minimal JSON formatter for centralized log aggregation.
+
+    Includes only essential fields:
+    - message: The log message
+    - cid: Correlation ID (for request tracing)
+    - Extra fields from the log call
+
+    Does NOT include source location metadata (lineno, funcName, pathname)
+    to reduce noise in aggregated logs viewed via Sentry/ELK/VictoriaMetrics.
     """
 
     def add_fields(
@@ -46,93 +130,93 @@ class ContextAwareJsonFormatter(JsonFormatter):
         record: logging.LogRecord,
         message_dict: dict[str, Any],
     ) -> None:
-        """Add fields to log record, including automatic cid injection."""
+        """Add minimal fields: message + auto-injected cid only."""
         super().add_fields(log_data, record, message_dict)
+
+        # Auto-inject correlation ID if available
         cid = get_cid()
         if cid:
             log_data["cid"] = cid
 
 
-# ---------------------------------------------------------------------------
-# AppLogger wrapper
-# ---------------------------------------------------------------------------
-class AppLogger:
-    """Thin wrapper around a standard logging.Logger.
+def setup_logging() -> logging.Logger:
+    """Initialize environment-aware logging for the application.
 
-    Features:
-    - Callable interface: `logger("event_name", level="debug", **extra)`
-      where `level` may be a string like 'debug' or an int. If `level` is
-      omitted, defaults to INFO.
-    - Exposes standard logger methods (`debug`, `info`, `warning`, `error`,
-      `exception`, `critical`) by delegating to the underlying logger so
-      existing callsites continue to work.
-    - Provides `set_level()` helper to change level at runtime.
+    Call once at app startup (in lifespan hook).
+
+    Development:
+    - Human-readable format to console
+    - RotatingFileHandler for logs/app.log (10MB per file, 5 backups)
+    - Includes source location for IDE navigation
+
+    Production:
+    - Minimal JSON to stdout (ready for log aggregation)
+    - No source location metadata (reduces noise)
+
+    Configures:
+    - Root logger level from LOG_LEVEL (default: INFO)
+    - Dependency lib levels from environment (LOG_SQLALCHEMY_LEVEL, etc.)
+
+    Returns:
+        The root logger, configured and ready to use.
     """
-
-    def __init__(self, logger: logging.Logger) -> None:
-        self._logger = logger
-
-    def __call__(
-        self, event: str, level: str | int | None = None, **extra: Any
-    ) -> None:
-        """Log an event using the provided level or INFO by default.
-
-        The `event` is used as the message and also injected into `extra` as
-        the `event` field for structured logging consumers.
-        """
-        if level is None:
-            lvl = logging.INFO
-        elif isinstance(level, int):
-            lvl = level
-        else:
-            lvl = logging.getLevelName(str(level).upper())
-            if not isinstance(lvl, int):
-                lvl = logging.INFO
-
-        extra_with_event = {"event": event}
-        extra_with_event.update(extra)
-        # Use Logger.log to support dynamic level values
-        self._logger.log(lvl, event, extra=extra_with_event)
-
-    def set_level(self, level: str | int) -> None:
-        """Set the logger level at runtime."""
-        if isinstance(level, int):
-            lvl = level
-        else:
-            lvl = logging.getLevelName(str(level).upper())
-            if not isinstance(lvl, int):
-                lvl = logging.INFO
-        self._logger.setLevel(lvl)
-
-    def __getattr__(self, name: str):
-        # Delegate attribute access to the underlying logger (info, debug, etc.)
-        return getattr(self._logger, name)
-
-
-def setup_logging() -> AppLogger:
-    """Initialize structured JSON logging for the entire application.
-
-    Call once at app startup (in lifespan hook or main).
-    Returns the root logger configured for JSON output.
-    Log level is controlled by the LOG_LEVEL environment variable (default: INFO).
-    """
-    # Resolve configured level (fall back to INFO for invalid values)
-    configured = str(settings.log_level or "").upper()
-    level = logging.getLevelName(configured)
-    if not isinstance(level, int):
-        level = logging.INFO
-
-    # Use root logger so all child loggers inherit the formatter
     root_logger = logging.getLogger()
 
-    # Only add handler if not already present (prevents duplication on reload)
-    if not root_logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(ContextAwareJsonFormatter())
+    # Remove any existing handlers to avoid duplication on reload
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Set root logger level from settings (default: INFO)
+    configured = str(settings.log_level or "INFO").upper()
+    root_level = getattr(logging, configured, logging.INFO)
+    root_logger.setLevel(root_level)
+
+    # Environment-aware formatter and handler setup
+    if settings.environment == "production":
+        # Production: minimal JSON to stdout
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(ProductionJsonFormatter())
         root_logger.addHandler(handler)
+    else:
+        # Development: human-readable + file rotation
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(DevelopmentFormatter())
+        root_logger.addHandler(console_handler)
 
-    root_logger.setLevel(level)
+        # File handler with rotation (10MB per file, keep 5 backups)
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        file_handler = RotatingFileHandler(
+            log_dir / "app.log",
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5,
+        )
+        file_handler.setFormatter(DevelopmentFormatter())
+        root_logger.addHandler(file_handler)
 
-    # Return an AppLogger wrapping a module-level logger so callsites keep
-    # working with `logger.info(...)` and also gain callable-style logging.
-    return AppLogger(logging.getLogger(__name__))
+    # Configure dependency library loggers to reduce noise
+    # These are set to WARNING by default; override via env vars
+    if settings.log_sqlalchemy_level:
+        dep_level = getattr(
+            logging,
+            str(settings.log_sqlalchemy_level).upper(),
+            logging.WARNING,
+        )
+        logging.getLogger("sqlalchemy").setLevel(dep_level)
+        logging.getLogger("sqlalchemy.engine").setLevel(dep_level)
+
+    if settings.log_httpx_level:
+        dep_level = getattr(
+            logging, str(settings.log_httpx_level).upper(), logging.WARNING
+        )
+        logging.getLogger("httpx").setLevel(dep_level)
+
+    if settings.log_asyncio_level:
+        dep_level = getattr(
+            logging, str(settings.log_asyncio_level).upper(), logging.WARNING
+        )
+        logging.getLogger("asyncio").setLevel(dep_level)
+
+    # Return root logger for use in app
+    return root_logger

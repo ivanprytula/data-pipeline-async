@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
@@ -17,7 +18,9 @@ from app.routers import records
 # ---------------------------------------------------------------------------
 # Structured JSON logging (setup once at app initialization)
 # ---------------------------------------------------------------------------
-logger = setup_logging()
+# setup_logging() configures the root logger; get a named logger for this module
+_setup_logging = setup_logging()
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

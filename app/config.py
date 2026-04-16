@@ -49,7 +49,23 @@ class Settings(BaseSettings):
 
     log_level: str = Field(
         default="INFO",
-        description="Logging verbosity. Accepts: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+        description="Global logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+    )
+
+    # Dependency library logging levels (reduce noise from verbose libs)
+    log_sqlalchemy_level: str | None = Field(
+        default=None,
+        description="SQLAlchemy logging level (default: WARNING if not set)",
+    )
+
+    log_httpx_level: str | None = Field(
+        default=None,
+        description="HTTPX logging level (default: WARNING if not set)",
+    )
+
+    log_asyncio_level: str | None = Field(
+        default=None,
+        description="Asyncio logging level (default: WARNING if not set)",
     )
 
     model_config = SettingsConfigDict(
