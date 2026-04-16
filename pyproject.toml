@@ -52,3 +52,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 100
+max-line-length = 100

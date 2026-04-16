@@ -11,9 +11,9 @@ See docs/gotchas.md for Python 3.14 notes and alternatives.
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine, pool
-from alembic import context
 
 import app.models  # noqa: F401 — registers all ORM models to Base.metadata
+from alembic import context
 from app.config import settings
 from app.database import Base
 

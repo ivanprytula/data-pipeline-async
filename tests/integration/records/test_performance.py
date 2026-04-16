@@ -8,6 +8,7 @@ from httpx import AsyncClient
 
 from tests.shared.payloads import RECORD_PERF
 
+
 logger = logging.getLogger(__name__)
 
 

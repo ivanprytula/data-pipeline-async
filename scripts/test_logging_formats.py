@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import settings
-from app.core.logging import get_cid, set_cid, setup_logging
+from app.core.logging import set_cid, setup_logging
 
 
 def separator(title: str) -> None:

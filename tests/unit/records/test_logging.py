@@ -45,21 +45,21 @@ def test_logging_respects_global_log_level():
 
     settings.environment = "production"
     settings.log_level = "DEBUG"
-    logger = setup_logging()
+    _ = setup_logging()
     assert logging.getLogger().level == logging.DEBUG
 
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
     settings.log_level = "WARNING"
-    logger = setup_logging()
+    _ = setup_logging()
     assert logging.getLogger().level == logging.WARNING
 
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
     settings.log_level = "INFO"
-    logger = setup_logging()
+    _ = setup_logging()
     assert logging.getLogger().level == logging.INFO
 
 
