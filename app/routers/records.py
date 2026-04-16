@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import (
@@ -13,6 +13,7 @@ from app.crud import (
 )
 from app.crud import (
     create_records_batch as create_records_batch_op,
+    create_records_batch_naive as create_records_batch_naive_op,
 )
 from app.crud import (
     delete_record as delete_record_op,
@@ -25,7 +26,9 @@ from app.crud import (
     mark_processed,
     soft_delete_record,
 )
+from app.constants import API_V1_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, V1_RATE_LIMIT
 from app.database import get_db
+from app.rate_limiting import limiter
 from app.schemas import (
     BatchRecordsRequest,
     PaginationMeta,
@@ -37,7 +40,7 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/records", tags=["records"])
+router = APIRouter(prefix=f"{API_V1_PREFIX}/records", tags=["records"])
 
 type DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -50,33 +53,59 @@ type DbDep = Annotated[AsyncSession, Depends(get_db)]
     response_model=RecordResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_record(request: RecordRequest, db: DbDep) -> RecordResponse:
+@limiter.limit(V1_RATE_LIMIT)
+async def create_record(
+    request: Request,
+    body: RecordRequest,
+    db: DbDep,
+) -> RecordResponse:
     """Create a single record.
 
-    Logs are automatically tagged with request correlation ID (cid).
+    Logs are automatically tagged with correlation ID.
+    Rate limit: 1000/minute per IP.
     """
-    logger.info("record_create", extra={"source": request.source})
-    record = await create_record_op(db, request)
-    logger.info("record_created", extra={"id": record.id})
-    return record  # type: ignore[return-value]
+    record = await create_record_op(db, body)
+    return RecordResponse.model_validate(record)
 
 
-# ---------------------------------------------------------------------------
-# Records — batch create
 # ---------------------------------------------------------------------------
 @router.post(
     "/batch",
     status_code=status.HTTP_201_CREATED,
+    description=(
+        "Bulk-create records.\n\n"
+        "**`?impl` query parameter** — internal implementation toggle:\n"
+        "- `optimized` *(default)* — single `INSERT … RETURNING` round-trip\n"
+        "- `naive` — `add_all` + N individual `REFRESH` calls (N+1 queries)\n\n"
+        "Both return identical JSON. The difference is only observable as latency "
+        "(use `?impl=naive` vs `?impl=optimized` with a large batch to feel it).\n\n"
+        "This pattern — same contract, swappable internals — mirrors how "
+        "feature flags and A/B performance experiments work in production."
+    ),
 )
-async def create_records_batch(request: BatchRecordsRequest, db: DbDep) -> dict:
+async def create_records_batch(
+    body: BatchRecordsRequest,
+    db: DbDep,
+    impl: str = Query(
+        default="optimized",
+        pattern="^(optimized|naive)$",
+        description="Batch insert implementation: 'optimized' (INSERT RETURNING) or 'naive' (add_all + N refreshes).",
+    ),
+) -> dict:
     """Create multiple records in batch.
 
-    Logs are automatically tagged with request correlation ID (cid).
+    The `?impl=` parameter selects the internal database strategy without
+    changing the response contract — identical JSON either way.
     """
-    logger.info("batch_create", extra={"count": len(request.records)})
-    records = await create_records_batch_op(db, request.records)
-    logger.info("batch_created", extra={"count": len(records)})
-    return {"created": len(records)}
+    impl_fn = (
+        create_records_batch_op
+        if impl == "optimized"
+        else create_records_batch_naive_op
+    )
+    logger.info("batch_create", extra={"count": len(body.records), "impl": impl})
+    records = await impl_fn(db, body.records)
+    logger.info("batch_created", extra={"count": len(records), "impl": impl})
+    return {"created": len(records), "impl": impl}
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +115,7 @@ async def create_records_batch(request: BatchRecordsRequest, db: DbDep) -> dict:
 async def list_records(
     db: DbDep,
     skip: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
     source: str | None = None,
 ) -> RecordListResponse:
     """List records with pagination and optional filtering by source."""

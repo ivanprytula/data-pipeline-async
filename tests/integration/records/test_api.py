@@ -88,6 +88,60 @@ async def test_batch_too_large(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Batch insert ?impl= toggle
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+async def test_batch_impl_optimized_returns_correct_count(client: AsyncClient) -> None:
+    """optimized impl (INSERT RETURNING) — same contract as default."""
+    payload = {"records": [_RECORD, {**_RECORD, "source": "opt.example.com"}]}
+
+    r = await client.post("/api/v1/records/batch?impl=optimized", json=payload)
+
+    assert r.status_code == 201
+    body = r.json()
+    assert body["created"] == 2
+    assert body["impl"] == "optimized"
+
+
+@pytest.mark.integration
+async def test_batch_impl_naive_returns_correct_count(client: AsyncClient) -> None:
+    """naive impl (add_all + N refreshes) — identical JSON output, different internals."""
+    payload = {"records": [_RECORD, {**_RECORD, "source": "naive.example.com"}]}
+
+    r = await client.post("/api/v1/records/batch?impl=naive", json=payload)
+
+    assert r.status_code == 201
+    body = r.json()
+    assert body["created"] == 2
+    assert body["impl"] == "naive"
+
+
+@pytest.mark.integration
+async def test_batch_impl_contract_identical(client: AsyncClient) -> None:
+    """Both impls return the same JSON keys — the contract is impl-agnostic."""
+    payload = {"records": [_RECORD]}
+
+    r_opt = await client.post("/api/v1/records/batch?impl=optimized", json=payload)
+    r_naive = await client.post("/api/v1/records/batch?impl=naive", json=payload)
+
+    assert r_opt.status_code == 201
+    assert r_naive.status_code == 201
+    # Contract: both return {"created": int, "impl": str}
+    assert set(r_opt.json().keys()) == set(r_naive.json().keys())
+    assert r_opt.json()["created"] == r_naive.json()["created"]
+
+
+@pytest.mark.integration
+async def test_batch_impl_invalid_rejected(client: AsyncClient) -> None:
+    """Unknown ?impl= value is rejected at the validation layer (422)."""
+    payload = {"records": [_RECORD]}
+
+    r = await client.post("/api/v1/records/batch?impl=magic", json=payload)
+
+    assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
 # List / pagination
 # ---------------------------------------------------------------------------
 @pytest.mark.integration

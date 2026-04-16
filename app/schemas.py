@@ -5,15 +5,23 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.constants import (
+    MAX_BATCH_SIZE,
+    MIN_BATCH_SIZE,
+    SOURCE_MAX_LENGTH,
+    SOURCE_MIN_LENGTH,
+    TAGS_MAX_COUNT,
+)
+
 
 class RecordRequest(BaseModel):
-    source: str = Field(..., min_length=1, max_length=255)
+    source: str = Field(..., min_length=SOURCE_MIN_LENGTH, max_length=SOURCE_MAX_LENGTH)
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(UTC).replace(tzinfo=None),
         description="ISO 8601 timestamp (defaults to current UTC if omitted)",
     )
     data: dict[str, Any]
-    tags: list[str] = Field(default_factory=list, max_length=10)
+    tags: list[str] = Field(default_factory=list, max_length=TAGS_MAX_COUNT)
 
     @field_validator("timestamp", mode="before")
     @classmethod
@@ -56,7 +64,9 @@ class RecordResponse(BaseModel):
 
 
 class BatchRecordsRequest(BaseModel):
-    records: list[RecordRequest] = Field(..., min_length=1, max_length=1000)
+    records: list[RecordRequest] = Field(
+        ..., min_length=MIN_BATCH_SIZE, max_length=MAX_BATCH_SIZE
+    )
 
 
 class PaginationMeta(BaseModel):

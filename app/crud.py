@@ -1,6 +1,6 @@
 """Async CRUD operations (SQLAlchemy 2.0 select() style)."""
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Record, _utcnow
@@ -23,7 +23,64 @@ async def create_record(session: AsyncSession, request: RecordRequest) -> Record
 async def create_records_batch(
     session: AsyncSession, requests: list[RecordRequest]
 ) -> list[Record]:
-    """Bulk-insert — one round-trip to the database."""
+    """Bulk-insert with RETURNING — single round-trip to database.
+
+    Uses insert().values().returning() to avoid N+1 refresh queries.
+    All server-default fields (id, created_at, updated_at, processed) are
+    populated in the INSERT RETURNING clause, not via individual refreshes.
+
+    Args:
+        session: Active async database session.
+        requests: List of RecordRequest payloads to insert.
+
+    Returns:
+        List of fully-hydrated Record ORM instances (with all defaults).
+    """
+    if not requests:
+        return []
+
+    # Prepare insert data: map request fields to Record columns
+    insert_data = [
+        {
+            "source": r.source,
+            "timestamp": r.timestamp,
+            "raw_data": r.data,
+            "tags": r.tags,
+        }
+        for r in requests
+    ]
+
+    # INSERT with RETURNING to get all fields back in one round-trip
+    stmt = insert(Record).values(insert_data).returning(Record)
+    result = await session.execute(stmt)
+    records = result.scalars().all()
+
+    await session.commit()
+    return list(records)
+
+
+async def create_records_batch_naive(
+    session: AsyncSession, requests: list[RecordRequest]
+) -> list[Record]:
+    """Naive bulk-insert: N individual INSERTs + N individual REFRESH calls.
+
+    This is the *before* implementation kept deliberately unoptimised so the
+    `POST /api/v1/records/batch?impl=naive` endpoint can demonstrate — with
+    measurable latency — exactly why the optimised version exists.
+
+    Pattern: add_all → commit → for-loop refresh
+    Round-trips: 1 (commit) + N (refresh) = N+1
+
+    Args:
+        session: Active async database session.
+        requests: List of RecordRequest payloads to insert.
+
+    Returns:
+        List of fully-hydrated Record ORM instances (with all defaults).
+    """
+    if not requests:
+        return []
+
     records = [
         Record(
             source=r.source,
@@ -35,7 +92,7 @@ async def create_records_batch(
     ]
     session.add_all(records)
     await session.commit()
-    # Refresh to hydrate server-default fields (id, created_at …)
+    # N individual round-trips to hydrate server-default fields
     for record in records:
         await session.refresh(record)
     return records

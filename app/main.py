@@ -7,12 +7,17 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 from app.config import settings
+from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
 from app.database import engine
+from app.rate_limiting import limiter
 from app.routers import records
+from app.routers import records_v2
 
 
 # ---------------------------------------------------------------------------
@@ -66,21 +71,44 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Week 1 data pipeline — **async** SQLAlchemy + asyncpg.",
+    description=(
+        "Async data pipeline — SQLAlchemy 2.0 + asyncpg.\n\n"
+        "**Rate-limiting showcase** (create-record variations):\n"
+        "- `POST /api/v1/records` — fixed window, IP-based (slowapi default)\n"
+        "- `POST /api/v2/records/token-bucket` — token bucket (burst-tolerant)\n"
+        "- `POST /api/v2/records/sliding-window` — exact sliding window"
+    ),
     lifespan=lifespan,
 )
+
+# Attach limiter to app (required by slowapi)
+app.state.limiter = limiter
+
+
+# Add rate limit exception handler
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Handle rate limit exceeded (429 Too Many Requests)."""
+    logger.warning("rate_limit_exceeded", extra={"path": request.url.path})
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded"},
+    )
+
 
 # Add correlation ID middleware early (runs before route handlers)
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(records.router)
+app.include_router(records_v2.router)
 
 
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["ops"])
-async def health() -> dict[str, str]:
+@limiter.limit(HEALTH_RATE_LIMIT)
+async def health(request: Request) -> dict[str, str]:
     return {"status": "healthy", "version": settings.app_version}
 
 

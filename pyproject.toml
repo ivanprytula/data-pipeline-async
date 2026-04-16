@@ -8,6 +8,8 @@ dependencies = [
     # Web framework
     "fastapi>=0.115.12",
     "uvicorn[standard]>=0.34.0",
+    # Rate limiting
+    "slowapi>=0.1.9",
     # Database (async)
     "sqlalchemy[asyncio]>=2.0.40",
     "asyncpg>=0.30.0",

@@ -46,7 +46,7 @@ Use IDE global search (VS Code: `Ctrl+Shift+F` or `Cmd+Shift+F` on Mac) to find:
 
 Each pillar doc links to specific additions in `data-pipeline-async`. Build them:
 
-```
+```text
 Week 1: Pillar 1 + 2 (Foundation)
 Week 2: Pillar 3 Foundation + Pillar 1 Middle tier
 Week 3: Pillar 3 Middle tier + Pillar 4
@@ -68,7 +68,7 @@ Each pillar has a **"You should be able to"** section at the end. Check yourself
 
 Each pillar follows this pattern:
 
-```
+```text
 ## Pillar X: [Name]
 
 ### Foundation (🟢)
@@ -103,7 +103,7 @@ Checklist of competencies by end of pillar.
 ## Coverage Map
 
 | Pillar | JD Coverage | Tier |
-|--------|---|---|
+| --- | --- | --- |
 | 1 + 2 + 3 (Foundation) | 90-95% Junior | 🟢 |
 | 1-3 (Middle) + 4 | 90%+ Middle | 🟡 |
 | 4 + 5 + 6 + Cloud | ~60% Middle+ | 🟡 |
