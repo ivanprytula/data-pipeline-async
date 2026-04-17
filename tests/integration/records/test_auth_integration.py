@@ -5,11 +5,16 @@ Tests session-based auth, bearer token auth, protected docs, and rate limit hand
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas import RecordRequest
+
+
+_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
 
 
 @pytest.mark.integration
@@ -37,7 +42,7 @@ class TestSessionAuth:
 
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp="2024-01-01T00:00:00", data={}),
+            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
         )
 
         # Without session, should get 401
@@ -53,7 +58,7 @@ class TestSessionAuth:
         # Create a record
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp="2024-01-01T00:00:00", data={}),
+            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
         )
 
         # Login to get session
@@ -84,7 +89,7 @@ class TestSessionAuth:
         # Create a record
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp="2024-01-01T00:00:00", data={}),
+            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
         )
 
         # Create an expired session directly
