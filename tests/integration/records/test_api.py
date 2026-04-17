@@ -1,9 +1,15 @@
 """Async API integration tests."""
 
+import asyncio
+import logging
+import time
+
 import pytest
 from httpx import AsyncClient
 
 from tests.shared.payloads import RECORD_API
+
+logger = logging.getLogger(__name__)
 
 
 _RECORD = RECORD_API
@@ -394,3 +400,102 @@ async def test_archive_record_idempotent(client: AsyncClient) -> None:
     r = await client.patch(f"/api/v1/records/{record_id}/archive")
 
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Rate Limiting & Endurance
+# ---------------------------------------------------------------------------
+# Week 2 Milestone 3: Endurance test (simulated)
+@pytest.mark.integration
+async def test_rate_limit_endurance_simulation(client: AsyncClient) -> None:
+    """Simulate sustained load: 1050 requests to a rate-limited endpoint.
+
+    This simulates Week 2 Milestone 3 completion criteria:
+    "Endurance test: 1000 requests over 1 hour doesn't fail."
+
+    In production, this would run for 1 hour at steady rate (17 req/sec).
+    In tests, we send 1050 requests as fast as possible and verify:
+      1. App doesn't crash (all requests complete)
+      2. Early requests succeed (200 OK)
+      3. Later requests hit rate limit (429)
+      4. App remains healthy after load
+
+    Rate limit: 100/minute on /health endpoint.
+    Expected:
+      - ~100 requests get 200 OK
+      - ~950 requests get 429 (rate limited)
+      - All requests complete without exception
+      - Final health check passes
+    """
+    # Send 1050 requests rapidly to /health (rate limit: 100/minute)
+    start = time.perf_counter()
+    tasks = [client.get("/health") for _ in range(1050)]
+    responses = await asyncio.gather(*tasks, return_exceptions=False)
+    elapsed = time.perf_counter() - start
+
+    # Process results
+    status_codes = [r.status_code for r in responses]
+    success_count = status_codes.count(200)
+    rate_limit_count = status_codes.count(429)
+    other_count = len(status_codes) - success_count - rate_limit_count
+
+    # Log metrics
+    logger.info(
+        f"[Rate Limit Endurance] 1050 requests in {elapsed:.2f}s"
+        f" | Success: {success_count}, RateLimit: {rate_limit_count}, Other: {other_count}"
+    )
+
+    # Assertions
+    # 1. All requests completed (no exceptions, no timeouts)
+    assert len(responses) == 1050, "All requests should complete"
+
+    # 2. Early requests succeeded (rate limit allows ~100 per minute)
+    assert success_count >= 50, (
+        f"Expected ≥50 successful (200) responses, got {success_count}"
+    )
+
+    # 3. Most requests were rate-limited (expected behavior)
+    assert rate_limit_count >= 800, (
+        f"Expected ≥800 rate-limited (429) responses, got {rate_limit_count}"
+    )
+
+    # 4. No unexpected errors (should only be 200 or 429)
+    assert other_count == 0, (
+        f"Got unexpected status codes: {set(s for s in status_codes if s not in (200, 429))}"
+    )
+
+    # 5. All rate-limited responses have correct structure
+    rate_limited_responses = [r for r in responses if r.status_code == 429]
+    for r in rate_limited_responses:
+        body = r.json()
+        assert "detail" in body, "Rate-limit error should have detail field"
+
+    # 6. App still healthy after load
+    final_health = await client.get("/health")
+    # Final health may be 200 or 429 (depends on rate limit state), but must not error
+    assert final_health.status_code in (200, 429), (
+        f"Final health check failed: {final_health.status_code}"
+    )
+
+
+@pytest.mark.integration
+async def test_rate_limit_429_response_format(client: AsyncClient) -> None:
+    """Verify rate-limit (429) responses have documented error format.
+
+    When a client exceeds the rate limit, they receive:
+    - Status: 429 Too Many Requests
+    - Body: JSON with 'detail' explaining the limit
+    """
+    # Exhaust rate limit (100/minute) by sending requests as fast as possible
+    tasks = [client.get("/health") for _ in range(150)]
+    responses = await asyncio.gather(*tasks)
+
+    # Find a 429 response
+    rate_limited_response = next((r for r in responses if r.status_code == 429), None)
+    assert rate_limited_response is not None, "Should get at least one 429 response"
+
+    # Verify structure
+    body = rate_limited_response.json()
+    assert "detail" in body
+    assert isinstance(body["detail"], str)
+    assert "rate limit" in body["detail"].lower()
