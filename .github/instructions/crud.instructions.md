@@ -137,16 +137,16 @@ async def get_records(
     # Build base queries
     count_q = select(func.count()).select_from(Record)
     data_q = select(Record).order_by(Record.id).offset(skip).limit(limit)
-    
+
     # Apply same WHERE clause to both
     if source:
         count_q = count_q.where(Record.source == source)
         data_q = data_q.where(Record.source == source)
-    
+
     # Execute both
     total = (await session.execute(count_q)).scalar_one()
     records = list((await session.execute(data_q)).scalars().all())
-    
+
     return records, total
 ```
 
@@ -226,14 +226,14 @@ async def get_records(
     # Always exclude soft-deleted records
     count_q = select(func.count()).select_from(Record).where(Record.deleted_at.is_(None))
     data_q = select(Record).where(Record.deleted_at.is_(None)).order_by(Record.id).offset(skip).limit(limit)
-    
+
     if source:
         count_q = count_q.where(Record.source == source)
         data_q = data_q.where(Record.source == source)
-    
+
     total = (await session.execute(count_q)).scalar_one()
     records = list((await session.execute(data_q)).scalars().all())
-    
+
     return records, total
 ```
 

@@ -1,7 +1,7 @@
 # Pillar 3: Ops & Infrastructure
 
-**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)  
-**Project**: Proves production-readiness  
+**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)
+**Project**: Proves production-readiness
 **Building in**: `Dockerfile`, `docker-compose.yml`, `.github/workflows/`, infra manifests
 
 ---
@@ -145,7 +145,7 @@ Provision one resource (e.g., Cloud Run service):
 resource "google_cloud_run_service" "app" {
   name     = "data-pipeline-async"
   location = "us-central1"
-  
+
   template {
     spec {
       containers {
@@ -164,14 +164,14 @@ resource "google_cloud_run_service" "app" {
 
 ## You Should Be Able To
 
-✅ Write Dockerfile with multi-stage builds, non-root user, proper caching  
-✅ Use `docker compose` for local dev (app + postgres + redis)  
-✅ Debug container issues: `docker logs`, `docker exec`  
-✅ Create GitHub Actions workflow for lint → test → build  
-✅ Deploy containerized FastAPI to Cloud Run or ECS  
-✅ Understand Kubernetes Deployment + Service + Ingress  
-✅ Provision infrastructure with Terraform  
-✅ Explain why you'd use rolling updates vs blue-green  
+✅ Write Dockerfile with multi-stage builds, non-root user, proper caching
+✅ Use `docker compose` for local dev (app + postgres + redis)
+✅ Debug container issues: `docker logs`, `docker exec`
+✅ Create GitHub Actions workflow for lint → test → build
+✅ Deploy containerized FastAPI to Cloud Run or ECS
+✅ Understand Kubernetes Deployment + Service + Ingress
+✅ Provision infrastructure with Terraform
+✅ Explain why you'd use rolling updates vs blue-green
 
 ---
 

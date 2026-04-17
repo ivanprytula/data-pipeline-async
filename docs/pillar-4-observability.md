@@ -1,6 +1,6 @@
 # Pillar 4: Observability
 
-**Tier**: Middle (🟡) → Senior (🔴)  
+**Tier**: Middle (🟡) → Senior (🔴)
 **Project**: Essential for debugging + production support
 
 ---
@@ -135,12 +135,12 @@ Spans appear in **Jaeger UI** with full trace graph
 
 ## You Should Be Able To
 
-✅ Emit structured JSON logs with correlation IDs  
-✅ Instrument FastAPI with Prometheus metrics  
-✅ Build Grafana dashboard (error rate, latency P95)  
-✅ Trace requests across service boundaries with OpenTelemetry  
-✅ Write alerting rules for error rate + latency  
-✅ Explain why you log (debugging), metrics (SLOs), traces (dependencies)  
+✅ Emit structured JSON logs with correlation IDs
+✅ Instrument FastAPI with Prometheus metrics
+✅ Build Grafana dashboard (error rate, latency P95)
+✅ Trace requests across service boundaries with OpenTelemetry
+✅ Write alerting rules for error rate + latency
+✅ Explain why you log (debugging), metrics (SLOs), traces (dependencies)
 
 ---
 

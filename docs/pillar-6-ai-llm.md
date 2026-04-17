@@ -1,7 +1,7 @@
 # Pillar 6: AI / LLM Integration
 
-**Tier**: Middle (🟡) → Senior (🔴)  
-**Project**: The 2025-2030 multiplier  
+**Tier**: Middle (🟡) → Senior (🔴)
+**Project**: The 2025-2030 multiplier
 **Building in**: `app/integrations/openai.py`, `app/routers/analyze.py`
 
 ---
@@ -104,7 +104,7 @@ async def store_embedding(db: AsyncSession, text: str, source: str):
 async def search_similar(db: AsyncSession, query: str, limit: int = 5) -> list[str]:
     """Find similar embeddings (cosine distance)."""
     query_embedding = await embed_text(query)
-    
+
     # PostgreSQL pgvector: find nearest neighbors
     stmt = (
         select(EmbeddingRecord.content)
@@ -117,7 +117,7 @@ async def rag_answer(db: AsyncSession, question: str) -> str:
     """RAG: retrieve context, then generate answer."""
     context = await search_similar(db, question, limit=3)
     context_str = "\n".join(context)
-    
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -250,14 +250,14 @@ print(f"Relevancy: {results['answer_relevancy']}")  # Did answer address questio
 
 ## You Should Be Able To
 
-✅ Call OpenAI API and handle rate limits  
-✅ Embed text using embeddings API  
-✅ Build RAG pipeline: embed → store → retrieve → generate  
-✅ Use `pgvector` for similarity search  
-✅ Build stateful agent with `LangGraph`  
-✅ Create custom MCP server for Claude integration  
-✅ Measure RAG quality with evaluation metrics  
-✅ Explain why "jailbreak" prompts matter for security  
+✅ Call OpenAI API and handle rate limits
+✅ Embed text using embeddings API
+✅ Build RAG pipeline: embed → store → retrieve → generate
+✅ Use `pgvector` for similarity search
+✅ Build stateful agent with `LangGraph`
+✅ Create custom MCP server for Claude integration
+✅ Measure RAG quality with evaluation metrics
+✅ Explain why "jailbreak" prompts matter for security
 
 ---
 

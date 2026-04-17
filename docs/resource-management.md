@@ -26,7 +26,7 @@ services:
         max_attempts: 5            # Max restart tries (0 = unlimited)
         delay: 5s                  # Delay before restart
         window: 120s               # Observation window for restart counting
-      
+
       # Resource constraints (matches k8s requests/limits)
       resources:
         reservations:              # Minimum guaranteed (k8s requests)
@@ -260,20 +260,20 @@ deploy:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Start stack (production constraints)
         run: docker compose -f docker-compose.yml -f docker-compose.prod-like.yml up -d
-      
+
       - name: Run tests
         run: docker compose exec -T app uv run pytest tests/ -v
-      
+
       - name: Check resource stats
         if: failure()
         run: docker stats --no-stream
-      
+
       - name: Clean up
         if: always()
         run: docker compose down -v
@@ -336,10 +336,10 @@ bash scripts/compose.sh dev up
    ```bash
    # Terminal 1
    bash scripts/compose.sh prod-like up -d
-   
+
    # Terminal 2
    bash scripts/stats.sh
-   
+
    # Terminal 3
    uv run pytest tests/test_performance.py::test_memory_leak_detection -v -s
    ```

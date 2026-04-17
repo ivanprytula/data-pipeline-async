@@ -1,7 +1,7 @@
 # Pillar 2: Database (PostgreSQL + SQLAlchemy)
 
-**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)  
-**Project**: Critical for most backend roles  
+**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)
+**Project**: Critical for most backend roles
 **Building in**: `data-pipeline-async` / `app/models.py`, `app/database.py`, `app/crud.py`
 
 ---
@@ -65,7 +65,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 class Record(Base):
     __tablename__ = "records"
-    
+
     id: Mapped[int] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(nullable=False, index=True)
     timestamp: Mapped[str] = mapped_column(nullable=False)
@@ -253,7 +253,7 @@ async def list_users_with_profiles(db: AsyncSession) -> list[dict]:
     users = await db.scalars(select(User))
     for user in users:
         user.profile = await db.scalar(select(Profile).where(Profile.user_id == user.id))
-    
+
     # Good: 1 query with JOIN
     stmt = (
         select(User)
@@ -328,18 +328,18 @@ async def transfer_balance(
         .with_for_update()  # SELECT ... FOR UPDATE
     )
     from_account = await db.scalar(from_stmt)
-    
+
     to_stmt = (
         select(Account)
         .where(Account.user_id == to_user_id)
         .with_for_update()
     )
     to_account = await db.scalar(to_stmt)
-    
+
     # Safe to modify (no one else can modify these rows)
     from_account.balance -= amount
     to_account.balance += amount
-    
+
     await db.commit()
 ```
 
@@ -451,15 +451,15 @@ async def find_expensive(db: AsyncSession) -> list[Record]:
 
 ## You Should Be Able To
 
-✅ Write SQL JOINs, GROUP BY, window functions from memory  
-✅ Read EXPLAIN ANALYZE output and identify slow queries  
-✅ Create appropriate indexes (B-tree, partial, composite)  
-✅ Explain MVCC + why SELECT doesn't block UPDATE  
-✅ Create/run/roll back Alembic migrations  
-✅ Debug "too many connections" errors  
-✅ Use `SELECT FOR UPDATE` for concurrent updates  
-✅ Design soft-delete columns with partial indexes  
-✅ Spot N+1 queries and fix with JOINs  
+✅ Write SQL JOINs, GROUP BY, window functions from memory
+✅ Read EXPLAIN ANALYZE output and identify slow queries
+✅ Create appropriate indexes (B-tree, partial, composite)
+✅ Explain MVCC + why SELECT doesn't block UPDATE
+✅ Create/run/roll back Alembic migrations
+✅ Debug "too many connections" errors
+✅ Use `SELECT FOR UPDATE` for concurrent updates
+✅ Design soft-delete columns with partial indexes
+✅ Spot N+1 queries and fix with JOINs
 
 ---
 

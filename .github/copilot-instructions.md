@@ -5,7 +5,7 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 
 ## Communication Style
 
-**Concise and direct.** 
+**Concise and direct.**
 - Minimize explanations; assume technical competence.
 - No filler: skip "Here's the answer," "Let me show you," "Thank you," "Thank you for," "Let me explain," "First, let me," etc.
 - No rephrasing/redundancy: state information once, move on.

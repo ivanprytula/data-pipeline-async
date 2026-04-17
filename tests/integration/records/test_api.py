@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from tests.shared.payloads import RECORD_API
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -473,9 +474,10 @@ async def test_rate_limit_endurance_simulation(client: AsyncClient) -> None:
     # 6. App still healthy after load
     final_health = await client.get("/health")
     # Final health may be 200 or 429 (depends on rate limit state), but must not error
-    assert final_health.status_code in (200, 429), (
-        f"Final health check failed: {final_health.status_code}"
-    )
+    assert final_health.status_code in (
+        200,
+        429,
+    ), f"Final health check failed: {final_health.status_code}"
 
 
 @pytest.mark.integration

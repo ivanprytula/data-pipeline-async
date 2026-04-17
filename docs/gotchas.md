@@ -162,14 +162,14 @@ async def run_migrations_async():
 
 def run_migrations_online():
     """Call async via asyncio.run() at top-level.
-    
+
     Top-level asyncio.run() avoids greenlet spawning issues from inside
     existing event loops (which happen if Alembic is called from within app).
     """
     asyncio.run(run_migrations_async())
 ```
 
-**Why this works**: 
+**Why this works**:
 - `async_engine_from_config()` creates an async engine (no greenlets)
 - `asyncio.run()` at top-level creates fresh event loop (no existing loop conflicts)
 - `run_sync()` wraps sync DDL execution, but from a "clean" async context

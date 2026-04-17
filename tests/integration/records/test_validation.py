@@ -4,7 +4,7 @@ Week 2 Milestone 5: Validation Deep-Dive
 Tests cover custom validators, error messages, and edge cases.
 """
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -385,7 +385,7 @@ async def test_validation_timestamp_tz_aware_custom_stripped(
     client: AsyncClient,
 ) -> None:
     """Tz-aware timestamp with arbitrary offset is stripped to naive."""
-    ts = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+    ts = datetime(2024, 1, 15, 10, 0, 0, tzinfo=UTC)
     record = RecordRequest(
         source="test.example.com",
         timestamp=ts,

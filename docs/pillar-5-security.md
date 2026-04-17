@@ -1,6 +1,6 @@
 # Pillar 5: Security
 
-**Tier**: Middle (🟡) → Senior (🔴)  
+**Tier**: Middle (🟡) → Senior (🔴)
 **Project**: Required for any public API
 
 ---
@@ -75,7 +75,7 @@ class RecordRequest(BaseModel):
     source: str = Field(..., min_length=1, max_length=255)
     timestamp: str  # Validated as ISO 8601
     data: dict = Field(default_factory=dict)
-    
+
     @field_validator("timestamp")
     @classmethod
     def validate_timestamp(cls, v):
@@ -143,16 +143,16 @@ import hashlib
 async def handle_webhook(request: Request):
     signature = request.headers.get("X-Signature-256")
     body = await request.body()
-    
+
     expected = hmac.new(
         b"webhook-secret",
         body,
         hashlib.sha256,
     ).hexdigest()
-    
+
     if not hmac.compare_digest(signature, expected):
         raise HTTPException(status_code=401, detail="Invalid signature")
-    
+
     # Process webhook
 ```
 
@@ -196,14 +196,14 @@ Prevents accidentally committing API keys
 
 ## You Should Be Able To
 
-✅ Implement JWT authentication + refresh tokens  
-✅ Add CORS + security headers  
-✅ Validate all input with Pydantic  
-✅ Explain SQL injection + why parameterized queries prevent it  
-✅ Implement RBAC with role checks  
-✅ Verify HMAC webhook signatures  
-✅ Run secret scanning in CI  
-✅ Explain why `os.environ["SECRET"]` is wrong (use Secrets Manager)  
+✅ Implement JWT authentication + refresh tokens
+✅ Add CORS + security headers
+✅ Validate all input with Pydantic
+✅ Explain SQL injection + why parameterized queries prevent it
+✅ Implement RBAC with role checks
+✅ Verify HMAC webhook signatures
+✅ Run secret scanning in CI
+✅ Explain why `os.environ["SECRET"]` is wrong (use Secrets Manager)
 
 ---
 

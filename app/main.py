@@ -13,14 +13,13 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from app.auth import security, verify_docs_credentials
+from app.auth import verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
 from app.database import engine
 from app.rate_limiting import limiter
-from app.routers import records
-from app.routers import records_v2
+from app.routers import records, records_v2
 
 
 # ---------------------------------------------------------------------------

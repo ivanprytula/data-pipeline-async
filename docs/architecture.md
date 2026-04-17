@@ -1,7 +1,7 @@
 # System Architecture — Data Pipeline Async
 
-**Last Updated**: April 16, 2026  
-**Status**: Production-Ready  
+**Last Updated**: April 16, 2026
+**Status**: Production-Ready
 **Diagram Format**: Mermaid (git-shareable, collaboratable)
 
 ## High-Level View
@@ -10,31 +10,31 @@
 graph TB
     Client["👤 API Client"]
     LB["⚡ Load Balancer"]
-    
+
     subgraph App["FastAPI (Async)"]
         Router["🔀 Router<br/>/api/v1/records"]
         CID["🏷️ Correlation ID<br/>ContextVar"]
         CRUD["📦 CRUD<br/>async functions"]
         Validation["✔️ Pydantic v2<br/>Validation"]
     end
-    
+
     subgraph DB["PostgreSQL 17"]
         Pool["🔌 AsyncSessionLocal<br/>asyncpg pool"]
         Tables["📋 Tables<br/>records, processed_at"]
         Index["🚀 Indexes<br/>on source, timestamp"]
     end
-    
+
     subgraph Logging["Logging Layer"]
         DevFmt["💻 Development<br/>Human-readable<br/>+ File Rotation"]
         ProdFmt["📊 Production<br/>Minimal JSON<br/>→ ELK/Sentry"]
     end
-    
+
     subgraph Testing["Testing & QA"]
         Unit["🧪 Unit Tests<br/>pytest"]
         Integration["🔗 Integration Tests<br/>aiosqlite"]
         E2E["🌐 E2E Tests<br/>AsyncClient"]
     end
-    
+
     Client -->|HTTP| LB
     LB -->|async| Router
     Router --> CID
@@ -43,14 +43,14 @@ graph TB
     CRUD -->|AsyncSession| Pool
     Pool -->|SQLAlchemy 2.0<br/>Mapped| Tables
     Tables -->|query| Index
-    
+
     Router -->|log| DevFmt
     Router -->|log| ProdFmt
     ProdFmt -->|JSON stream| ELK["📈 ELK/VictoriaMetrics<br/>Sentry"]
-    
+
     Router -.->|integration| E2E
     CRUD -.->|unit| Unit
-    
+
     style App fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style DB fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style Logging fill:#f3e5f5,stroke:#4a148c,stroke-width:2px

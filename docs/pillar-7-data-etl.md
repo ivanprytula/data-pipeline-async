@@ -1,6 +1,6 @@
 # Pillar 7: Data & ETL
 
-**Tier**: Middle (🟡) — valuable add-on  
+**Tier**: Middle (🟡) — valuable add-on
 **Project**: Differentiates in data-heavy roles (DataOX, Fornova, ETL)
 
 ---
@@ -158,17 +158,17 @@ async def scrape_page(url: str) -> list[dict]:
     """Scrape data from HTML."""
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
-    
+
     soup = BeautifulSoup(response.text, "html.parser")
     items = []
-    
+
     for div in soup.select("div.product"):
         items.append({
             "name": div.select_one("h2").text.strip(),
             "price": float(div.select_one(".price").text.replace("$", "")),
             "url": div.find("a")["href"],
         })
-    
+
     return items
 ```
 
@@ -182,14 +182,14 @@ async def scrape_dynamic(url: str) -> list[dict]:
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
-        
+
         await page.goto(url)
         await page.wait_for_selector("div.product", timeout=5000)
-        
+
         html = await page.content()
-        
+
         await browser.close()
-    
+
     # Now parse with BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
     # ... extract data
@@ -206,15 +206,15 @@ async def scrape_dynamic(url: str) -> list[dict]:
 
 ## You Should Be Able To
 
-✅ Read/write CSV, JSON, Parquet with pandas  
-✅ Filter, group, aggregate with pandas  
-✅ Design idempotent ETL pipeline (E→T→L)  
-✅ Implement watermark column for incremental loads  
-✅ Queue long-running tasks with arq or Celery  
-✅ Scrape HTML with BeautifulSoup  
-✅ Scrape JavaScript with Playwright  
-✅ Handle anti-bot challenges (delays, user-agents, proxies)  
-✅ Explain why you'd use pandas vs raw SQL  
+✅ Read/write CSV, JSON, Parquet with pandas
+✅ Filter, group, aggregate with pandas
+✅ Design idempotent ETL pipeline (E→T→L)
+✅ Implement watermark column for incremental loads
+✅ Queue long-running tasks with arq or Celery
+✅ Scrape HTML with BeautifulSoup
+✅ Scrape JavaScript with Playwright
+✅ Handle anti-bot challenges (delays, user-agents, proxies)
+✅ Explain why you'd use pandas vs raw SQL
 
 ---
 

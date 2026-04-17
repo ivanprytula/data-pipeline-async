@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import create_session, verify_bearer_token, verify_session
@@ -94,7 +94,7 @@ async def create_records_batch(
     impl: str = Query(
         default="optimized",
         pattern="^(optimized|naive)$",
-        description="Batch insert implementation: 'optimized' (INSERT RETURNING) or 'naive' (add_all + N refreshes).",
+        description="Batch insert implementation: 'optimized' (INSERT RETURNING) or 'naive' (add_all + N refreshes).",  # noqa: E501
     ),
 ) -> dict:
     """Create multiple records in batch.
@@ -266,15 +266,15 @@ async def create_records_batch_protected(
     token: BearerTokenDep,
 ) -> dict:
     """Batch create with bearer token auth (learning example).
-    
+
     Requires: Authorization: Bearer <token>
     Set API_V1_BEARER_TOKEN in .env, then:
-    
+
     curl -X POST http://localhost:8000/api/v1/records/batch/protected \\
       -H "Authorization: Bearer dev-secret-bearer-token" \\
       -H "Content-Type: application/json" \\
       -d '{"records": [...]}'
-    
+
     Production: Use API key rotation, rate limiting per key, audit logs.
     """
     logger.info(

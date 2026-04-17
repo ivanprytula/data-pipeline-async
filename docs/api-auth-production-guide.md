@@ -102,12 +102,12 @@ async def verify_bearer_token(authorization: str | None = Header(None)) -> bool:
     scheme, _, credentials = authorization.partition(" ")
     if scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid scheme")
-    
+
     # Accept current or grace-period key
     is_current = credentials == settings.api_v1_bearer_token
-    is_grace = (settings.api_v1_bearer_token_old and 
+    is_grace = (settings.api_v1_bearer_token_old and
                 credentials == settings.api_v1_bearer_token_old)
-    
+
     if is_current:
         logger.info("bearer_token_valid", extra={"version": "current"})
         return True
@@ -195,11 +195,11 @@ async def verify_session(session_id: str | None = Cookie(None)) -> dict[str, Any
     """Validate session from Redis."""
     if not session_id:
         raise HTTPException(status_code=401, detail="Missing session cookie")
-    
+
     data = await _session_store.get(f"session:{session_id}")
     if not data:
         raise HTTPException(status_code=401, detail="Session expired or invalid")
-    
+
     return json.loads(data)
 ```
 
@@ -227,7 +227,7 @@ async def logout_session(session_id: str | None = Cookie(None)) -> dict[str, str
     if session_id:
         await _session_store.delete(f"session:{session_id}")
         logger.info("logout_success", extra={"session_id": session_id[:8]})
-    
+
     response = JSONResponse({"message": "Logged out"})
     response.delete_cookie("session_id")
     return response
@@ -236,7 +236,7 @@ async def logout_session(session_id: str | None = Cookie(None)) -> dict[str, str
 **Distributed Session State**
 
 ```
-Issue: In multi-instance deployments, server A creates session, 
+Issue: In multi-instance deployments, server A creates session,
        request routed to server B → session not found
 
 Solution: Redis as central session store
@@ -323,7 +323,7 @@ def create_jwt_token(user_id: str, scopes: list[str]) -> str:
     """Create JWT with essential claims + audit trail."""
     now = datetime.now(timezone.utc)
     jti = str(uuid4())  # JWT ID for tracking/revocation
-    
+
     payload = {
         "jti": jti,                                  # Unique token ID
         "sub": user_id,                              # Subject (who)
@@ -352,7 +352,7 @@ async def refresh_token(refresh_token: str) -> dict[str, str]:
     is_blacklisted = await redis.get(f"blacklist:{refresh_token}")
     if is_blacklisted:
         raise HTTPException(status_code=401, detail="Token revoked")
-    
+
     # Issue new access token
     new_access = create_jwt_token(user_id)
     return {"access_token": new_access, "token_type": "bearer"}
@@ -378,14 +378,14 @@ async def logout(token: str = Depends(verify_jwt_token)) -> dict[str, str]:
 
 class JWTKeyManager:
     """Manages JWT key rotation."""
-    
+
     def __init__(self):
         self.current_kid = "2024-01-15"
         self.keys = {
             "2024-01-15": {"secret": settings.jwt_secret, "status": "current"},
             "2024-01-08": {"secret": "...", "status": "grace_period"},  # Can still verify
         }
-    
+
     def encode(self, claims: dict) -> str:
         """Sign with current key, include kid (key ID) in header."""
         return jwt.encode(
@@ -394,19 +394,19 @@ class JWTKeyManager:
             algorithm="HS256",
             headers={"kid": self.current_kid}
         )
-    
+
     def decode(self, token: str) -> dict:
         """Verify with current or grace-period keys."""
         header = jwt.get_unverified_header(token)
         kid = header.get("kid")
-        
+
         if kid not in self.keys:
             raise HTTPException(status_code=401, detail="Unknown key version")
-        
+
         key_data = self.keys[kid]
         if key_data["status"] == "expired":
             raise HTTPException(status_code=401, detail="Key expired")
-        
+
         return jwt.decode(token, key_data["secret"], algorithms=["HS256"])
 ```
 
@@ -580,10 +580,10 @@ export const options = {
 
 export default function () {
   group("Bearer Token Auth", () => {
-    const res = http.post(`${BASE_URL}/api/v1/records/batch/protected`, 
+    const res = http.post(`${BASE_URL}/api/v1/records/batch/protected`,
       JSON.stringify({ source: "k6", timestamp: new Date().toISOString(), data: {}, tags: [] }),
-      { 
-        headers: { 
+      {
+        headers: {
           Authorization: "Bearer dev-secret-bearer-token",
           "Content-Type": "application/json",
         },
@@ -596,12 +596,12 @@ export default function () {
     // First, get a token
     const tokenRes = http.get(`${BASE_URL}/api/v2/records/token?user_id=loadtest-user`);
     const token = JSON.parse(tokenRes.body).access_token;
-    
+
     // Then create a record
     const res = http.post(`${BASE_URL}/api/v2/records/jwt`,
       JSON.stringify({ source: "k6", timestamp: new Date().toISOString(), data: {}, tags: [] }),
-      { 
-        headers: { 
+      {
+        headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
@@ -614,11 +614,11 @@ export default function () {
     // Login
     const loginRes = http.post(`${BASE_URL}/api/v1/records/auth/login?user_id=loadtest-user`);
     check(loginRes, { "login: 200": (r) => r.status === 200 });
-    
+
     // Create record with session cookie
     const res = http.post(`${BASE_URL}/api/v1/records/batch/protected`,
       JSON.stringify({ source: "k6", timestamp: new Date().toISOString(), data: {}, tags: [] }),
-      { 
+      {
         cookies: {
           session_id: loginRes.cookies.session_id.value,
         },
@@ -689,13 +689,13 @@ groups:
         for: 5m
         annotations:
           summary: "High auth failure rate (>10% failures)"
-          
+
       - alert: JWTExpiryMissing
         expr: rate(jwt_tokens_issued_total[1h]) == 0 and day_of_week() > 1  # Weekdays
         for: 1h
         annotations:
           summary: "No JWT tokens issued in 1 hour (possible misconfiguration)"
-          
+
       - alert: SessionStoreFullRedis
         expr: used_memory_bytes{instance="redis:6379"} / total_memory_bytes > 0.9
         for: 10m

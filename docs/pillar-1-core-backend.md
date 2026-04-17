@@ -1,7 +1,7 @@
 # Pillar 1: Core Backend (Python + FastAPI)
 
-**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)  
-**Project**: Locks in 90%+ of Junior & Middle positions  
+**Tier**: Foundation (🟢) + Middle (🟡) + Senior (🔴)
+**Project**: Locks in 90%+ of Junior & Middle positions
 **Building in**: `data-pipeline-async` / `app/`
 
 ---
@@ -42,10 +42,10 @@ class APIRecord(Record):
     source: str
     timestamp: str
     data: dict
-    
+
     def validate(self) -> bool:
         return bool(self.source and self.timestamp and self.data)
-    
+
     def __repr__(self) -> str:
         return f"APIRecord(source={self.source}, ts={self.timestamp[:10]})"
 ```
@@ -93,11 +93,11 @@ async def fetch_many_users(user_ids: list[int]) -> list[dict]:
 async def fetch_with_limit(user_ids: list[int], max_concurrent: int = 5) -> list[dict]:
     """Limit concurrency with Semaphore."""
     semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     async def bounded_fetch(uid: int) -> dict:
         async with semaphore:
             return await fetch_user(uid)
-    
+
     return await asyncio.gather(*[bounded_fetch(uid) for uid in user_ids])
 ```
 
@@ -271,9 +271,9 @@ async def lifespan(app: FastAPI):
     print("Starting up...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield  # App runs here
-    
+
     # Shutdown
     print("Shutting down...")
     await engine.dispose()
@@ -315,7 +315,7 @@ class RecordRequest(BaseModel):
 class RecordResponse(BaseModel):
     """API response (serialized from ORM Record model)."""
     model_config = {"from_attributes": True}
-    
+
     id: int
     source: str
     timestamp: str
@@ -351,7 +351,7 @@ class Record(BaseModel):
     timestamp: str
     processed: bool = False
     processed_at: str | None = None
-    
+
     @field_validator("timestamp")
     @classmethod
     def validate_timestamp(cls, v: str) -> str:
@@ -362,7 +362,7 @@ class Record(BaseModel):
         except ValueError:
             raise ValueError("Invalid ISO 8601 timestamp")
         return v
-    
+
     @model_validator(mode="after")
     def check_processed_constraint(self) -> "Record":
         """If processed=True, processed_at must be set."""
@@ -401,7 +401,7 @@ async def client(db_session):
     """Fixture: test client with overridden DB."""
     from httpx import AsyncClient
     from fastapi.testclient import TestClient
-    
+
     app.dependency_overrides[get_db] = lambda: db_session
     yield AsyncClient(app=app, base_url="http://test")
     app.dependency_overrides.clear()
@@ -512,10 +512,10 @@ async def test_db():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     async with AsyncSessionLocal(engine) as session:
         yield session
-    
+
     await engine.dispose()
 
 @pytest.fixture
@@ -577,11 +577,11 @@ async def create_records_batch_concurrent(
 ) -> list[Record]:
     """Create multiple records concurrently with fan-out."""
     semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     async def create_one(record: RecordRequest) -> Record:
         async with semaphore:
             return await crud.create_record(db, record)
-    
+
     return await asyncio.gather(*[create_one(r) for r in records])
     # With 100 records + 10 concurrent:
     # - Sequential: 10 DB round-trips
@@ -611,12 +611,12 @@ async def create_records_batch_concurrent(
 async def fetch_many_users(user_ids: list[int]) -> list[dict]:
     """Fetch up to 20 concurrently, then throttle."""
     semaphore = asyncio.Semaphore(20)
-    
+
     async def bounded_fetch(uid: int) -> dict:
         async with semaphore:
             # Max 20 concurrent DB queries
             return await fetch_user(uid)
-    
+
     return await asyncio.gather(*[bounded_fetch(uid) for uid in user_ids])
 ```
 
@@ -697,21 +697,21 @@ async def list_records(
 ) -> dict:
     """List records using cursor pagination."""
     query = select(Record).order_by(Record.id)
-    
+
     if cursor:
         after_id = decode_cursor(cursor)
         query = query.where(Record.id > after_id)
-    
+
     records = await db.scalars(query.limit(limit + 1))
     records = list(records)  # Eager load
-    
+
     has_more = len(records) > limit
     records = records[:limit]
-    
+
     next_cursor = None
     if has_more:
         next_cursor = encode_cursor(records[-1].id)
-    
+
     return {
         "records": [r.to_dict() for r in records],
         "next_cursor": next_cursor,
@@ -753,10 +753,10 @@ async def create_record_idempotent(
         timestamp=timestamp,
         data=data,
     ).on_conflict_do_nothing()
-    
+
     await db.execute(stmt)
     await db.commit()
-    
+
     # Now fetch to return
     result = await db.execute(
         select(Record).where(
@@ -843,21 +843,21 @@ async def add_request_id(request: Request, call_next):
     """Middleware: inject request ID into every log."""
     request_id = request.headers.get("X-Request-ID", str(uuid4()))
     request.state.request_id = request_id
-    
+
     logger.info("request_start", extra={
         "cid": request_id,
         "method": request.method,
         "path": request.url.path,
     })
-    
+
     response = await call_next(request)
-    
+
     logger.info("request_end", extra={
         "cid": request_id,
         "status": response.status_code,
         "duration_ms": response.headers.get("X-Process-Time", "?"),
     })
-    
+
     response.headers["X-Request-ID"] = request_id
     return response
 ```
@@ -953,16 +953,16 @@ async def health_check(db: DbDep) -> dict:
 
 By end of Pillar 1, you should be able to:
 
-✅ Write fully type-hinted Python code (with generics, unions, `Annotated`)  
-✅ Create FastAPI app with routes, dependencies, exception handlers  
-✅ Use Pydantic for request/response validation  
-✅ Write async functions with `asyncio.gather`, `Semaphore`  
-✅ Write integration tests with pytest + AsyncClient  
-✅ Implement cursor pagination (or defend why offset/limit is fine)  
-✅ Add rate limiting to protect API  
-✅ Implement request ID middleware  
-✅ Explain why N+1 queries are bad  
-✅ Troubleshoot "too many connections" errors  
+✅ Write fully type-hinted Python code (with generics, unions, `Annotated`)
+✅ Create FastAPI app with routes, dependencies, exception handlers
+✅ Use Pydantic for request/response validation
+✅ Write async functions with `asyncio.gather`, `Semaphore`
+✅ Write integration tests with pytest + AsyncClient
+✅ Implement cursor pagination (or defend why offset/limit is fine)
+✅ Add rate limiting to protect API
+✅ Implement request ID middleware
+✅ Explain why N+1 queries are bad
+✅ Troubleshoot "too many connections" errors
 
 ---
 

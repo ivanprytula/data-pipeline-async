@@ -1,7 +1,7 @@
 # Milestone 3: Rate Limiting — Extended Implementation
 
-**Date Completed**: April 16, 2026  
-**Status**: ✅ FINALIZED (35/35 tests pass, production-ready patterns)  
+**Date Completed**: April 16, 2026
+**Status**: ✅ FINALIZED (35/35 tests pass, production-ready patterns)
 **Focus**: Rate-limiting strategy showcase with 3 algorithms, jitter, and observable headers
 
 ---
@@ -59,8 +59,8 @@ allowed, remaining = await token_bucket.consume(client_ip)
 # If bucket is empty: return 429 with Retry-After
 if not allowed:
     retry_after = token_bucket.seconds_until_token(
-        client_ip, 
-        min_jitter=-5.0, 
+        client_ip,
+        min_jitter=-5.0,
         max_jitter=10.0
     )
 ```
@@ -279,7 +279,7 @@ class TokenBucketLimiter:
 
             # Refill proportionally, capped at capacity
             current = min(
-                float(self.capacity), 
+                float(self.capacity),
                 current + elapsed * self.refill_per_second
             )
 
@@ -300,7 +300,7 @@ class TokenBucketLimiter:
         )
         elapsed = time.monotonic() - last_refill
         current = min(
-            float(self.capacity), 
+            float(self.capacity),
             current + elapsed * self.refill_per_second
         )
         deficit = 1.0 - current
@@ -328,7 +328,7 @@ class SlidingWindowLimiter:
         async with self._lock:
             now = time.monotonic()
             window = self._windows[key]
-            
+
             # Remove timestamps outside the window
             while window and (now - window[0]) > self.window_seconds:
                 window.popleft()
@@ -347,7 +347,7 @@ class SlidingWindowLimiter:
         window = self._windows.get(key, deque())
         if not window:
             return 0.0
-        
+
         now = time.monotonic()
         oldest = window[0]
         base_value = (oldest + self.window_seconds) - now
@@ -378,8 +378,8 @@ async def create_record_token_bucket(
 
     if not allowed:
         retry_after = _token_bucket.seconds_until_token(
-            ip, 
-            min_jitter=-JITTER_MIN_SECONDS, 
+            ip,
+            min_jitter=-JITTER_MIN_SECONDS,
             max_jitter=JITTER_MAX_SECONDS
         )
         return JSONResponse(
@@ -421,7 +421,7 @@ async def create_record_token_bucket(
 async def test_rate_limit_token_bucket_429(client):
     """Verify 429 on token bucket exhaust."""
     ip = "192.168.1.1"
-    
+
     # Consume capacity (20 tokens) + burst
     for i in range(25):  # Will exhaust on 21st
         response = await client.post(
@@ -429,7 +429,7 @@ async def test_rate_limit_token_bucket_429(client):
             json={"source": "test", "timestamp": "2024-01-15T10:00:00", "data": {}},
             headers={"X-Forwarded-For": ip},
         )
-        
+
         if i < 20:
             assert response.status_code == 201
         else:

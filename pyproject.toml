@@ -33,7 +33,9 @@ dev = [
     "pytest-cov>=6.1.0",
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
-    "ruff>=0.11.2",
+    # Pre-commit hooks & linting
+    "pre-commit>=4.1.1",
+    "ruff>=0.15.10",
 ]
 
 [tool.pytest.ini_options]
@@ -79,6 +81,7 @@ extend-exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["SIM117", "B008"]  # Allow nested with statements and Depends() in defaults (FastAPI pattern)
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2

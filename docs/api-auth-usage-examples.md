@@ -103,7 +103,7 @@ import httpx
 async def create_records_with_bearer():
     token = "dev-secret-bearer-token"
     headers = {"Authorization": f"Bearer {token}"}
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "http://localhost:8000/api/v1/records/batch/protected",
@@ -171,7 +171,7 @@ async def session_workflow():
             "http://localhost:8000/api/v1/records/auth/login?user_id=alice"
         )
         print(f"Login: {response.json()}")
-        
+
         # 2. Cookie automatically included in next request
         response = await client.get("http://localhost:8000/api/v1/records/1/secure")
         print(f"Secure read: {response.json()}")
@@ -270,7 +270,7 @@ async def jwt_workflow():
             "http://localhost:8000/api/v2/records/token?user_id=bob"
         )
         token = token_response.json()["access_token"]
-        
+
         # 2. Use token to make authenticated request
         headers = {"Authorization": f"Bearer {token}"}
         response = await client.post(

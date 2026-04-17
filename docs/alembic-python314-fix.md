@@ -29,7 +29,7 @@ _sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql+p
 
 def run_migrations_online() -> None:
     """Run migrations using a SQLAlchemy sync Engine (psycopg dialect).
-    
+
     This provides a proper SQLAlchemy Connection with .dialect attribute.
     Runs at Alembic CLI top-level (not inside app's event loop).
     """
@@ -105,11 +105,11 @@ Alembic CLI (sync)
 
 ## Outcome
 
-✅ `alembic upgrade head` succeeds on Python 3.14  
-✅ Migrations apply cleanly to PostgreSQL  
-✅ Tests pass (in-memory SQLite)  
-✅ App uses async engine (asyncpg) unaffected  
-✅ No greenlet conflicts or connection issues  
+✅ `alembic upgrade head` succeeds on Python 3.14
+✅ Migrations apply cleanly to PostgreSQL
+✅ Tests pass (in-memory SQLite)
+✅ App uses async engine (asyncpg) unaffected
+✅ No greenlet conflicts or connection issues
 
 ## Notes
 

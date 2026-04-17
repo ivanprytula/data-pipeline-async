@@ -138,5 +138,5 @@ When you learn something new:
 
 ---
 
-**Last updated**: April 2, 2026  
+**Last updated**: April 2, 2026
 **Tied to**: Milestone Checklist v1 + data-pipeline-async project

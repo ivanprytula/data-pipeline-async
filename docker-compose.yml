@@ -28,7 +28,7 @@ services:
         delay: 5s                    # Delay before restart
         max_attempts: 5              # Max restart attempts (0 = unlimited)
         window: 120s                 # Observation window
-      
+
       # Resource constraints (matches k8s requests/limits)
       resources:
         # Minimum guaranteed (k8s requests → docker-compose reservations)
@@ -63,7 +63,7 @@ services:
         condition: on-failure
         delay: 5s
         max_attempts: 5
-      
+
       # Resource constraints (matches k8s requests/limits)
       resources:
         reservations:

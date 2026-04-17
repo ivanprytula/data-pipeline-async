@@ -9,7 +9,7 @@
 ### 1. HTTP Basic Auth Module (`app/auth.py`)
 
 - **`verify_docs_credentials()`** — Validates username/password via HTTP Basic Auth
-- **`security = HTTPBasic()`** — FastAPI security scheme  
+- **`security = HTTPBasic()`** — FastAPI security scheme
 - Raises **403 Forbidden** on invalid credentials
 - Allows access if auth is disabled (optional feature)
 
@@ -116,7 +116,7 @@ Request → FastAPI App
 
 ### ✅ What's Secure
 
-- Credentials never hardcoded (env vars only)  
+- Credentials never hardcoded (env vars only)
 - HTTP Basic Auth is standard + browser-native
 - Opt-in protection (docs default to public if not configured)
 - Logging of auth state at startup
@@ -148,7 +148,7 @@ Request → FastAPI App
 ## Next Steps
 
 1. ✅ **Development**: Leave auth disabled (docs public by default)
-2. ✅ **Staging**: Enable with test credentials  
+2. ✅ **Staging**: Enable with test credentials
 3. ✅ **Production**: Enable with strong password from secrets manager
 4. ✅ **Optional**: Implement API key auth for programmatic doc access
 5. ✅ **Optional**: Add audit logging for doc access
@@ -176,7 +176,7 @@ Request → FastAPI App
 ✅ **API documentation (`/docs`, `/redoc`, `/openapi.json`) is now protected with optional HTTP Basic Auth**
 
 - Enabled: Set `DOCS_USERNAME` + `DOCS_PASSWORD` env vars
-- Disabled: Leave empty (default, docs are public)  
+- Disabled: Leave empty (default, docs are public)
 - Testing: All scenarios verified and working
 - Secure: HTTPS required in production
 - Documented: 400+ lines of comprehensive guide + quick start

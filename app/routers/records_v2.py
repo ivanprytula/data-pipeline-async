@@ -8,7 +8,7 @@ This module exists as a side-by-side comparison with v1 (*the "before"*).
   v2  POST /api/v2/records/jwt       — JWT-protected (auth example)
 
 The business logic (creating a record) is identical in every route.  Only the
-rate-limiting strategy or auth mechanism changes.  This makes the algorithmic 
+rate-limiting strategy or auth mechanism changes.  This makes the algorithmic
 difference the *only* variable, useful for demos, benchmarks, and architecture discussions.
 
 Observable difference
@@ -277,7 +277,7 @@ async def issue_jwt_token(user_id: str) -> dict[str, str]:
 async def create_record_jwt(
     body: RecordRequest,
     db: DbDep,
-    claims: dict[str, Any] = Depends(verify_jwt_token),
+    claims: dict[str, Any] = Depends(verify_jwt_token),  # noqa: B008
 ) -> RecordResponse:
     """Create a record authenticated via JWT token."""
     user_id = claims.get("sub", "unknown")

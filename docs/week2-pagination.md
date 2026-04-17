@@ -173,7 +173,7 @@ async def get_records(
 ) -> tuple[list[Record], int]:
     # Count total (no skip/limit)
     count_q = select(func.count()).select_from(Record).where(Record.deleted_at.is_(None))
-    
+
     # Fetch paginated data
     data_q = (
         select(Record)
@@ -182,12 +182,12 @@ async def get_records(
         .offset(skip)
         .limit(limit)
     )
-    
+
     # Apply filter if provided
     if source:
         count_q = count_q.where(Record.source == source)
         data_q = data_q.where(Record.source == source)
-    
+
     # Execute both
     total = (await session.execute(count_q)).scalar_one()
     records = list((await session.execute(data_q)).scalars().all())

@@ -186,7 +186,7 @@ docs_password: str | None = Field(
    ```bash
    # Development (HTTP ok, for learning)
    curl -u admin:changeme http://localhost:8000/docs
-   
+
    # Production (HTTPS required)
    curl -u admin:changeme https://api.example.com/docs
    ```
@@ -196,7 +196,7 @@ docs_password: str | None = Field(
    ```bash
    # Bad
    DOCS_PASSWORD=changeme
-   
+
    # Good
    DOCS_PASSWORD=$(aws secretsmanager get-secret-value --secret-id docs-password --query SecretString)
    ```
@@ -233,7 +233,7 @@ def test_docs_protected_no_credentials():
     """Docs should require auth when configured."""
     client = TestClient(app)
     response = client.get("/docs")
-    
+
     # If auth enabled, should get 403
     if app.docs_url is None:  # Auth is configured
         assert response.status_code == 403
@@ -247,7 +247,7 @@ def test_docs_with_correct_credentials():
         "/docs",
         auth=("admin", "changeme")
     )
-    
+
     if app.docs_url is None:  # Auth is configured
         assert response.status_code == 200
         assert "swagger-ui" in response.text
@@ -260,7 +260,7 @@ def test_docs_with_incorrect_credentials():
         "/docs",
         auth=("admin", "wrongpassword")
     )
-    
+
     if app.docs_url is None:  # Auth is configured
         assert response.status_code == 403
 ```
