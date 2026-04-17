@@ -1,0 +1,83 @@
+name: Docker Build
+
+on:  # When you're ready to enable it later, just uncomment those lines.
+  # workflow_run:
+  #  workflows: ["CI"]            # Trigger only after ci.yml completes
+  #  branches: [main]
+  #  types: [completed]           # Run whether CI passed or failed
+  # Uncomment to also trigger manually or on tags
+  # push:
+  #   tags:
+  #     - "v*"
+
+jobs:
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    # Skip if the triggering CI workflow failed
+    if: github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      # Uncomment when pushing to container registry
+      # packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- IMAGE BUILD & LOCAL TEST ---
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag data-pipeline-async:latest \
+            --tag data-pipeline-async:${{ github.sha }} \
+            .
+
+      # Optional: Run smoke test inside the image
+      - name: Verify image health endpoint
+        run: |
+          docker run --rm \
+            --detach \
+            --name smoke-test \
+            data-pipeline-async:latest
+          sleep 2
+          # Note: This will fail without DB, expected behavior
+          # curl http://localhost:8000/health || echo "Health check blocked (no DB, expected)"
+          docker stop smoke-test || true
+
+      # --- REGISTRY PUSH (FUTURE) ---
+      # Uncomment and configure when deploying to a container registry
+      # - name: Log in to Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Push image to registry
+      #   run: |
+      #     docker tag data-pipeline-async:latest ghcr.io/${{ github.repository }}:latest
+      #     docker tag data-pipeline-async:${{ github.sha }} ghcr.io/${{ github.repository }}:${{ github.sha }}
+      #     docker push ghcr.io/${{ github.repository }}:latest
+      #     docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      # --- DEPLOYMENT (FUTURE) ---
+      # Uncomment when ready to deploy to Kubernetes or other orchestrator
+      # - name: Deploy to Kubernetes
+      #   run: |
+      #     # Set up kubeconfig
+      #     mkdir -p $HOME/.kube
+      #     echo "${{ secrets.KUBE_CONFIG_BASE64 }}" | base64 -d > $HOME/.kube/config
+      #
+      #     # Update deployment with new image
+      #     kubectl set image deployment/data-pipeline-async \
+      #       data-pipeline-async=ghcr.io/${{ github.repository }}:${{ github.sha }} \
+      #       -n production
+
+      # --- NOTIFICATION (FUTURE) ---
+      # Uncomment to notify on failure
+      # - name: Notify Slack on failure
+      #   if: failure()
+      #   run: |
+      #     curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+      #       -H 'Content-Type: application/json' \
+      #       -d '{"text":"Docker build failed on main: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'

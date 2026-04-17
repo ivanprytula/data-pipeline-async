@@ -227,6 +227,53 @@ def foo():
 ```
 ```
 
+## Visual Documentation
+
+**Prefer diagrams over prose for flows, chains, and complex processes.**
+
+When explaining workflows, dependency chains, data flows, or multi-step processes:
+
+1. **Use ASCII art / box diagrams** for:
+   - Request/response flows (what calls what, when)
+   - Dependency chains (what depends on what succeeding first)
+   - Execution order and conditional paths
+   - System architecture (components and connections)
+
+   Example (pipeline execution):
+   ```
+   Push to main
+       │
+       ├─► ci.yml (linting + testing)
+       │   ├─► quality (Ruff lint/format)
+       │   └─► test (pytest) [waits for quality ✅]
+       │       │
+       │       └─► CI Success? ─┐
+       │                        │
+       └────────────────────────► docker-build.yml [only if ✅]
+   ```
+
+2. **Use Mermaid diagrams** (via `renderMermaidDiagram` tool) for:
+   - State machines (auth flow, request lifecycle)
+   - Entity relationships (data model connections)
+   - Complex conditional branching
+   - Timeline or Gantt-style dependencies
+
+3. **Use tables** for:
+   - Comparisons (when to use X vs Y, pros/cons)
+   - Configuration mappings (variables → values)
+   - Feature matrices
+
+**Never use prose alone** for:
+- ❌ "First the request comes in, then the middleware validates it, then the dependency injection resolves the session..."
+- ✅ Use a diagram showing the request flow with each step labeled
+
+**Rationale:** Readers scan visual diagrams in 2 seconds. Reading equivalent prose takes 30+ seconds and is harder to recall. For learning projects, diagrams are especially critical.
+
+**Where to add diagrams:**
+- Code comments: Small ASCII diagrams inline (2–5 lines max)
+- Documentation files: Full flowcharts and ASCII art (no size limit)
+- Chat responses: ASCII diagrams explaining complex concepts (this file shows examples)
+
 ## Learning Docs
 
 - [ACTION_PLAN.md](../learning_docs/ACTION_PLAN.md) — 6-week study roadmap
