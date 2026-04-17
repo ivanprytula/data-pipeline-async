@@ -42,6 +42,28 @@ class RecordRequest(BaseModel):
             raise ValueError("timestamp cannot be in the future")
         return v
 
+    @field_validator("source")
+    @classmethod
+    def source_not_localhost(cls, v: str) -> str:
+        """Reject localhost, loopback, and wildcard addresses as invalid sources.
+
+        Week 2 Milestone 5: Custom validation rule demonstrating domain constraints.
+        Rejects:
+        - 'localhost' (hostname)
+        - '127.0.0.1' (IPv4 loopback)
+        - '::1' (IPv6 loopback)
+        - '0.0.0.0' (IPv4 wildcard, "any address")
+        - '::' (IPv6 wildcard, "any address")
+        """
+        v_lower = v.lower()
+        forbidden = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "::"}
+        if v_lower in forbidden:
+            raise ValueError(
+                f"source cannot be a reserved address ({v}). "
+                "Use actual hostname or IP instead."
+            )
+        return v
+
     @field_validator("tags")
     @classmethod
     def lowercase_tags(cls, v: list[str]) -> list[str]:
