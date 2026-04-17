@@ -30,6 +30,57 @@ async def test_health(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Readiness Probe
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+async def test_readyz_returns_200_when_db_available(client: AsyncClient) -> None:
+    """Readiness probe returns 200 when DB is reachable."""
+    # Act
+    r = await client.get("/readyz")
+
+    # Assert
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ready"
+    assert body["db"] == "ok"
+
+
+@pytest.mark.integration
+async def test_readyz_returns_503_when_db_unreachable() -> None:
+    """Readiness probe returns 503 when DB is unreachable.
+
+    This test simulates database failure by mocking the session's execute method
+    to raise an exception. The /readyz endpoint should catch it and return 503.
+    """
+    from unittest.mock import AsyncMock
+
+    from httpx import ASGITransport
+
+    from app.database import get_db
+    from app.main import app
+
+    # Mock AsyncSession that raises when execute() is called
+    mock_session = AsyncMock()
+    mock_session.execute.side_effect = RuntimeError("Database connection lost")
+
+    app.dependency_overrides[get_db] = lambda: mock_session
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            # Act
+            r = await client.get("/readyz")
+
+            # Assert
+            assert r.status_code == 503
+            body = r.json()
+            assert body["detail"]["status"] == "degraded"
+            assert body["detail"]["db"] == "unreachable"
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
 # Create single record
 # ---------------------------------------------------------------------------
 @pytest.mark.integration

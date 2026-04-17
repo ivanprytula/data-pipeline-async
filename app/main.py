@@ -5,21 +5,28 @@ from __future__ import annotations
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 
 from app.auth import verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
-from app.database import engine
+from app.database import engine, get_db
 from app.rate_limiting import limiter
 from app.routers import records, records_v2
+
+
+# Type alias for database dependency
+type DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +121,7 @@ if settings.docs_username and settings.docs_password:
         include_in_schema=False,
         dependencies=[Depends(verify_docs_credentials)],
     )
-    async def get_swagger_ui() -> str:
+    async def get_swagger_ui() -> HTMLResponse:
         """Protected Swagger UI endpoint."""
         return get_swagger_ui_html(
             openapi_url="/openapi.json",
@@ -126,7 +133,7 @@ if settings.docs_username and settings.docs_password:
         include_in_schema=False,
         dependencies=[Depends(verify_docs_credentials)],
     )
-    async def get_redoc() -> str:
+    async def get_redoc() -> HTMLResponse:
         """Protected ReDoc endpoint."""
         return get_redoc_html(
             openapi_url="/openapi.json",
@@ -165,12 +172,36 @@ app.include_router(records_v2.router)
 
 
 # ---------------------------------------------------------------------------
-# Health
+# Health & Readiness Probes
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["ops"])
 @limiter.limit(HEALTH_RATE_LIMIT)
 async def health(request: Request) -> dict[str, str]:
+    """Liveness probe — process is alive (no DB check).
+
+    Used by Kubernetes to decide whether to restart the container.
+    Should be lightweight and not depend on external services.
+    Rate-limited to prevent health check DoS attacks.
+    """
     return {"status": "healthy", "version": settings.app_version}
+
+
+@app.get("/readyz", tags=["ops"])
+async def readyz(db: DbDep) -> dict[str, str]:
+    """Readiness probe — DB reachable, pod can serve traffic.
+
+    Used by Kubernetes to decide whether to route traffic to this pod.
+    If DB is unreachable, returns 503 to pull this pod from load balancer.
+    """
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ready", "db": "ok"}
+    except Exception as e:
+        logger.warning("readyz_failed", extra={"reason": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "degraded", "db": "unreachable"},
+        ) from e
 
 
 # ---------------------------------------------------------------------------
