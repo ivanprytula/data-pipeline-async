@@ -4,9 +4,13 @@ Week 2 Milestone 5: Validation Deep-Dive
 Tests cover custom validators, error messages, and edge cases.
 """
 
+from datetime import UTC, datetime, timezone
+
 import pytest
 from httpx import AsyncClient
+from pydantic import ValidationError
 
+from app.schemas import RecordRequest
 from tests.shared.payloads import RECORD_API
 
 
@@ -357,3 +361,48 @@ async def test_validation_error_messages_helpful(client: AsyncClient) -> None:
     assert any(
         keyword in error_text for keyword in ["localhost", "source", "invalid", "not"]
     ), f"Error message not helpful: {body['detail']}"
+
+
+# ---------------------------------------------------------------------------
+# Timezone-aware timestamp handling (schema validator branches)
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+async def test_validation_timestamp_tz_aware_utc_stripped(
+    client: AsyncClient,
+) -> None:
+    """Tz-aware UTC timestamp is stripped to naive and accepted."""
+    record = RecordRequest(
+        source="test.example.com",
+        timestamp=datetime(2024, 1, 15, 10, 0, 0, tzinfo=UTC),
+        data={"v": 1},
+    )
+    assert record.timestamp.tzinfo is None
+    assert record.timestamp == datetime(2024, 1, 15, 10, 0, 0)
+
+
+@pytest.mark.integration
+async def test_validation_timestamp_tz_aware_custom_stripped(
+    client: AsyncClient,
+) -> None:
+    """Tz-aware timestamp with arbitrary offset is stripped to naive."""
+    ts = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+    record = RecordRequest(
+        source="test.example.com",
+        timestamp=ts,
+        data={"v": 1},
+    )
+    assert record.timestamp.tzinfo is None
+
+
+@pytest.mark.integration
+async def test_validation_timestamp_future_tz_aware_rejected(
+    client: AsyncClient,
+) -> None:
+    """Tz-aware future timestamp is rejected after tz-stripping."""
+    future_ts = datetime(2099, 1, 1, tzinfo=UTC)
+    with pytest.raises(ValidationError, match="future"):
+        RecordRequest(
+            source="test.example.com",
+            timestamp=future_ts,
+            data={"v": 1},
+        )

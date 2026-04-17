@@ -104,9 +104,75 @@ uv run pytest tests/ -v -k "not performance"
 # Fail fast on first error (good for CI)
 uv run pytest tests/ -v -x
 
-# With coverage report
-uv run pytest tests/ -v --cov=app --cov-report=term-missing
+# With coverage report (auto-enabled, see next section)
+uv run pytest tests/ -v
 
 # Parallel execution (requires pytest-xdist)
 uv run pytest tests/ -v -n auto
+```
+
+## Coverage Reports
+
+Test coverage is **automatically collected** when running pytest (configured in `pyproject.toml`).
+
+### Terminal-Based Coverage Report
+
+```bash
+# Run tests and see coverage in terminal
+uv run pytest tests/ -v
+
+# Output shows:
+# - Lines covered/missed per file
+# - Percentage coverage by module
+# - Missing line numbers
+```
+
+Example output:
+
+```
+app/crud.py          42      8    81%   15-20, 45-48
+app/schemas.py       28      2    93%   55-56
+app/main.py          65      3    95%   120, 145, 200
+─────────────────────────────────────────────────
+TOTAL               135     13    90%
+```
+
+### HTML Coverage Report (Interactive View)
+
+```bash
+# Generate and open HTML coverage report
+uv run pytest tests/ -v
+
+# Open in browser
+open htmlcov/index.html            # macOS
+xdg-open htmlcov/index.html        # Linux
+start htmlcov/index.html           # Windows
+```
+
+**What the HTML report shows:**
+
+- Line-by-line coverage highlighting (green = covered, red = missed)
+- Branch coverage (which code paths were tested)
+- Drill down into any file to see exactly which lines weren't executed
+- Time statistics and coverage trends
+
+### Coverage Only (Skip Tests)
+
+```bash
+# Combine reports from multiple test runs
+coverage combine
+coverage report
+coverage html
+
+# Then open: open htmlcov/index.html
+```
+
+### High-Level Coverage Metrics
+
+```bash
+# Just the summary (no per-file details)
+uv run pytest tests/ -q
+
+# Set minimum threshold (fail if below 80%)
+uv run pytest tests/ --cov=app --cov-fail-under=80
 ```

@@ -7,6 +7,7 @@ Demonstrates resilience patterns: graceful failure, exponential backoff.
 import asyncio
 import logging
 import time
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -116,6 +117,41 @@ async def test_fetch_with_retry_exponential_backoff_timing() -> None:
     logger.info(f"[timing] Fetch with retry took {elapsed:.3f}s (max 5 retries)")
     # No hard assertion on timing since it's probabilistic
     # Just log for observation
+
+
+# ---------------------------------------------------------------------------
+# Fetch exhaustion — all retries fail
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+async def test_fetch_all_retries_fail() -> None:
+    """When every attempt fails, the last exception is raised."""
+    with (
+        patch(
+            "app.fetch.fetch_from_external_api",
+            new_callable=AsyncMock,
+            side_effect=Exception("API down"),
+        ),
+        patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(Exception, match="API down"):
+            await fetch_with_retry("http://example.com", max_retries=3)
+
+
+@pytest.mark.integration
+async def test_fetch_exhausted_logs_error(caplog: pytest.LogCaptureFixture) -> None:
+    """The fetch_exhausted log event fires on final failure."""
+    with (
+        patch(
+            "app.fetch.fetch_from_external_api",
+            new_callable=AsyncMock,
+            side_effect=Exception("timeout"),
+        ),
+        patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(Exception, match="timeout"):
+            await fetch_with_retry("http://example.com", max_retries=2)
+
+    assert any("fetch_exhausted" in r.message for r in caplog.records)
 
 
 @pytest.mark.integration
