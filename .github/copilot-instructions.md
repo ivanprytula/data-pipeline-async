@@ -5,7 +5,21 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 
 ## Communication Style
 
-**Concise and direct.** No fluff, extra politeness, or filler. Answer questions with minimal explanation; assume technical competence. Skip preambles like "Here's the answer," "Let me explain," "First, let me...". Facts > narrative. Code > prose.
+**Concise and direct.** 
+- Minimize explanations; assume technical competence.
+- No filler: skip "Here's the answer," "Let me show you," "Thank you," "Thank you for," "Let me explain," "First, let me," etc.
+- No rephrasing/redundancy: state information once, move on.
+- No transitions: get straight to the point.
+- Code > prose. Facts only.
+- Single line answers when possible.
+
+**Response structure**:
+- State what was done/found (or ask for clarity).
+- Provide code or specifics immediately.
+- Optional: Brief rationale if not obvious.
+- Avoid: Explanations, pleasantries, second statements of the same fact.
+
+**When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy).
 
 ## Build and Test
 
@@ -55,14 +69,23 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
     return result.scalar_one_or_none()
 ```
 
-**Route injection** — use the `DbDep` type alias defined in `main.py`:
+**FastAPI Dependency Injection** — always use `Annotated[T, Depends(...)]` pattern, never bare `Depends()` in defaults:
 ```python
-DbDep = Annotated[AsyncSession, Depends(get_db)]
+# ✓ CORRECT — FastAPI-approved pattern, Ruff-compliant
+type DbDep = Annotated[AsyncSession, Depends(get_db)]
+type SessionDep = Annotated[dict[str, Any], Depends(verify_session)]
 
 @app.get("/api/v1/records/{id}")
-async def read_record(record_id: int, db: DbDep) -> RecordResponse:
+async def read_record(record_id: int, db: DbDep, session: SessionDep) -> RecordResponse:
+    ...
+
+# ✗ WRONG — bare Depends() in default violates Ruff E275
+@app.get("/api/v1/records/{id}")
+async def read_record(record_id: int, db: DbDep, session: dict[str, Any] = Depends(verify_session)) -> RecordResponse:
     ...
 ```
+
+**Why:** Dependency resolution happens at request time, not module load. Type aliases eliminate repetition and are testable. This is the official FastAPI pattern (Ruff linting enforces it via E275).
 
 **Pydantic schemas** — separate request and response schemas; add `model_config = {"from_attributes": True}` on response schemas:
 ```python

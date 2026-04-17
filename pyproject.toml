@@ -20,6 +20,8 @@ dependencies = [
     "pydantic-settings>=2.8.1",
     # Logging
     "python-json-logger>=3.3.0",
+    # Authentication
+    "pyjwt>=2.10.0",
     # Migrations
     "alembic>=1.13",
 ]

@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import create_session, verify_bearer_token, verify_session
+from app.constants import API_V1_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, V1_RATE_LIMIT
 from app.crud import (
     create_record as create_record_op,
 )
 from app.crud import (
     create_records_batch as create_records_batch_op,
+)
+from app.crud import (
     create_records_batch_naive as create_records_batch_naive_op,
 )
 from app.crud import (
@@ -26,7 +30,6 @@ from app.crud import (
     mark_processed,
     soft_delete_record,
 )
-from app.constants import API_V1_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, V1_RATE_LIMIT
 from app.database import get_db
 from app.rate_limiting import limiter
 from app.schemas import (
@@ -43,6 +46,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix=f"{API_V1_PREFIX}/records", tags=["records"])
 
 type DbDep = Annotated[AsyncSession, Depends(get_db)]
+type SessionDep = Annotated[dict[str, Any], Depends(verify_session)]
+type BearerTokenDep = Annotated[str, Depends(verify_bearer_token)]
 
 
 # ---------------------------------------------------------------------------
@@ -207,3 +212,75 @@ async def delete_record(record_id: int, db: DbDep) -> None:
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
     logger.info("record_deleted", extra={"id": record_id})
+
+
+# ============================================================================
+# Auth Examples: v1 Bearer Token + Session-based Auth
+# ============================================================================
+
+
+@router.post("/auth/login")
+async def login_session(user_id: str) -> dict[str, str]:
+    """Create a session (learning example for session-based auth).
+
+    In production: verify password hash, check rate limits, use HTTPS only, etc.
+    Response includes Set-Cookie header with session_id.
+    """
+    session_id, cookie_value = create_session(user_id, {"role": "default"})
+    logger.info("login_success", extra={"user_id": user_id})
+
+    # Return token explicitly (FastAPI handles Set-Cookie automatically via Response)
+    return {"session_id": session_id, "message": "Session created"}
+
+
+@router.get("/{record_id}/secure", response_model=RecordResponse)
+async def get_record_secured(
+    record_id: int,
+    db: DbDep,
+    session: SessionDep,
+) -> RecordResponse:
+    """Get record with session-based auth (learning example).
+
+    Requires valid session cookie. Try:
+    1. POST /api/v1/records/auth/login?user_id=testuser
+    2. GET /api/v1/records/1/secure (with cookie from step 1)
+
+    Production: Use JWT or centralized session store (Redis).
+    """
+    logger.info(
+        "get_record_secured",
+        extra={"record_id": record_id, "user_id": session.get("user_id")},
+    )
+    record = await get_record_op(db, record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
+    return record  # type: ignore[return-value]
+
+
+@router.post("/batch/protected", status_code=status.HTTP_201_CREATED)
+async def create_records_batch_protected(
+    body: BatchRecordsRequest,
+    db: DbDep,
+    token: BearerTokenDep,
+) -> dict:
+    """Batch create with bearer token auth (learning example).
+    
+    Requires: Authorization: Bearer <token>
+    Set API_V1_BEARER_TOKEN in .env, then:
+    
+    curl -X POST http://localhost:8000/api/v1/records/batch/protected \\
+      -H "Authorization: Bearer dev-secret-bearer-token" \\
+      -H "Content-Type: application/json" \\
+      -d '{"records": [...]}'
+    
+    Production: Use API key rotation, rate limiting per key, audit logs.
+    """
+    logger.info(
+        "batch_protected_create",
+        extra={"count": len(body.records), "token_prefix": token[:10]},
+    )
+    records = await create_records_batch_op(db, body.records)
+    logger.info("batch_protected_created", extra={"count": len(records)})
+    return {"created": len(records), "auth": "bearer_token"}

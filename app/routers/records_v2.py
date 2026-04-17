@@ -5,10 +5,11 @@ This module exists as a side-by-side comparison with v1 (*the "before"*).
   v1  POST /api/v1/records           — fixed-window, IP-based (slowapi default)
   v2  POST /api/v2/records/token-bucket   — token bucket (burst-tolerant)
   v2  POST /api/v2/records/sliding-window — exact sliding window
+  v2  POST /api/v2/records/jwt       — JWT-protected (auth example)
 
 The business logic (creating a record) is identical in every route.  Only the
-rate-limiting strategy changes.  This makes the algorithmic difference the *only*
-variable, which is useful for demos, benchmarks, and architecture discussions.
+rate-limiting strategy or auth mechanism changes.  This makes the algorithmic 
+difference the *only* variable, useful for demos, benchmarks, and architecture discussions.
 
 Observable difference
 ---------------------
@@ -31,7 +32,7 @@ Try it with httpie:
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
@@ -39,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.auth import create_jwt_token, verify_jwt_token
 from app.constants import (
     API_V2_PREFIX,
     JITTER_MAX_SECONDS,
@@ -52,6 +54,7 @@ from app.crud import create_record as create_record_op
 from app.database import get_db
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
 from app.schemas import RecordRequest, RecordResponse
+
 
 logger = logging.getLogger(__name__)
 
@@ -219,5 +222,65 @@ async def create_record_sliding_window(
     response.headers.update(
         _rl_headers("sliding-window", _sliding_window.limit, remaining)
     )
+    record = await create_record_op(db, body)
+    return RecordResponse.model_validate(record)
+
+
+# ---------------------------------------------------------------------------
+# JWT authentication endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/token",
+    status_code=status.HTTP_200_OK,
+    summary="Issue JWT token",
+    description=(
+        "Generate a JWT bearer token for stateless auth.\n\n"
+        "**Usage**:\n"
+        "1. GET this endpoint with `user_id` query param\n"
+        "2. Receive a JWT token (valid for 60 minutes by default)\n"
+        "3. Include in subsequent requests: `Authorization: Bearer <token>`\n\n"
+        "**Token contains**: `sub` (user ID), `exp` (expiry), `iat` (issued at), "
+        "`iss` (issuer).\n\n"
+        "**Production note**: In real deployments, tokens are issued by a dedicated "
+        "auth service, not by every API. Token expiry and secret rotation follow "
+        "security policy."
+    ),
+)
+async def issue_jwt_token(user_id: str) -> dict[str, str]:
+    """Issue JWT token for the given user_id (learning example)."""
+    token = create_jwt_token(user_id, {"scope": "records:write"})
+    logger.info("jwt_issued", extra={"user_id": user_id})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post(
+    "/jwt",
+    response_model=RecordResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create record — JWT auth",
+    description=(
+        "Create a record authenticated via JWT bearer token.\n\n"
+        "**Flow**:\n"
+        "1. Call `POST /api/v2/records/token?user_id=alice` → get JWT\n"
+        "2. Call this endpoint with `Authorization: Bearer <jwt>`\n"
+        "3. Record is created if token is valid (not expired, signature OK)\n\n"
+        "**Difference from v1**:\n"
+        "- v1 uses sessions (server state) or bearer tokens (fixed per client)\n"
+        "- v2 uses stateless JWT: server verifies signature, no lookup required\n"
+        "- Scales better: no shared session store needed\n"
+        "- More complex: requires key rotation, careful expiry handling\n\n"
+        "**Response**: Standard RecordResponse; no rate-limit headers (JWT demo, not RL)."
+    ),
+)
+async def create_record_jwt(
+    body: RecordRequest,
+    db: DbDep,
+    claims: dict[str, Any] = Depends(verify_jwt_token),
+) -> RecordResponse:
+    """Create a record authenticated via JWT token."""
+    user_id = claims.get("sub", "unknown")
+    logger.info("jwt_create_record", extra={"user_id": user_id, "source": body.source})
     record = await create_record_op(db, body)
     return RecordResponse.model_validate(record)

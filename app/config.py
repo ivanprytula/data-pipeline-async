@@ -79,6 +79,34 @@ class Settings(BaseSettings):
         description="Password for docs authentication. If None, docs are public. Set to enable.",
     )
 
+    # ============ API Auth — v1 (Token + Session) ============
+    api_v1_bearer_token: str | None = Field(
+        default=None,
+        description="Simple bearer token for v1 endpoints. "
+        " If set, endpoints require Authorization: Bearer <token>",
+    )
+
+    token_expiry_hours: int = Field(
+        default=24,
+        description="Token expiration time in hours (for session tokens)",
+    )
+
+    # ============ API Auth — v2 (JWT) ============
+    jwt_secret: str = Field(
+        default="dev-secret-key-change-in-production",
+        description="Secret key for JWT signing (MUST be >32 chars in production)",
+    )
+
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT signing algorithm (HS256, RS256, etc.)",
+    )
+
+    jwt_expiry_minutes: int = Field(
+        default=60,
+        description="JWT token expiration in minutes",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",
