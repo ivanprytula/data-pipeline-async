@@ -361,7 +361,7 @@ async def transfer_balance(
 
 **Example**:
 
-```
+```text
 Time: 10:00
 - User A: SELECT COUNT(*) FROM huge_table  (starts here)
 - User B: UPDATE huge_table SET processed = true  (creates new versions)

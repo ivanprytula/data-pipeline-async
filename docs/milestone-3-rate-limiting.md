@@ -20,16 +20,16 @@
 
 **Algorithm**: Calendar-based counter that resets at minute boundaries
 
-| Property | Value |
-|----------|-------|
-| Limit | 1000 requests/minute per IP |
-| Implementation | slowapi (HTTP middleware) |
-| Admin Endpoint | 100 requests/minute (health check) |
-| **Weakness** | Vulnerable to window-boundary attacks |
+| Property       | Value                                 |
+| -------------- | ------------------------------------- |
+| Limit          | 1000 requests/minute per IP           |
+| Implementation | slowapi (HTTP middleware)             |
+| Admin Endpoint | 100 requests/minute (health check)    |
+| **Weakness**   | Vulnerable to window-boundary attacks |
 
 **Boundary Attack Example**:
 
-```
+```text
 Client sends 1000 requests at 00:59 → All pass (0 blocked)
 Client sends 1000 requests at 01:01 → All pass (0 blocked)
 Total: 2000 requests in 2 seconds, limit was "1000/minute"
@@ -43,12 +43,12 @@ Total: 2000 requests in 2 seconds, limit was "1000/minute"
 
 **Algorithm**: Virtual "bucket" of tokens; 1 token = 1 request
 
-| Property | Value |
-|----------|-------|
-| Capacity | 20 tokens (max burst) |
-| Refill Rate | 10 tokens/minute ≈ 0.167/sec |
+| Property       | Value                                  |
+| -------------- | -------------------------------------- |
+| Capacity       | 20 tokens (max burst)                  |
+| Refill Rate    | 10 tokens/minute ≈ 0.167/sec           |
 | Implementation | In-memory (Python dict + asyncio.Lock) |
-| Production | Redis + Lua script (atomic) |
+| Production     | Redis + Lua script (atomic)            |
 
 **How It Works**:
 
@@ -80,11 +80,11 @@ if not allowed:
 
 **Algorithm**: Exact rolling window `[now - 60s, now]`; only requests in window count
 
-| Property | Value |
-|----------|-------|
-| Limit | 10 requests per 60-second window |
+| Property       | Value                                          |
+| -------------- | ---------------------------------------------- |
+| Limit          | 10 requests per 60-second window               |
 | Implementation | In-memory (deque of timestamps + asyncio.Lock) |
-| Production | Redis ZSET + Lua script |
+| Production     | Redis ZSET + Lua script                        |
 
 **How It Works**:
 
@@ -110,7 +110,7 @@ if not allowed:
 
 **Fixed-Window vs Sliding-Window Example**:
 
-```
+```text
 Fixed-Window (1 min, limit 10):
   00:59 → 10 requests pass
   01:01 → 10 more requests pass
@@ -136,7 +136,7 @@ When many clients hit the rate limit simultaneously:
 2. All retry at the exact same time → traffic spike
 3. Spike often overwhelms the service again
 
-```
+```text
 Time:    0s          60s (retry time)
 Clients: [limited]   [100 retry requests in 1ms]
          ↓           ↓
@@ -164,7 +164,7 @@ retry_after = limiter.seconds_until_token(
 
 ### Result
 
-```
+```text
 Time:    0s          55-70s (jittered retry times)
 Clients: [limited]   [9s: client1] [61s: client2] [59s: client3]…
          ↓           ↓
@@ -213,7 +213,7 @@ Retry-After: 62
 
 ### File Structure
 
-```
+```text
 app/
 ├── constants.py                   ← All magic values
 ├── rate_limiting_advanced.py      ← TokenBucket + SlidingWindow + Jitter
@@ -404,16 +404,16 @@ async def create_record_token_bucket(
 
 **All 35 tests pass** (no regressions):
 
-| Category | Tests | Examples |
-|----------|-------|----------|
-| v1 CRUD | 10 | create, read, list, pagination, 404, validation |
-| v1 Rate-limit | 3 | 429 on excess, per-IP isolation |
-| v2 Token-Bucket | 4 | burst allowance, refill, jitter behavior |
-| v2 Sliding-Window | 4 | window boundary, exact limit, jitter |
-| Batch Operations | 4 | optimized vs naive impl toggle, contracts |
-| Logging | 3 | correlation ID, event names |
-| Performance | 2 | baseline throughput |
-| **TOTAL** | **35** | ✅ All pass |
+| Category          | Tests  | Examples                                        |
+| ----------------- | ------ | ----------------------------------------------- |
+| v1 CRUD           | 10     | create, read, list, pagination, 404, validation |
+| v1 Rate-limit     | 3      | 429 on excess, per-IP isolation                 |
+| v2 Token-Bucket   | 4      | burst allowance, refill, jitter behavior        |
+| v2 Sliding-Window | 4      | window boundary, exact limit, jitter            |
+| Batch Operations  | 4      | optimized vs naive impl toggle, contracts       |
+| Logging           | 3      | correlation ID, event names                     |
+| Performance       | 2      | baseline throughput                             |
+| **TOTAL**         | **35** | ✅ All pass                                     |
 
 ### Example Test
 
@@ -535,14 +535,14 @@ _token_bucket = TokenBucketLimiter(
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| **Three strategies** | Showcase trade-offs, teachable, testable |
-| **Custom v2 limiters** | slowapi doesn't support jitter or token-bucket; show *how* algorithms work |
-| **Jitter on v2 only** | slowapi middleware-level harder to modify; v2 has explicit 429 returns |
-| **Constants file** | PEP 20 discipline; single source of truth; maintainability |
-| **Observable headers** | Real-time visibility; debugging aid; interview demo tool |
-| **In-memory + Redis roadmap** | Current simplicity; production path visible; algorithm portable |
+| Decision                      | Rationale                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| **Three strategies**          | Showcase trade-offs, teachable, testable                                   |
+| **Custom v2 limiters**        | slowapi doesn't support jitter or token-bucket; show *how* algorithms work |
+| **Jitter on v2 only**         | slowapi middleware-level harder to modify; v2 has explicit 429 returns     |
+| **Constants file**            | PEP 20 discipline; single source of truth; maintainability                 |
+| **Observable headers**        | Real-time visibility; debugging aid; interview demo tool                   |
+| **In-memory + Redis roadmap** | Current simplicity; production path visible; algorithm portable            |
 
 ---
 
@@ -575,18 +575,18 @@ done
 
 ## Success Metrics
 
-| Metric | Status |
-|--------|--------|
-| v1 rate-limiter installed | ✅ slowapi, 1000/min |
-| v2 token-bucket algorithm | ✅ capacity=20, refill=10/min |
-| v2 sliding-window algorithm | ✅ limit=10, window=60s |
-| Jitter implementation | ✅ ±5-10s on Retry-After |
-| Observable headers | ✅ X-RateLimit-* on all v2 responses |
-| 429 responses working | ✅ All strategies tested |
-| Test coverage | ✅ 35/35 tests pass |
-| Constants centralized | ✅ No magic values in code |
-| Production roadmap | ✅ Redis migration path documented |
-| Interview-ready | ✅ Talking points prepared |
+| Metric                      | Status                              |
+| --------------------------- | ----------------------------------- |
+| v1 rate-limiter installed   | ✅ slowapi, 1000/min                |
+| v2 token-bucket algorithm   | ✅ capacity=20, refill=10/min       |
+| v2 sliding-window algorithm | ✅ limit=10, window=60s             |
+| Jitter implementation       | ✅ ±5-10s on Retry-After            |
+| Observable headers          | ✅ X-RateLimit-* on all v2 responses|
+| 429 responses working       | ✅ All strategies tested            |
+| Test coverage               | ✅ 35/35 tests pass                 |
+| Constants centralized       | ✅ No magic values in code          |
+| Production roadmap          | ✅ Redis migration path documented  |
+| Interview-ready             | ✅ Talking points prepared          |
 
 ---
 

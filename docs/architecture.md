@@ -64,6 +64,7 @@ graph TB
 **Location**: \`app/main.py\`, \`app/routers/\`
 
 **Responsibilities:**
+
 - HTTP endpoint routing (\`/api/v1/records/*\`)
 - Request validation via Pydantic v2
 - Dependency injection (database sessions, logging)
@@ -75,6 +76,7 @@ graph TB
 **Location**: \`app/crud.py\`
 
 **Responsibilities:**
+
 - Pure async database operations
 - SQLAlchemy 2.0 ORM queries (\`select()\`, \`insert()\`, \`update()\`)
 - Session lifecycle management
@@ -92,6 +94,7 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
 **Location**: \`app/database.py\`
 
 **Configuration:**
+
 - \`pool_size=5\`: Connections in pool
 - \`max_overflow=10\`: Extra connections under load
 - \`expire_on_commit=False\`: Keep ORM objects after commit (CRITICAL!)
@@ -136,7 +139,7 @@ Tracks requests end-to-end via ContextVar, injected into every log.
 ## Key Design Decisions
 
 | Decision | Rationale |
-|----------|-----------|
+| ---------- | ----------- |
 | Async/Await | Non-blocking I/O → handle 100s concurrent requests |
 | SQLAlchemy 2.0 | Type-safe ORM with modern Python syntax |
 | Pydantic v2 | Validation + serialization in one place |

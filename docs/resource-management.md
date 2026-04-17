@@ -46,13 +46,13 @@ services:
 
 ## K8s → Docker Compose Mapping
 
-| Kubernetes | `docker compose` | Meaning |
-|-----------|-----------------|---------|
-| `requests.cpu: 500m` | `reservations.cpus: '0.5'` | Minimum guaranteed CPU (50% of core) |
-| `limits.cpu: 1000m` | `limits.cpus: '1.0'` | Hard CPU limit |
-| `requests.memory: 512Mi` | `reservations.memory: '512M'` | Minimum guaranteed memory |
-| `limits.memory: 1Gi` | `limits.memory: '1G'` | Hard memory limit (OOMKilled if exceeded) |
-| `restartPolicy: OnFailure` | `restart_policy.condition: on-failure` | Restart on crash |
+| Kubernetes                 | `docker compose`                       | Meaning                                   |
+| -------------------------- | -------------------------------------- | ----------------------------------------- |
+| `requests.cpu: 500m`       | `reservations.cpus: '0.5'`             | Minimum guaranteed CPU (50% of core)      |
+| `limits.cpu: 1000m`        | `limits.cpus: '1.0'`                   | Hard CPU limit                            |
+| `requests.memory: 512Mi`   | `reservations.memory: '512M'`          | Minimum guaranteed memory                 |
+| `limits.memory: 1Gi`       | `limits.memory: '1G'`                  | Hard memory limit (OOMKilled if exceeded) |
+| `restartPolicy: OnFailure` | `restart_policy.condition: on-failure` | Restart on crash                          |
 
 ---
 
@@ -159,7 +159,7 @@ docker stats --no-stream
 
 Output example:
 
-```
+```shell
 CONTAINER ID     CPU %      MEM USAGE / LIMIT
 abc123xyz        2.5%       185M / 512M        ← App using 36% of memory
 def456uvw        5.2%       320M / 1G          ← DB using 32% of memory

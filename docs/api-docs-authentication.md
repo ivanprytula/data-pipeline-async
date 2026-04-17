@@ -42,7 +42,7 @@ open http://localhost:8000/docs
 **Files involved:**
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | `app/auth.py` | HTTP Basic Auth verification logic |
 | `app/config.py` | `docs_username`, `docs_password` settings |
 | `app/main.py` | Protected endpoints + conditional routing |
@@ -315,7 +315,7 @@ docs_password: str | None = Field(
 ### Option 1: HTTP Basic Auth (Current - Recommended for internal/dev)
 
 | Aspect | Basic Auth |
-|--------|-----------|
+| -------- | ----------- |
 | **Ease of use** | ✅ Simple (browser works out-of-box) |
 | **Security** | ⚠️ Needs HTTPS (credentials in header) |
 | **For UI** | ✅ Browser auto-prompts |
@@ -340,7 +340,7 @@ async def verify_api_key(key: str = Header(None)):
 ```
 
 | Aspect | API Key |
-|--------|---------|
+| -------- | -------- |
 | **Ease of use** | ⚠️ Requires header in all requests |
 | **Security** | ✅ Can use HTTPS header auth |
 | **For UI** | ❌ Requires manual header entry |
@@ -364,7 +364,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 ```
 
 | Aspect | OAuth2 |
-|--------|--------|
+| -------- | -------- |
 | **Ease of use** | ❌ Complex setup |
 | **Security** | ✅ Token-based, time-limited |
 | **For UI** | ✅ Browser redirect flow |
@@ -452,7 +452,7 @@ docker-compose up  # reads from .env automatically
 ## Summary
 
 | Aspect | Details |
-|--------|---------|
+| -------- | -------- |
 | **Protection Level** | HTTP Basic Auth (optional, opt-in) |
 | **Endpoints Protected** | `/docs`, `/redoc`, `/openapi.json` |
 | **Data Endpoints** | Unaffected (remain public unless separately secured) |

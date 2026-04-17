@@ -129,7 +129,7 @@ uv run pytest tests/ -v
 
 Example output:
 
-```
+```shell
 app/crud.py          42      8    81%   15-20, 45-48
 app/schemas.py       28      2    93%   55-56
 app/main.py          65      3    95%   120, 145, 200

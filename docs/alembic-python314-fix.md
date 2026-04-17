@@ -4,7 +4,7 @@
 
 On Python 3.14, `alembic upgrade head` failed with:
 
-```
+```shell
 psycopg.OperationalError: connection failed: server closed the connection unexpectedly
 AttributeError: 'Connection' object has no attribute 'dialect'
 ```
@@ -55,7 +55,7 @@ def run_migrations_online() -> None:
 ## Files Changed
 
 | File | Change |
-|------|--------|
+| ---- | ------ |
 | `alembic/env.py` | Use `create_engine()` with psycopg dialect (sync, top-level) |
 | `infra/database/postgresql.conf` | Removed `listen_addresses = '*'` (default localhost dev config) |
 | `infra/database/pg_hba.conf` | Removed Docker subnet rule; kept localhost `trust` for dev |
@@ -80,7 +80,7 @@ uv run alembic history
 
 ## Architecture
 
-```
+```text
 FastAPI app (async)
   └─ asyncpg engine (all app queries)
   └─ lifespan hook: skips schema creation (migrations separate)
@@ -94,6 +94,7 @@ Alembic CLI (sync)
 ## Dev Auth Strategy
 
 `pg_hba.conf` supports two scenarios:
+
 - **Localhost (dev)**: `trust` auth, no password
   - `docker compose exec db psql -U postgres`
   - `alembic upgrade head`

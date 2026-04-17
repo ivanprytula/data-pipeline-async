@@ -187,6 +187,37 @@ limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 - ✅ CORRECT: `alembic-python314-fix.md`, `database-auth-strategy.md`
 - ❌ WRONG: `ALEMBIC_PYTHON314_FIX.md`, `DatabaseAuthStrategy.md`, `alembic_fix.md`
 
+**Markdown linting** — all `.md` files must follow markdownlint rules:
+- **No emphasis as headings (MD036)**: Use `# Heading` not `**Heading**`
+  ```markdown
+  # ✅ CORRECT
+  ## My Section
+  Content here.
+
+  # ❌ WRONG
+  **My Section**
+  Content here.
+  ```
+- **Fenced code blocks must have language tag**: Use `` ```python ``, `` ```bash ``, `` ```text `` instead of bare ` `` ` ` (MD040)
+  ```markdown
+  # ✅ CORRECT
+  ```python
+  def foo():
+      pass
+  ```
+
+  # ❌ WRONG
+  ```
+  def foo():
+      pass
+  ```
+
+  # ✅ For non-code blocks
+  ```text
+  Some plain text content that's not code
+  ```
+  ```
+
 ## Learning Docs
 
 - [ACTION_PLAN.md](../learning_docs/ACTION_PLAN.md) — 6-week study roadmap

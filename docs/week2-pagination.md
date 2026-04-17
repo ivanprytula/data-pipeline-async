@@ -308,11 +308,11 @@ After Week 2 Milestone 2, you can discuss:
 
 | Milestone           | Status | Tests | Patterns                                      |
 | ------------------- | ------ | ----- | --------------------------------------------- |
-| 1. Batch Operations | ✅      | 3     | Bulk insert, `add_all()`, `refresh()`         |
-| 2. Pagination       | ✅      | 6     | Offset/limit, `has_more`, cursor preservation |
-| 3. Rate Limiting    | ⏳      | —     | slowapi, 429 responses                        |
-| 4. Error Handling   | ⏳      | —     | Exponential backoff, retry logic              |
-| 5. Validation       | ⏳      | —     | Pydantic validators, field_validator          |
-| 6. API Docs         | ⏳      | —     | Swagger UI, OpenAPI schema                    |
+| 1. Batch Operations | ✅      | 3     | Bulk insert, `add_all()`, `refresh()`        |
+| 2. Pagination       | ✅      | 6     | Offset/limit, `has_more`, cursor preservation|
+| 3. Rate Limiting    | ⏳      | —     | slowapi, 429 responses                       |
+| 4. Error Handling   | ⏳      | —     | Exponential backoff, retry logic             |
+| 5. Validation       | ⏳      | —     | Pydantic validators, field_validator         |
+| 6. API Docs         | ⏳      | —     | Swagger UI, OpenAPI schema                   |
 
 **Sprint Velocity:** 2/6 milestones complete. On track for Week 2 completion.

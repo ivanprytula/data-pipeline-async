@@ -26,7 +26,7 @@ response = requests.get(
 
 **Environment (.env):**
 
-```
+```text
 DOCS_USERNAME=admin
 DOCS_PASSWORD=admin
 ```
@@ -39,7 +39,7 @@ Static token-based authentication. No expiry, no server state.
 
 **Get token:**
 
-```
+```env
 Set via environment: API_V1_BEARER_TOKEN=dev-secret-bearer-token
 ```
 
@@ -179,7 +179,7 @@ async def session_workflow():
 
 **Environment (.env):**
 
-```
+```env
 # Session expiry time (hours)
 TOKEN_EXPIRY_HOURS=24
 ```
@@ -311,7 +311,7 @@ except jwt.InvalidSignatureError:
 
 **Environment (.env):**
 
-```
+```env
 JWT_SECRET=your-super-secret-key-at-least-32-chars-long
 JWT_ALGORITHM=HS256
 JWT_EXPIRY_MINUTES=60
@@ -322,7 +322,7 @@ JWT_EXPIRY_MINUTES=60
 ## Comparison: Which Auth to Use?
 
 | Scenario | Method | Why |
-|----------|--------|-----|
+| --------- | -------- | -------- |
 | Internal docs (API docs) | HTTP Basic Auth | Simple, no client setup required |
 | Mobile app | Bearer Token or JWT | Stateless, works offline |
 | Server-to-server API | Bearer Token (key rotation) | Can rotate keys per client |
@@ -336,7 +336,7 @@ JWT_EXPIRY_MINUTES=60
 
 All v2 endpoints return rate-limit headers:
 
-```
+```text
 X-RateLimit-Strategy: token-bucket | sliding-window
 X-RateLimit-Limit: 20 (max capacity)
 X-RateLimit-Remaining: 18 (after this request)
@@ -362,28 +362,28 @@ X-RateLimit-Remaining: 19
 
 **Missing Authorization header:**
 
-```
+```text
 Status: 401
 {"detail": "Missing Authorization header"}
 ```
 
 **Invalid token:**
 
-```
+```text
 Status: 401
 {"detail": "Invalid token"}
 ```
 
 **Expired JWT:**
 
-```
+```text
 Status: 401
 {"detail": "Token expired"}
 ```
 
 **Rate limit exceeded:**
 
-```
+```text
 Status: 429
 {"detail": "Rate limit exceeded"}
 Retry-After: 3
@@ -437,21 +437,21 @@ Run: `bash scripts/test-auth.sh`
 
 **Token expired?**
 
-```
+```text
 Response: 401 Token expired
 → Get a new token with POST /api/v2/records/token?user_id=<user>
 ```
 
 **Invalid Bearer format?**
 
-```
+```text
 Response: 401 Invalid scheme. Use: Authorization: Bearer <token>
 → Make sure header is exactly: Authorization: Bearer eyJ...
 ```
 
 **Rate limit 429?**
 
-```
+```text
 Response: 429 Rate limit exceeded
 Retry-After: 5
 → Wait 5 seconds, then retry
@@ -459,7 +459,7 @@ Retry-After: 5
 
 **Session not found?**
 
-```
+```text
 Response: 401 Session expired or invalid
 → Create new session: POST /api/v1/records/auth/login?user_id=<user>
 → Old sessions expire after TOKEN_EXPIRY_HOURS

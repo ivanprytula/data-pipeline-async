@@ -74,7 +74,7 @@ curl http://localhost:8000/docs  # No auth required
 All endpoints tested and working:
 
 | Scenario | Status | Details |
-|----------|--------|---------|
+| ---------- | -------- | --------- |
 | **No credentials** | ✅ **401** | Unauthorized (HTTP Basic auth required) |
 | **Valid credentials** | ✅ **200** | Access granted to Swagger UI |
 | **Invalid password** | ✅ **403** | Forbidden (wrong credentials) |
@@ -87,7 +87,7 @@ All endpoints tested and working:
 
 ## Architecture
 
-```
+```text
 Request → FastAPI App
          ↓
          Check if DOCS_USERNAME/PASSWORD configured?
@@ -135,7 +135,7 @@ Request → FastAPI App
 ## Files Changed
 
 | File | Changes |
-|------|---------|
+| ------ | --------- |
 | `app/auth.py` | **NEW** — HTTP Basic Auth verification |
 | `app/config.py` | Added `docs_username`, `docs_password` settings |
 | `app/main.py` | Import auth, protect doc endpoints, conditional routing |

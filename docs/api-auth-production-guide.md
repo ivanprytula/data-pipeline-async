@@ -22,25 +22,25 @@ This guide covers production-grade security hardening, load testing, and operati
 
 ### Production Hardening
 
-**SSL/TLS Enforcement**
+#### SSL/TLS Enforcement
 
-```
+```text
 ✗ NEVER send Basic Auth over HTTP
 ✓ Always use HTTPS with TLS 1.3+
 ```
 
-**Credential Strategy**
+#### Credential Strategy
 
-```
+```text
 Development  → Shared test credentials (docs_username=admin, docs_password=admin)
 Production   → Rotate credentials quarterly
              → Use secrets manager (AWS Secrets Manager, HashiCorp Vault)
              → Alert on failed auth attempts (3+ in 5 minutes)
 ```
 
-**Reverse Proxy**
+#### Reverse Proxy
 
-```
+```text
 Place API behind nginx or ALB:
 - Rate limit docs endpoints separately (e.g., 1 req/sec per IP)
 - Log all auth attempts (success + failure)
@@ -48,7 +48,7 @@ Place API behind nginx or ALB:
 - Add CSP, HSTS, X-Content-Type-Options headers
 ```
 
-**Audit Trail**
+#### Audit Trail
 
 ```python
 # Log successful + failed attempts
@@ -68,7 +68,7 @@ logger.warning("docs_auth_failure", extra={"attempt": username, "ip": client_ip}
 
 ### Production Hardening
 
-**Key Rotation Strategy**
+#### Key Rotation Strategy
 
 ```text
 Problem: Static bearer token never expires → leaked token = permanent breach
@@ -86,7 +86,7 @@ Solution 2: API Key Service
   - Supports instant revocation without client update
 ```
 
-**Implementation Example: Key Versioning**
+#### Implementation Example: Key Versioning
 
 ```python
 # app/config.py
@@ -118,7 +118,7 @@ async def verify_bearer_token(authorization: str | None = Header(None)) -> bool:
         raise HTTPException(status_code=401, detail="Invalid token")
 ```
 
-**Rate Limit Per Client**
+#### Rate Limit Per Client
 
 ```python
 # Map bearer token to client_id instead of IP
@@ -136,9 +136,9 @@ async def get_rate_limit_key(authorization: str | None = Header(None)) -> str:
 allowed = await limiter.consume(rate_limit_key)
 ```
 
-**Token Format Best Practices**
+#### Token Format Best Practices
 
-```
+```text
 ❌ BAD:   bearer_token_12345
 ✓ GOOD:  sk_prod_v1_abc1234567890... (type + env + version + random)
 
@@ -161,7 +161,7 @@ Benefits:
 
 ### Production Hardening
 
-**Session Store: Migrate to Redis**
+#### Session Store: Migrate to Redis
 
 ```python
 # app/database.py — Replace in-memory dict
@@ -203,7 +203,7 @@ async def verify_session(session_id: str | None = Cookie(None)) -> dict[str, Any
     return json.loads(data)
 ```
 
-**Cookie Security Flags**
+#### Cookie Security Flags
 
 ```python
 # FastAPI response to set session cookie
@@ -218,7 +218,7 @@ response.set_cookie(
 )
 ```
 
-**Session Invalidation (Logout)**
+#### Session Invalidation (Logout)
 
 ```python
 @router.post("/auth/logout")
@@ -233,9 +233,9 @@ async def logout_session(session_id: str | None = Cookie(None)) -> dict[str, str
     return response
 ```
 
-**Distributed Session State**
+#### Distributed Session State
 
-```
+```text
 Issue: In multi-instance deployments, server A creates session,
        request routed to server B → session not found
 
@@ -265,7 +265,7 @@ Production checklist:
 
 ### Production Hardening
 
-**Secret Key Management**
+#### Secret Key Management
 
 ```text
 ❌ Development:
@@ -275,7 +275,7 @@ Production checklist:
    JWT_SECRET="<256-bit random key>"  (≥32 bytes, from secrets manager)
 ```
 
-**Generating Strong Secret**
+#### Generating Strong Secret
 
 ```bash
 # Generate 256-bit random key (base64-encoded)
@@ -286,17 +286,17 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 openssl rand -base64 32
 ```
 
-**Algorithm Choice: HS256 vs RS256**
+#### Algorithm Choice: HS256 vs RS256
 
 | Aspect | HS256 | RS256 |
-|--------|-------|-------|
+| -------- | ------- | ------- |
 | Secret Sharing | Single secret (all servers) | Public key (distributed) |
 | Key Rotation | Harder (all servers need update atomically) | Easier (new key endpoint) |
 | Revocation | No built-in (use token blacklist or short TTL) | Key can be revoked immediately |
 | Performance | Faster | Slower (RSA operations) |
 | **Use Case** | Monolith, internal tokens | Multi-service, public tokens |
 
-**Recommendation for Multi-Service**:
+#### Recommendation for Multi-Service
 
 ```python
 # Use RS256 with JWKS (JSON Web Key Set) endpoint
@@ -316,7 +316,7 @@ token = jwt.encode(payload, private_key, algorithm="RS256")
 jwt.decode(token, public_key, algorithms=["RS256"])
 ```
 
-**Token Structure Best Practices**
+#### Token Structure Best Practices
 
 ```python
 def create_jwt_token(user_id: str, scopes: list[str]) -> str:
@@ -338,7 +338,7 @@ def create_jwt_token(user_id: str, scopes: list[str]) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 ```
 
-**Token Blacklist for Logout**
+#### Token Blacklist for Logout
 
 ```python
 # Problem: JWT has no server state; once issued, can't revoke until expiry
@@ -370,7 +370,7 @@ async def logout(token: str = Depends(verify_jwt_token)) -> dict[str, str]:
 #   If not found = already logged out
 ```
 
-**Key Rotation**
+#### Key Rotation
 
 ```python
 # Store multiple keys with timestamps
@@ -416,7 +416,7 @@ class JWTKeyManager:
 
 ### Password / Secret Entropy
 
-```
+```text
 Minimum entropy (NIST SP 800-63B):
 - Manual passwords: 64 bits (16+ random characters)
 - API tokens: 128+ bits (2^128 possible values)
@@ -484,7 +484,7 @@ logger.warning("auth_failure", extra={
 
 ### Environment Parity
 
-```
+```text
 Development  → Fast iteration, shared temp credentials OK
 Staging      → Production-like: Redis sessions, HTTPS, real secrets in secrets manager
 Production   → Full hardening: key rotation, TLS 1.3, audit logging, monitoring
@@ -496,7 +496,7 @@ Production   → Full hardening: key rotation, TLS 1.3, audit logging, monitorin
 
 ### Session Store Scaling
 
-**Scenario: 10,000 concurrent authenticated users**
+#### Scenario: 10,000 concurrent authenticated users
 
 ```text
 Requirement: Store 10k sessions, each ~200 bytes
@@ -710,7 +710,7 @@ groups:
 ### OWASP Top 10
 
 | Risk | Mitigation |
-|------|-----------|
+| ------ | ----------- |
 | **Broken Auth** | Enforce HTTPS, secure session storage, rate limit login attempts |
 | **Injection** | Use parameterized queries (SQLAlchemy ORM), no string formatting |
 | **Sensitive Data** | Encrypt secrets at rest, use HTTPS, never log tokens |
