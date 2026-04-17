@@ -1,5 +1,73 @@
 # Hands-On Commands
 
+## Database & Migrations
+
+### How Host → Docker DB Connectivity Works
+
+PostgreSQL inside the container listens on `*` (all interfaces). Docker maps port
+`0.0.0.0:5432 → container:5432`. The **security boundary is Docker's port mapping**,
+not PostgreSQL itself — standard dev practice.
+
+`pg_hba.conf` enforces auth per network:
+
+| Source                           | CIDR                        | Auth                    |
+| -------------------------------- | --------------------------- | ----------------------- |
+| Container loopback / Unix socket | `127.0.0.1`, `::1`, `local` | `trust` (health checks) |
+| Docker bridge (host CLI, CI)     | `172.16.0.0/12`             | `scram-sha-256`         |
+| Everything else                  | `0.0.0.0/0`                 | `reject`                |
+
+This gives **dev/prod auth parity**: all TCP connections use password auth, same as production.
+
+### Running Alembic Migrations
+
+**Option 1 — From host CLI (no app container needed)**
+
+```bash
+# Start only the database
+docker compose up -d db
+
+# Apply all pending migrations
+PGPASSWORD=postgres uv run alembic upgrade head
+
+# Check current revision
+uv run alembic current
+
+# Show migration history
+uv run alembic history --verbose
+
+# Rollback one step
+uv run alembic downgrade -1
+```
+
+**Option 2 — One-off container (app never restarted, no host psql needed)**
+
+```bash
+# Runs migration in isolated container then removes it
+docker compose run --rm app python -m alembic upgrade head
+```
+
+**Generate a new migration (autogenerate from model diff)**
+
+```bash
+# DB must be running and at current head first
+docker compose up -d db
+uv run alembic revision --autogenerate -m "describe_change_here"
+
+# Review the generated file in alembic/versions/
+# Then apply:
+uv run alembic upgrade head
+```
+
+**Verify migration applied**
+
+```bash
+# Check index/table was created
+PGPASSWORD=postgres psql -h localhost -U postgres -d data_pipeline -t -A \
+  -c "SELECT indexname FROM pg_indexes WHERE tablename='records'"
+```
+
+---
+
 ## Configuration Precedence
 
 ### The Mature Solution: Layer Your Configuration

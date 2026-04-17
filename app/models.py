@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -31,6 +31,13 @@ class TimestampMixin:
 
 class Record(Base, TimestampMixin):
     __tablename__ = "records"
+    __table_args__ = (
+        Index(
+            "ix_records_active_source",
+            "source",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[str] = mapped_column(String(255), nullable=False)

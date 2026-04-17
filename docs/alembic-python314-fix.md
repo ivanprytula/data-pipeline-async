@@ -15,7 +15,7 @@ AttributeError: 'Connection' object has no attribute 'dialect'
 
 2. **Raw DBAPI Connection Issue**: Passing a raw `psycopg.Connection` to Alembic's `context.configure()` failed because Alembic expects a SQLAlchemy `Connection` object with a `.dialect` attribute.
 
-3. **Network Config**: Initial failures also due to incomplete Docker network setup (Postgres wasn't listening on the docker bridge).
+3. **Network Config**: PostgreSQL inside container needs `listen_addresses = '*'` to accept connections on Docker bridge interface (`172.16.0.0/12`). Without it, only localhost inside the container accepts connections, rejecting host CLI traffic arriving as non-loopback IPs.
 
 ## Solution
 
@@ -57,9 +57,9 @@ def run_migrations_online() -> None:
 | File | Change |
 | ---- | ------ |
 | `alembic/env.py` | Use `create_engine()` with psycopg dialect (sync, top-level) |
-| `infra/database/postgresql.conf` | Removed `listen_addresses = '*'` (default localhost dev config) |
-| `infra/database/pg_hba.conf` | Removed Docker subnet rule; kept localhost `trust` for dev |
-| `docs/gotchas.md` | Documented Python 3.14 issue + auth patterns |
+| `infra/database/postgresql.conf` | Added `listen_addresses = '*'` to accept Docker bridge traffic |
+| `infra/database/pg_hba.conf` | Docker bridge `172.16.0.0/12` → `scram-sha-256` (dev/prod parity) |
+| `docker-compose.yml` | Mounts custom PostgreSQL config files for observability, tuning, logging |
 
 ## How to Use
 
@@ -91,26 +91,54 @@ Alembic CLI (sync)
   └─ Workflow: create_engine() → connect() → configure() → run_migrations()
 ```
 
-## Dev Auth Strategy
+## Dev/Prod Auth Parity
 
-`pg_hba.conf` supports two scenarios:
+`pg_hba.conf` uses `scram-sha-256` for all TCP connections (same as production). This ensures you catch auth issues in dev, not in production.
 
-- **Localhost (dev)**: `trust` auth, no password
-  - `docker compose exec db psql -U postgres`
-  - `alembic upgrade head`
-  - Host psql/psycopg via 127.0.0.1
+| Connection Type | Auth Method | Details |
+| --- | --- | --- |
+| **Unix socket + container loopback** | `trust` | pg_isready health checks, `docker compose exec db psql` |
+| **Docker bridge (172.16.0.0/12)** | `scram-sha-256` | Host CLI, CI runners, alembic from host — production-like auth |
+| **Everything else** | `reject` | Deny external connections |
 
-- **Network (prod/external)**: `scram-sha-256` auth, password required
-  - DBeaver, pgAdmin (VPN-only recommended)
-  - Production app replicas outside localhost
+**Why scram-sha-256 for Docker bridge**: Docker bridge traffic appears as `172.17.x.x` (non-loopback). Using the same auth method as production catches configuration and credential bugs early.
+
+**Why `listen_addresses = '*'` is safe for dev**: Docker's port mapping (`0.0.0.0:5432`) controls what the host exposes. PostgreSQL just listens on all interfaces inside the container. `pg_hba.conf` auth rules provide the actual security layer.
+
+## Migration Workflow Now Supported
+
+**From host CLI** (no container rebuilds needed):
+
+```bash
+# DB must be running (can be alone, app container not needed)
+docker compose up -d db
+
+# Generate migration from schema changes
+uv run alembic revision --autogenerate -m "description"
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Check history
+uv run alembic current
+uv run alembic history
+```
+
+**Inside Docker** (if needed):
+
+```bash
+# Using migration container (one-off, doesn't restart app)
+docker compose run --rm -T app python -m alembic upgrade head
+```
 
 ## Outcome
 
-✅ `alembic upgrade head` succeeds on Python 3.14
-✅ Migrations apply cleanly to PostgreSQL
+✅ `alembic upgrade head` succeeds from host CLI with custom PostgreSQL configs active
+✅ Host connections use `scram-sha-256` auth (dev/prod parity)
+✅ Container loopback uses `trust` for health checks
 ✅ Tests pass (in-memory SQLite)
 ✅ App uses async engine (asyncpg) unaffected
-✅ No greenlet conflicts or connection issues
+✅ No app container rebuild/restart needed for migrations
 
 ## Notes
 

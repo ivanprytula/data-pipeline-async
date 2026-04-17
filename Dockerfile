@@ -29,8 +29,10 @@ RUN groupadd --gid 1001 appgroup && \
 COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy source code
+# Copy source code and migration files
 COPY --chown=appuser:appgroup app/ ./app/
+COPY --chown=appuser:appgroup alembic/ ./alembic/
+COPY --chown=appuser:appgroup alembic.ini ./
 
 USER appuser
 

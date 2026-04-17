@@ -187,36 +187,45 @@ limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 - ✅ CORRECT: `alembic-python314-fix.md`, `database-auth-strategy.md`
 - ❌ WRONG: `ALEMBIC_PYTHON314_FIX.md`, `DatabaseAuthStrategy.md`, `alembic_fix.md`
 
-**Markdown linting** — all `.md` files must follow markdownlint rules:
-- **No emphasis as headings (MD036)**: Use `# Heading` not `**Heading**`
-  ```markdown
-  # ✅ CORRECT
-  ## My Section
-  Content here.
+**Markdown linting** — all `.md` files **must** comply with markdownlint rules. When writing or editing docs, follow these strictly:
 
-  # ❌ WRONG
-  **My Section**
-  Content here.
-  ```
-- **Fenced code blocks must have language tag**: Use `` ```python ``, `` ```bash ``, `` ```text `` instead of bare ` `` ` ` (MD040)
-  ```markdown
-  # ✅ CORRECT
-  ```python
-  def foo():
-      pass
-  ```
+**MD036: No emphasis as headings** — Never use bold/italic as section headings. Always use proper heading syntax (`#`, `##`, `###`, etc).
+```markdown
+# ✅ CORRECT
+## Configuration Setup
 
-  # ❌ WRONG
-  ```
-  def foo():
-      pass
-  ```
+Use this section to explain configuration.
 
-  # ✅ For non-code blocks
-  ```text
-  Some plain text content that's not code
-  ```
-  ```
+### Subsection
+More details here.
+
+# ❌ WRONG
+**Configuration Setup**
+Use this section to explain configuration.
+
+**Subsection**
+More details here.
+```
+**Why**: Markdown emphasis is for text highlighting, not document structure. Headings enable table of contents generation, screen reader navigation, and proper semantic HTML.
+
+**MD040: Fenced code blocks must have language tag** — Always specify the code language (`` ```python ``, `` ```bash ``, `` ```text ``, etc). Never use bare `` ``` ``.
+```markdown
+# ✅ CORRECT
+```python
+def foo():
+    pass
+```
+
+```bash
+docker compose up
+```
+
+# ❌ WRONG
+```
+def foo():
+    pass
+```
+```
 
 ## Learning Docs
 
