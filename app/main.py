@@ -6,11 +6,14 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.auth import security, verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
@@ -68,6 +71,8 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
+# If docs_username/docs_password are configured, disable default docs
+# (they'll be handled by protected endpoints below)
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -79,6 +84,9 @@ app = FastAPI(
         "- `POST /api/v2/records/sliding-window` — exact sliding window"
     ),
     lifespan=lifespan,
+    docs_url=None if settings.docs_username else "/docs",
+    redoc_url=None if settings.docs_username else "/redoc",
+    openapi_url=None if settings.docs_username else "/openapi.json",
 )
 
 # Attach limiter to app (required by slowapi)
@@ -93,6 +101,60 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
     return JSONResponse(
         status_code=429,
         content={"detail": "Rate limit exceeded"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Protected Documentation Endpoints (if auth is configured)
+# ---------------------------------------------------------------------------
+if settings.docs_username and settings.docs_password:
+    """If docs auth is configured, protect Swagger UI, ReDoc, and OpenAPI schema."""
+
+    @app.get(
+        "/docs",
+        include_in_schema=False,
+        dependencies=[Depends(verify_docs_credentials)],
+    )
+    async def get_swagger_ui() -> str:
+        """Protected Swagger UI endpoint."""
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title=f"{settings.app_name} - Swagger UI",
+        )
+
+    @app.get(
+        "/redoc",
+        include_in_schema=False,
+        dependencies=[Depends(verify_docs_credentials)],
+    )
+    async def get_redoc() -> str:
+        """Protected ReDoc endpoint."""
+        return get_redoc_html(
+            openapi_url="/openapi.json",
+            title=f"{settings.app_name} - ReDoc",
+        )
+
+    @app.get(
+        "/openapi.json",
+        include_in_schema=False,
+        dependencies=[Depends(verify_docs_credentials)],
+    )
+    async def get_openapi_schema() -> dict:
+        """Protected OpenAPI schema endpoint."""
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            title=settings.app_name,
+            version=settings.app_version,
+            description=app.description,
+            routes=app.routes,
+        )
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    logger.info(
+        "docs_auth_enabled",
+        extra={"docs_endpoints": ["/docs", "/redoc", "/openapi.json"]},
     )
 
 

@@ -176,3 +176,141 @@ uv run pytest tests/ -q
 # Set minimum threshold (fail if below 80%)
 uv run pytest tests/ --cov=app --cov-fail-under=80
 ```
+
+## API Documentation (Auto-Generated)
+
+FastAPI automatically generates interactive API documentation. Start the app and open in browser.
+
+### Swagger UI (Interactive Testing)
+
+```bash
+# Start the server
+uv run uvicorn app.main:app --reload
+
+# Open Swagger UI in browser (auto-generated)
+open http://localhost:8000/docs
+
+# Or on Linux
+xdg-open http://localhost:8000/docs
+```
+
+**What you'll see:**
+
+- All endpoints listed by path and method
+- Expandable sections for each endpoint
+- Request schema with type hints
+- Response schema with examples
+- "Try it out" button to test endpoints directly from browser
+
+**Example workflow in Swagger:**
+
+1. Click `POST /api/v1/records` to expand
+2. Click "Try it out"
+3. Edit the JSON request body
+4. Click "Execute"
+5. See response directly in UI
+
+### ReDoc (Read-Only Documentation)
+
+```bash
+# Alternative documentation view (read-only, better for sharing)
+open http://localhost:8000/redoc
+```
+
+### OpenAPI JSON Schema
+
+```bash
+# Export the full OpenAPI specification
+curl http://localhost:8000/openapi.json | jq '.'
+
+# Or save to file for external tools
+curl http://localhost:8000/openapi.json > openapi.json
+
+# Useful for ✓ API client generation (Postman, Insomnia)
+# ✓ API documentation sites (like Swagger Editor)
+# ✓ Contract testing
+```
+
+### Protecting Documentation with Basic Auth
+
+By default, `/docs`, `/redoc`, and `/openapi.json` are **publicly accessible**. To protect them:
+
+**1. Configure credentials in `.env`:**
+
+```env
+DOCS_USERNAME=admin
+DOCS_PASSWORD=your-secure-password-here
+```
+
+**2. Restart the app:**
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+**3. Access protected docs (you'll be prompted for username/password):**
+
+```bash
+# Browser will show HTTP Basic Auth dialog
+open http://localhost:8000/docs
+
+# Or via curl with credentials
+curl -u admin:your-secure-password-here http://localhost:8000/docs
+
+# Export OpenAPI schema with auth
+curl -u admin:your-secure-password-here http://localhost:8000/openapi.json | jq '.'
+```
+
+**Security Notes:**
+
+- ✅ Credentials are loaded from environment (never hardcoded)
+- ✅ Uses HTTP Basic Auth (send over HTTPS in production)
+- ✅ Only affects `/docs`, `/redoc`, `/openapi.json` endpoints
+- ✅ All data endpoints (`/api/v1/records`, etc.) remain unprotected (apply separate auth if needed)
+- ⚠️ **In production**: Use HTTPS + strong passwords + consider API keys for programmatic access
+
+**Leave empty to disable auth:**
+
+```env
+DOCS_USERNAME=
+DOCS_PASSWORD=
+# or just omit them
+```
+
+### API Documentation Quality Indicators
+
+**Good documentation** (what you should see):
+
+- [x] All endpoints present (v1 and v2 routes)
+- [x] Request/response schemas are detailed
+- [x] Field descriptions explain purpose
+- [x] Error responses (422, 429) are documented
+- [x] Rate-limit headers visible in responses
+- [x] Batch endpoint shows array constraints (`min_items`, `max_items`)
+
+**Test it:**
+
+```bash
+# Create a record via Swagger
+1. Expand POST /api/v1/records
+2. Try it out
+3. Modify JSON: {"source": "test.example.com", "timestamp": "2024-01-15T10:00:00", "data": {"price": 100}}
+4. Execute
+5. See 201 Created response with record_id
+
+# List with pagination
+1. Expand GET /api/v1/records
+2. Try it out with skip=0, limit=10
+3. See paginated response with has_more flag
+
+# Trigger 422 validation error
+1. Expand POST /api/v1/records
+2. Try it out
+3. Submit invalid source: "localhost" or empty: {}
+4. See 422 error with field details
+
+# Trigger 429 rate limit
+1. Expand POST /api/v2/records/token-bucket
+2. Try it out 20+ times rapidly
+3. See 429 Too Many Requests with Retry-After header
+```

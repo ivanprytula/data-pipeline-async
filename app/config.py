@@ -68,6 +68,17 @@ class Settings(BaseSettings):
         description="Asyncio logging level (default: WARNING if not set)",
     )
 
+    # ============ Documentation Auth ============
+    docs_username: str | None = Field(
+        default=None,
+        description="Username for docs authentication. If None, docs are public. Set to enable.",
+    )
+
+    docs_password: str | None = Field(
+        default=None,
+        description="Password for docs authentication. If None, docs are public. Set to enable.",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",
