@@ -44,6 +44,22 @@ jobs:
     strategy:
       matrix:
         db: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@localhost:5432/ci_db
     steps:
       - uses: actions/checkout@v4
 
@@ -64,27 +80,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
-
-      - name: Configure Postgres (if selected)
-        if: matrix.db == 'postgres'
-        run: echo "DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5432/test_database" >> $GITHUB_ENV
-
-      - name: Start Postgres service (for postgres matrix)
-        if: matrix.db == 'postgres'
-        uses: Harmon758/postgres-action@v2
-        with:
-          postgresql version: '15'
-          postgresql db: 'test_database'
-          postgresql user: 'postgres'
-          postgresql password: 'postgres'
-
-      - name: Wait for Postgres ready
-        if: matrix.db == 'postgres'
-        run: |
-          sudo apt-get update -y && sudo apt-get install -y postgresql-client
-          for i in {1..30}; do
-            pg_isready -h localhost -p 5432 -U postgres && break || sleep 1
-          done
 
       - name: Run tests with coverage
         run: uv run pytest tests/ --cov=app --cov-fail-under=80 --cov-report=term-missing
