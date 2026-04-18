@@ -72,3 +72,9 @@ ENRICH_MIN_IDS: int = 1  # min record IDs per /enrich request
 # ---------------------------------------------------------------------------
 UPSERT_MODE_IDEMPOTENT: str = "idempotent"  # 201 on create, 200 on conflict
 UPSERT_MODE_STRICT: str = "strict"  # 201 on create, 409 on conflict
+
+# ---------------------------------------------------------------------------
+# Caching — Redis
+# ---------------------------------------------------------------------------
+CACHE_KEY_RECORD: str = "dp:record:{record_id}"  # Redis key namespace
+CACHE_TTL_RECORD: int = 3600  # 1 hour — single records are stable

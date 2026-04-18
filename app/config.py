@@ -107,6 +107,17 @@ class Settings(BaseSettings):
         description="JWT token expiration in minutes",
     )
 
+    # ============ Redis Caching ============
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL for caching layer",
+    )
+
+    redis_enabled: bool = Field(
+        default=False,
+        description="Enable Redis caching. Disabled by default (tests use fakeredis)",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",

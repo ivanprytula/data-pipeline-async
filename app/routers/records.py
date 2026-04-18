@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import cache
 from app.auth import create_session, verify_bearer_token, verify_session
 from app.constants import API_V1_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, V1_RATE_LIMIT
 from app.crud import (
@@ -32,7 +33,12 @@ from app.crud import (
     update_record,
 )
 from app.database import get_db
-from app.metrics import batch_size_histogram, records_created_total
+from app.metrics import (
+    batch_size_histogram,
+    cache_hits_total,
+    cache_misses_total,
+    records_created_total,
+)
 from app.rate_limiting import limiter
 from app.schemas import (
     BatchRecordsRequest,
@@ -150,13 +156,29 @@ async def list_records(
     response_model=RecordResponse,
 )
 async def get_record(record_id: int, db: DbDep) -> RecordResponse:
-    """Retrieve a single record by ID."""
+    """Retrieve a single record by ID.
+
+    Check cache first (Redis); on miss, fetch from DB and cache for 1 hour.
+    Redis connection errors are transparent (fail-open).
+    """
+    # Try cache first
+    cached_record = await cache.get_record(record_id)
+    if cached_record is not None:
+        cache_hits_total.labels(operation="get").inc()
+        return cached_record
+
+    # Cache miss: fetch from DB
     record = await get_record_op(db, record_id)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
-    return record  # type: ignore[return-value]
+
+    # Store in cache for future hits
+    response = RecordResponse.model_validate(record)
+    await cache.set_record(record_id, response)
+    cache_misses_total.labels(operation="get").inc()
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -195,12 +217,17 @@ async def update_record_endpoint(
     response_model=RecordResponse,
 )
 async def process_record(record_id: int, db: DbDep) -> RecordResponse:
-    """Mark a record as processed."""
+    """Mark a record as processed.
+
+    Invalidates any cached version so next GET reflects updated state.
+    """
     record = await mark_processed(db, record_id)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
+    # Invalidate cache so next read gets fresh data
+    await cache.invalidate_record(record_id)
     return record  # type: ignore[return-value]
 
 
@@ -237,6 +264,7 @@ async def archive_record(record_id: int, db: DbDep) -> RecordResponse:
 async def delete_record(record_id: int, db: DbDep) -> None:
     """Hard-delete a record.
 
+    Invalidates any cached version.
     Logs are automatically tagged with request correlation ID (cid).
     """
     logger.info("record_delete", extra={"id": record_id})
@@ -245,6 +273,8 @@ async def delete_record(record_id: int, db: DbDep) -> None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
+    # Invalidate cache since record no longer exists
+    await cache.invalidate_record(record_id)
     logger.info("record_deleted", extra={"id": record_id})
 
 

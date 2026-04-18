@@ -74,6 +74,31 @@ services:
           cpus: '0.5'
           memory: '512M'
 
+  redis:
+    image: redis:7-alpine
+    container_name: data-pipeline-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    # K8s-like resource management
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '128M'
+        limits:
+          cpus: '0.25'
+          memory: '256M'
+
   app:
     build: .
     container_name: data-pipeline-app
@@ -84,6 +109,8 @@ services:
       - '8000:8000'
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8000/readyz']

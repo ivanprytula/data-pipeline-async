@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 
+from app import cache
 from app.auth import verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
@@ -78,10 +79,24 @@ async def lifespan(app: FastAPI):
     Everything before `yield` is startup; after `yield` is shutdown.
     """
     logger.info("startup", extra={"event": "application_started"})
+
+    # Startup: connect Redis if enabled
+    if settings.redis_enabled:
+        try:
+            await cache.connect_cache(settings.redis_url)
+        except Exception as e:
+            logger.warning(
+                "redis_startup_failed",
+                extra={"error": str(e)},
+            )
+            # Non-fatal: cache is optional, app continues without it
+
     yield
-    # Shutdown: cleanup resources (cleanup order: app-level clients first, then engine)
+
+    # Shutdown: cleanup resources (cleanup order: app-level clients first, then Redis, then engine)
     await close_http_client()  # httpx client cleanup
     await close_http_session()  # aiohttp session cleanup
+    await cache.disconnect_cache()  # Redis cleanup (safe even if not connected)
     await engine.dispose()  # Database connections cleanup
     logger.info("shutdown", extra={"event": "engine_disposed"})
 

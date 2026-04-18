@@ -73,3 +73,41 @@ enrich_duration_seconds = Histogram(
     buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
 )
 """Observe total enrichment wall time per /enrich call."""
+
+
+# ---------------------------------------------------------------------------
+# Cache metrics
+# ---------------------------------------------------------------------------
+
+cache_hits_total = Counter(
+    name="pipeline_cache_hits_total",
+    documentation="Number of successful cache hits (record retrieved from cache).",
+    labelnames=["operation"],
+)
+"""Incremented when cache.get_record() returns a cached value.
+
+Labels:
+  operation: "get" | "list" (currently only "get" in use)
+"""
+
+cache_misses_total = Counter(
+    name="pipeline_cache_misses_total",
+    documentation="Number of cache misses (record not in cache, fetched from DB).",
+    labelnames=["operation"],
+)
+"""Incremented when cache.get_record() returns None (cache miss).
+
+Labels:
+  operation: "get" | "list" (currently only "get" in use)
+"""
+
+cache_errors_total = Counter(
+    name="pipeline_cache_errors_total",
+    documentation="Number of cache operation errors (Redis connection, serialization).",
+    labelnames=["operation"],
+)
+"""Incremented when cache operations fail (fail-open, logged as warning).
+
+Labels:
+  operation: "get" | "set" | "invalidate"
+"""

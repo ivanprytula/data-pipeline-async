@@ -14,7 +14,7 @@ cp .env.example .env
 # Edit .env with your local values (PostgreSQL running in Docker, etc.)
 
 # 2. From now on, everything "just works"
-docker compose up -d db      # Start container
+docker compose up -d db redis      # Start containers
 
 # 3. Install uv (if missing)
 pip install uv   # or: curl -Ls https://astral.sh/uv/install.sh | sh
@@ -109,18 +109,57 @@ async/
 │   ├── models.py      — SQLAlchemy ORM (Record)
 │   ├── schemas.py     — Pydantic request / response models
 │   ├── crud.py        — DB operations (create, batch, list, get, mark_processed)
+│   ├── cache.py       — Redis caching layer (fail-open, single-record lookups)
 │   └── main.py        — FastAPI app, lifespan, route handlers
 ├── tests/
-│   ├── conftest.py    — Fixtures (in-memory DB, test client)
+│   ├── conftest.py    — Fixtures (in-memory DB, test client, fake redis)
 │   ├── test_api.py    — Integration tests (all happy + error paths)
-│   └── test_performance.py — Baseline timing tests
+│   ├── test_performance.py — Baseline timing tests
+│   └── integration/records/test_cache.py — Cache hit/miss/invalidation tests
 ├── scripts/
 │   └── run_tests.sh
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml — db + redis services
 ├── .env.example
-└── requirements.txt / pyproject.toml
+└── pyproject.toml
 ```
+
+---
+
+## Caching
+
+A Redis read cache for single-record lookups (`GET /api/v1/records/{id}`).
+Transparent fail-open — Redis down → DB fallback. `fakeredis` in tests (no Redis container in CI).
+
+```text
+GET /api/v1/records/{id}
+    │
+    ▼
+  cache.get_record(id)
+    │
+  HIT ─┤ deserialize JSON → RecordResponse (no DB hit)
+    │
+  MISS ─┤ crud.get_record(db, id)
+    │       └─► cache.set_record(id, record, ttl=3600)
+    ▼
+  RecordResponse
+
+Write paths:
+  PATCH  /{id}/process → cache.invalidate_record(id)
+  DELETE /{id}         → cache.invalidate_record(id)
+```
+
+**Configuration**:
+
+- `REDIS_ENABLED=false` (opt-in; CI stays Redis-free)
+- `REDIS_URL=redis://localhost:6379/0`
+- TTL: 1 hour (single records are stable)
+
+**Metrics**:
+
+- `pipeline_cache_hits_total{operation="get"}` — successful cache hits
+- `pipeline_cache_misses_total{operation="get"}` — cache misses (DB fetch)
+- `pipeline_cache_errors_total{operation="get|set|invalidate"}` — errors logged as warnings
 
 ---
 
@@ -172,7 +211,7 @@ async/
 
 - Distributed tracing with OpenTelemetry (Jaeger/Zipkin)
 - Sync version parity with async (Postgres-backed integration tests)
-- Cache layer (Redis) benchmarks
+- ~~Cache layer (Redis) benchmarks~~ ✅ Redis cache layer added (Week 3)
 
 ---
 

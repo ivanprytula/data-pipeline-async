@@ -28,6 +28,8 @@ dependencies = [
     "httpx>=0.28.1",  # requests-like API, HTTP/2 support
     "aiohttp>=3.9.4",  # aiohttp-native API, mature, updated Mar 2026
     "prometheus-fastapi-instrumentator>=7.1.0",
+    # Caching
+    "redis>=5.2.0",  # async redis client
 ]
 
 [dependency-groups]
@@ -38,6 +40,7 @@ dev = [
     "pytest-postgresql>=6.1.0",  # PostgreSQL fixtures for EXPLAIN ANALYZE tests
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
+    "fakeredis[aioredis]>=2.22.0",  # in-memory redis for tests
     # Pre-commit hooks & linting
     "pre-commit>=4.1.1",
     "ruff>=0.15.10",

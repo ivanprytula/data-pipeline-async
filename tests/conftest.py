@@ -79,6 +79,60 @@ IS_POSTGRES = "postgresql" in _TEST_DB_URL
 IS_SQLITE = "sqlite" in _TEST_DB_URL
 
 
+# ---------------------------------------------------------------------------
+# Redis fixtures (for cache testing)
+# ---------------------------------------------------------------------------
+@pytest_asyncio.fixture()
+async def fake_redis():
+    """In-memory Redis instance for testing (uses fakeredis).
+
+    No network calls; operates as a pure Python object.
+    Perfect for CI/local testing without a real Redis instance.
+    """
+    import fakeredis
+
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    yield redis
+    await redis.flushall()  # Clean up after test
+    await redis.aclose()
+
+
+@pytest_asyncio.fixture()
+async def client_with_cache(
+    db: AsyncSession, fake_redis
+) -> AsyncGenerator[AsyncClient]:
+    """Async HTTPX client with DB + Redis cache dependencies overridden.
+
+    Injects fakeredis into app cache module so cache operations work in tests.
+    """
+    from app import cache
+    from app.main import app  # Import here to avoid circular imports
+
+    _ensure_sessionmaker()
+
+    async def _override_db() -> AsyncGenerator[AsyncSession]:
+        _ensure_sessionmaker()
+        assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
+        SessionLocal = _AsyncSessionLocal  # type: ignore[assignment]
+        async with SessionLocal() as session:  # type: ignore[call-arg]
+            yield session
+
+    # Override both DB and cache
+    app.dependency_overrides[get_db] = _override_db
+
+    # Inject fake redis into cache module
+    cache._client = fake_redis
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+
+    # Cleanup
+    app.dependency_overrides.clear()
+    cache._client = None
+
+
 @pytest_asyncio.fixture()
 async def db() -> AsyncGenerator[AsyncSession]:
     """Create schema, yield session, teardown schema — all async."""
