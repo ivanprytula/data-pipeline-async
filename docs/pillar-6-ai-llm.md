@@ -269,3 +269,42 @@ print(f"Relevancy: {results['answer_relevancy']}")  # Did answer address questio
 - [pgvector](https://github.com/pgvector/pgvector)
 - [MCP Spec](https://modelcontextprotocol.io/)
 - [RAGAS](https://ragas.io/)
+
+---
+
+## Checklist — Pillar 6: AI/LLM
+
+### Foundation 🟢
+
+- [ ] Call OpenAI chat completions API: system/user/assistant message roles
+  - [ ] Know the difference between `temperature=0` (deterministic) and `temperature=1`
+- [ ] Use `response_format` with a Pydantic model for structured output
+- [ ] Explain what a token is and why context window limits matter
+- [ ] Know what prompt injection is and why it's a security risk
+
+### Middle 🟡
+
+- [ ] Implement a RAG pipeline: chunk → embed → store in vector DB → retrieve → augment prompt
+  - [ ] Know cosine similarity measures angle between vectors (direction, not magnitude)
+  - [ ] Know HNSW index vs IVF-Flat: HNSW = approximate NN, better recall; IVF = partitioning
+- [ ] Use LangChain LCEL: `prompt | llm | parser` chaining
+- [ ] Choose an embedding model: OpenAI `text-embedding-3-small` vs `sentence-transformers`
+  - [ ] Know: `3-small` = API call + cost; `sentence-transformers` = local + free
+- [ ] Explain hallucination and three mitigation strategies
+
+### Senior 🔴
+
+- [ ] Explain fine-tuning vs RAG vs prompt engineering — when to use each
+  - [ ] RAG = dynamic retrieval; fine-tuning = baked-in static knowledge; prompting = zero infra
+- [ ] Design a LangGraph stateful agent with conditional routing
+- [ ] Evaluate RAG quality with RAGAS metrics: faithfulness, answer relevance, context recall
+- [ ] Identify production LLM concerns: cost per token, rate limits, latency, content policy
+- [ ] Explain MCP (Model Context Protocol): tools, resources, prompt primitives
+
+### Pre-Interview Refresh ✏️
+
+- [ ] What is RAG and why is it better than fine-tuning for frequently changing data?
+- [ ] What is hallucination? Name three mitigation strategies
+- [ ] Explain the embed-store-retrieve cycle in three sentences
+- [ ] When would you choose `text-embedding-3-small` over `3-large`?
+- [ ] What is the difference between `temperature=0` and `temperature=1`?

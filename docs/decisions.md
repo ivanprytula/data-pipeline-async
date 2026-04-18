@@ -1,0 +1,377 @@
+# Technology Choice Decision Trees
+
+Interview-style Q&A and trade-off reasoning for every major technology decision in this project.
+No code — these are the "why" answers. Use Ctrl+F to jump to any topic.
+
+---
+
+## How to Use
+
+Each entry follows this structure:
+
+```text
+Choose X when: [conditions]
+Trade-off: [what you give up]
+Interview answer: [1-3 sentences you can say out loud]
+```
+
+---
+
+## Core Language & Runtime
+
+### Async vs Sync Python
+
+**Choose async when:** your bottleneck is I/O — database queries, HTTP calls, file reads. Every `await` yields the event loop, letting other requests run while you wait. One process handles hundreds of concurrent requests.
+
+**Choose sync (threads/multiprocessing) when:** you have CPU-bound work — image processing, ML inference, heavy computation. `asyncio` does not speed up CPU work; it only hides I/O latency.
+
+**Rule of thumb:** async scales concurrent connections cheaply; threads/processes scale CPU work.
+
+**Interview answer:** "Async is a concurrency model, not a parallelism one. It's ideal when your requests spend most of their time waiting on I/O like database queries or external APIs. A single event loop handles hundreds of `await`-ing coroutines at once — no thread-switching overhead. For CPU-bound tasks, I'd offload to a process pool instead of blocking the loop."
+
+---
+
+### FastAPI vs Flask vs Django
+
+**Choose FastAPI when:** you're building a JSON API and want async-first, automatic OpenAPI docs, and Pydantic validation with minimal boilerplate.
+
+**Choose Flask when:** you need maximum flexibility or a very small app; synchronous-first, rich ecosystem, simpler mental model.
+
+**Choose Django when:** you need a full-stack web app with ORM, admin, auth, and forms out of the box — batteries-included monolith.
+
+**Trade-off FastAPI:** smaller ecosystem than Django; no built-in admin or ORM; you assemble your own stack.
+
+**Decision tree:**
+
+```text
+Need rapid JSON API development?          → FastAPI
+Need async throughout?                    → FastAPI
+Need admin panel + ORM built-in?          → Django
+Need simple, synchronous, minimal?       → Flask
+```
+
+**Interview answer:** "FastAPI gives native async support, automatic OpenAPI/Swagger generation, and tight Pydantic v2 integration — all with minimal boilerplate. The trade-off is that you wire up more things yourself compared to Django. For a data pipeline API that's first and foremost I/O-heavy JSON endpoints, FastAPI's async model and auto-docs are a clear win."
+
+---
+
+### Pydantic v2 vs Alternatives
+
+**Choose Pydantic v2 over marshmallow/attrs when:** you want Rust-backed validation speed, native JSON schema generation, and first-class FastAPI integration. Pydantic v2 is ~5-50x faster than v1 and marshmallow for model validation.
+
+**Trade-off:** migration from v1 has breaking changes. Some third-party libraries lag behind v2 compat.
+
+**Interview answer:** "Pydantic v2 blurs the line between schema definition and validation. The Rust core gives order-of-magnitude speedups for high-throughput APIs. For FastAPI specifically, it handles request parsing, response serialization, settings management, and error formatting all in one library — reducing the integration surface."
+
+---
+
+## Database Decisions
+
+### PostgreSQL vs MySQL vs MongoDB (for primary store)
+
+**Choose PostgreSQL when:** you need ACID transactions, complex queries (CTEs, window functions, JSONB), full-text search, or PostGIS. Best default for relational data.
+
+**Choose MySQL when:** you're constrained by an existing stack, need master-replica replication out of the box at smaller scale, or need strict UTF8mb4 collation control.
+
+**Choose MongoDB when:** your data is genuinely semi-structured with high shape variance, you need native horizontal sharding from day one, or your team is document-model-first.
+
+**Common mistake:** choosing MongoDB to "avoid schema design." You still need schema design — you just lose the database's ability to enforce it.
+
+**Decision tree:**
+
+```text
+Need ACID + joins + complex aggregations?   → PostgreSQL
+Need JSONB + relational hybrid?             → PostgreSQL (JSONB column)
+Schema varies significantly per document?   → MongoDB
+Truly need horizontal write sharding?       → MongoDB or Cassandra
+"I don't want to write SQL"?                → still PostgreSQL + ORM
+```
+
+**Interview answer:** "PostgreSQL is my default for relational data. It has best-in-class MVCC, JSONB for semi-structured data, and window functions / CTEs that MongoDB's aggregation pipeline can't match. I'd reach for MongoDB only if the data truly has wide shape variance — like scraped web content where each source has a different structure — which is exactly the use case in this project's scraper layer."
+
+---
+
+### SQLAlchemy 2.0 ORM vs Raw SQL vs Query Builder
+
+**Choose ORM when:** you want type-safe model definitions, auto-migration diffs (Alembic), and Python-level composition of queries. Trade-off: N+1 risk, slower for bulk operations.
+
+**Choose raw SQL when:** you're writing complex analytics queries (window functions, CTEs) where the ORM abstraction adds noise. Use `text()` in SQLAlchemy for inline SQL.
+
+**Choose query builder (Core / SQLAlchemy Core)** when: you want composable SQL without full ORM overhead.
+
+**Rule:** Use ORM for CRUD, raw SQL for analytics, Core for bulk inserts.
+
+**Interview answer:** "SQLAlchemy 2.0's `Mapped[T]` style gives you mypy-verifiable column definitions and async-native session management. I use the ORM for standard CRUD and let Alembic autogenerate migrations. For complex queries — window functions, CTEs, materialized view refreshes — I drop to `text()` or Core because the SQL is more readable than the equivalent ORM expression."
+
+---
+
+### Alembic vs `Base.metadata.create_all()`
+
+**Alembic:** tracks schema version, supports incremental migrations, works in team environments, supports rollback.
+
+**`create_all()`:** creates tables if they don't exist, idempotent, no version tracking, destroys data on schema changes (drop + recreate).
+
+**Choose Alembic when:** you have any real data that must survive schema changes or you work in a team.
+
+**Choose `create_all()`** when: testing (throwaway in-memory DB) or very early prototyping.
+
+**In this project:** tests use `create_all()` with aiosqlite (throwaway). Production uses Alembic. Never mix both for the same DB.
+
+**Interview answer:** "Alembic is essential for production. `create_all()` doesn't know what changed — it can't rename a column or add an index without recreating the table. Alembic generates diff-based migration scripts, stores a version hash in `alembic_version`, and lets you roll back. For tests I use `create_all()` against an in-memory SQLite DB because those tables are thrown away after each test run."
+
+---
+
+### Redis Cache: Yes or No?
+
+**Add Redis when:** you have a hot read path that hits the same DB rows repeatedly (single-record lookups, session data, computed aggregates that are expensive to recompute). Expected hit rate > 50%.
+
+**Skip Redis when:** your queries are already fast (< 5ms), data freshness requirements are strict, or you're adding complexity before measuring a bottleneck.
+
+**Choose TTL vs active invalidation:**
+
+```text
+Writes rare, staleness acceptable (1h)?       → TTL expiry only
+Write happens, must immediately reflect?      → Active invalidation on write
+High write volume, counting/analytics?        → Write-back (cache then async flush)
+```
+
+**Fail-open pattern:** if Redis is down, fall through to DB — never let cache failure return an error to the user. This is the pattern in `app/cache.py`.
+
+**Interview answer:** "I treat Redis as a read accelerator, not a source of truth. The key decision is whether to use TTL or active invalidation. For single-record reads with infrequent writes, I use a 1-hour TTL with explicit invalidation on PATCH/DELETE. The cache is fail-open — if Redis is unavailable, requests fall back to the database transparently. I measure cache hit ratio via Prometheus counters before declaring the cache a win."
+
+---
+
+### Connection Pool Sizing
+
+**Formula:** `pool_size ≈ PostgreSQL max_connections / num_app_instances`, with `max_overflow` covering burst.
+
+**Typical default:** `pool_size=5`, `max_overflow=10`, `pool_pre_ping=True` per process.
+
+**Problem sign:** "too many connections" error. Means total pool across instances exceeds `max_connections` (default 100).
+
+**Interview answer:** "PostgreSQL has a hard connection limit (typically 100). Each Uvicorn worker process opens its own pool. So with 4 workers and `pool_size=5`, that's 20 connections per instance. At 3 instances you'd use 60 of 100 slots — still headroom. The async driver (asyncpg) is much more efficient than sync drivers because a single connection can pipeline multiple queries, so pool sizes can be smaller than you'd think."
+
+---
+
+## Distributed Systems Decisions
+
+### Message Broker: Redpanda vs Kafka vs RabbitMQ vs Redis Streams
+
+**Choose Redpanda when:** you want Kafka API compatibility without Zookeeper, simpler Docker setup, and better performance for single-node dev/learning.
+
+**Choose Kafka when:** you're in an organization that already runs Kafka, need mature tooling (Confluent Schema Registry, KSQL), or need proven multi-datacenter replication.
+
+**Choose RabbitMQ when:** you need complex routing (exchanges, topic/fanout patterns), traditional AMQP clients, or you primarily care about task queues over event logs.
+
+**Choose Redis Streams when:** you already have Redis and your event volume is modest. Lower operational overhead; less durable than Kafka.
+
+**Key distinction:** Kafka/Redpanda = durable event log (consumers can replay from any offset). RabbitMQ = message queue (messages disappear after consumption).
+
+**Decision tree:**
+
+```text
+Need replay / audit log?                  → Kafka / Redpanda
+Complex routing (fanout, topic)?          → RabbitMQ
+Already have Redis, low volume?           → Redis Streams
+Local dev simplicity + Kafka compat?     → Redpanda
+```
+
+**Interview answer:** "I chose Redpanda because it's Kafka API-compatible — same `aiokafka` producer/consumer code works unchanged — but runs as a single binary without Zookeeper. That cuts local setup from 3 containers to 1. For production on AWS, I'd switch to MSK Serverless which is also Kafka-compatible, so the application code never changes. The key architectural reason for Kafka over RabbitMQ here is the event log — consumers can replay events from any offset, which is essential for the CQRS read model in query-api."
+
+---
+
+### Vector Store: Qdrant vs pgvector vs Chroma vs Pinecone
+
+**Choose Qdrant when:** you want a self-hosted, purpose-built vector DB with a rich filtering API, gRPC interface, and support for high-dimensional HNSW indexing. Good for learning the dedicated vector DB model.
+
+**Choose pgvector when:** you're already on PostgreSQL, data volume is moderate (< 10M vectors), and you want to avoid an extra service. Trade-off: not as fast as dedicated vector DBs at scale.
+
+**Choose Chroma when:** you want dead-simple local embedding storage for prototyping. Not production-grade at scale.
+
+**Choose Pinecone when:** you're going fully managed, don't want to operate infrastructure, and can accept vendor lock-in.
+
+**Decision tree:**
+
+```text
+Already on Postgres, < 10M vectors?       → pgvector (simpler)
+Need scale + filtering + self-hostable?   → Qdrant
+Prototyping / local only?                 → Chroma
+Fully managed, cloud-first?               → Pinecone
+```
+
+**In this project:** Qdrant is primary (Phase 3, teaches dedicated vector DB operations); pgvector is added in Phase 5 for direct comparison.
+
+**Interview answer:** "For a self-hosted learning platform, Qdrant is the right call because it teaches the vector database model directly — collections, HNSW indexing, payload filtering. pgvector is great when you want to stay in PostgreSQL and avoid operational complexity, but at tens of millions of vectors with complex metadata filters, dedicated vector DBs outperform it significantly. In this project I run both — Qdrant for the primary pipeline, pgvector in Phase 5 to make the trade-offs tangible."
+
+---
+
+### HTMX vs React / Vue / Next.js
+
+**Choose HTMX when:** your UI is server-rendered, interactions are mostly "fetch partial HTML and swap it in", you're a backend developer who wants to avoid a JS build pipeline, and your team owns Python/Jinja templates.
+
+**Choose React/Next.js when:** you need rich interactive state (drag-drop, realtime collaborative editing, complex client-side filtering), or you have a dedicated frontend team.
+
+**Trade-off HTMX:** limited client-side state management; SSE/WebSocket is possible but not as smooth as React's ecosystem.
+
+**Interview answer:** "HTMX lets backend developers build interactive UIs without a JavaScript framework. Each user interaction is an HTTP request that returns an HTML fragment — the server stays the source of truth. For a data explorer dashboard with pagination, search, and SSE metrics, HTMX + Jinja2 covers the requirements without a build system. React would be the right call if the UI needed complex client-side state — say, a realtime collaborative editor — but for this dashboard it'd be premature."
+
+---
+
+### Cloud Compute: ECS Fargate vs EKS vs Lambda
+
+**Choose ECS Fargate when:** you want managed containers without operating a Kubernetes control plane. Good balance of flexibility and operational simplicity. Right for most "run this service 24/7" workloads.
+
+**Choose EKS when:** you need Kubernetes-native tooling (Helm charts, CRDs, service mesh), your team already knows Kubernetes, or you need features like pod auto-scaling based on custom metrics.
+
+**Choose Lambda when:** your workload is event-triggered, bursty, and can tolerate cold starts. Cost-optimized for intermittent workloads.
+
+**Decision tree:**
+
+```text
+Event-driven, bursty, short-lived?        → Lambda
+Long-running service, team knows K8s?     → EKS
+Long-running service, want managed?       → ECS Fargate
+```
+
+**In this project:** ECS Fargate. Kubernetes is a separate learning project — it's too large a scope increase to learn alongside distributed systems patterns.
+
+**Interview answer:** "ECS Fargate removes the Kubernetes control plane operational burden while still giving you container portability. You define task definitions, assign them to a cluster, and AWS handles the underlying EC2 instances. The cost is slightly less flexibility than EKS — no Helm, no custom scheduling — but for a straightforward multi-service deployment that's not a constraint. I'd move to EKS when the team has Kubernetes expertise and needs advanced scheduling or a service mesh."
+
+---
+
+### MongoDB vs PostgreSQL JSONB (for scraped data)
+
+**Choose MongoDB when:** documents truly have different shapes per source (scraping 10 different sites, each returning a different JSON structure), you need native horizontal sharding, or you need MongoDB-specific operators like `$lookup` with unwind.
+
+**Choose PostgreSQL JSONB when:** you can tolerate slight query verbosity for `->>`/`@>` operators, your JSON is semi-structured but bounded, and you want to keep one database.
+
+**In this project:** MongoDB for scraped raw documents (genuinely varied shape per scraping source), PostgreSQL for the normalized `records` table.
+
+**Interview answer:** "I use MongoDB for the scraper layer because the raw document shape from each source is genuinely different — a Hacker News item looks nothing like a JSONPlaceholder post or a Playwright-scraped article. Storing all of them in a PostgreSQL JSONB column works, but MongoDB's document model is a more natural fit and teaches the document database paradigm directly. The processed, normalized data still lands in PostgreSQL where I can run window functions and CTEs on it."
+
+---
+
+## Observability Decisions
+
+### Structured Logging vs `print()`
+
+**Always structured logging in services.** JSON logs are machine-parseable — you can grep, aggregate, and alert on them in log aggregators (Loki, Splunk, Datadog). Plain text is fine for scripts.
+
+**Key fields every log entry must have:** `timestamp`, `level`, `event` (what happened), `cid` (correlation ID to trace a request end-to-end), and relevant context (record ID, source, etc.).
+
+**Interview answer:** "Structured JSON logging is non-negotiable for a service that runs 24/7. In production you can't SSH in and read logs — you need a log aggregator. JSON lets you write queries like 'show me all records from source X that failed in the last hour' without parsing regexes. The correlation ID is the key: inject it at the request boundary (middleware), propagate it through all function calls, and you can reconstruct the full lifecycle of any request."
+
+---
+
+### Metrics: What to Instrument
+
+**The Four Golden Signals (SRE):**
+
+- **Latency** — how long requests take (histogram, P50/P95/P99)
+- **Traffic** — requests per second (counter)
+- **Errors** — rate of failed requests (counter, labeled by status code)
+- **Saturation** — how full the resource is (DB connection pool usage, CPU)
+
+**Rule:** instrument at service boundaries (HTTP handler entry/exit + DB query timing). Don't instrument every internal function — noise hides signal.
+
+**Interview answer:** "I instrument the four golden signals at every service boundary. For this FastAPI app that means `prometheus-fastapi-instrumentator` for HTTP latency/traffic/errors, a custom counter for cache hits/misses, and connection pool saturation. The alert thresholds I target are P95 latency < 500ms and error rate < 1%. Anything beyond that I investigate before setting an alert — arbitrary thresholds create alert fatigue."
+
+---
+
+### Distributed Tracing: When to Add
+
+**Add tracing when** you have more than one service and need to correlate work across service boundaries (e.g., ingestor HTTP span → processor Kafka consumer span → ai-gateway embed span). Logs + metrics alone can't show you where time was spent across services.
+
+**OpenTelemetry vs proprietary SDKs:** Always OpenTelemetry. Vendor-neutral, swap the exporter (Jaeger, Tempo, Datadog) without changing application code.
+
+**Interview answer:** "Tracing answers the question logs can't: 'which service is slow and why?' In a multi-service setup, a slow request might involve the ingestor, a Kafka consumer, and a vector DB call. A trace stitches those spans together with a shared `trace_id`. I inject the trace ID into structured log output so I can jump from a Grafana trace view directly to the correlated log lines."
+
+---
+
+## Security Decisions
+
+### JWT vs Session-Based Auth
+
+**Choose JWT when:** stateless architecture (no server-side session store), cross-service auth (pass the token between services), or mobile/SPA clients.
+
+**Choose sessions when:** you need immediate revocation (log attacker out now, not after token expiry), you're building a traditional server-rendered web app, and you have a session store (Redis).
+
+**JWT trade-off:** you can't invalidate a token before expiry without a denylist (which re-introduces state). Keep token TTL short (15–60 min) and use refresh tokens.
+
+**Interview answer:** "JWT works well for this API because the services are stateless — each microservice can verify a token locally without a shared session store. The trade-off is that compromised tokens remain valid until expiry. I mitigate this by keeping access token TTL at 15 minutes and requiring refresh tokens for long-lived sessions. For a banking app or high-security context I'd layer in a Redis denylist for immediate revocation."
+
+---
+
+### Input Validation: Where to Validate
+
+**Validate at every trust boundary** — the API boundary (Pydantic schemas), the database boundary (constraints + parameterized queries), and service-to-service calls (same Pydantic schemas).
+
+**Never** sanitize and then trust: validate the schema, reject what doesn't match, never pass raw user input to SQL string interpolation or shell commands.
+
+**Interview answer:** "I validate as early as possible — at the HTTP layer with Pydantic, which rejects malformed requests before they touch business logic. The database adds a second layer via CHECK constraints and parameterized queries (which prevent SQL injection categorically). The key principle is fail early and fail loudly: a 422 Validation Error at the API boundary is better than a cryptic DB error or, worse, a silent data corruption."
+
+---
+
+## Resilience Decisions
+
+### Circuit Breaker: When to Use
+
+**Add a circuit breaker when** you're calling a downstream service that could fail or degrade slowly. Without it, slow downstream failures create a cascade: your service's thread pool fills with slow requests, your service becomes slow, its callers back up, and so on.
+
+**Three states:**
+
+- **CLOSED** — calls go through normally
+- **OPEN** — calls are short-circuited immediately (fast fail)
+- **HALF_OPEN** — one probe request goes through to test recovery
+
+**Apply to:** outbound HTTP calls to external APIs, Kafka producer publish, MongoDB/Qdrant writes (anything that could slow or fail).
+
+**Interview answer:** "The circuit breaker prevents a slow/failing downstream from exhausting your connection pool or blocking your event loop. When the failure threshold trips, subsequent calls fail immediately — the caller gets a fast error instead of waiting on a 30-second timeout. This is especially important in async Python where a flood of slow awaits can starve the event loop. I configure the threshold empirically: typically 5 failures in a 10-second window before the circuit opens."
+
+---
+
+### Saga Pattern: Distributed Transactions
+
+**Use the Saga pattern when** a business operation spans multiple services (each with their own DB) and you can't use a two-phase commit (too slow, too coupled).
+
+**Choreography-based Saga:** each service publishes an event on success, the next service is triggered by that event. No central coordinator. Simpler but harder to track failures.
+
+**Orchestration-based Saga:** a central orchestrator calls each service step and handles compensations explicitly. More visible, easier to debug, but adds a coordination chokepoint.
+
+**Interview answer:** "Two-phase commit across microservices is impractical at scale — it creates tight coupling and blocking locks across service boundaries. Sagas replace atomic transactions with a sequence of local transactions, each publishing an event to trigger the next step. If step N fails, compensation transactions undo steps 1 through N-1. In this project the scrape→embed→store pipeline uses a choreography-based saga: each stage publishes an event, the next service consumes it. A DLQ on the Kafka topic catches failures for later replay or manual review."
+
+---
+
+## DSA in Production
+
+### When to Use Each Data Structure
+
+**Bloom Filter:** check if a URL/ID has been seen before without storing all seen IDs. False positives possible, false negatives never. Use for scraper URL deduplication where the cost of a false positive (re-scraping) is low and the cost of storing all URLs in Redis is high.
+
+**LRU Cache:** any hot data with a bounded working set (embedding cache, user profile cache). Python's `functools.lru_cache` for pure functions, `cachetools.LRUCache` for mutable data.
+
+**Min-Heap / `heapq`:** top-N or bottom-N selection in O(N log K) instead of O(N log N) sort. Use when you need the top 10 records out of 1M without sorting all 1M.
+
+**Sliding Window:** rate limiting (count requests in last N seconds), moving averages over time-series data. Already in `app/rate_limiting_advanced.py`.
+
+**Consistent Hashing:** distribute load across N nodes such that adding/removing a node rebalances only K/N keys instead of all. Used for Kafka partition key selection to ensure related events go to the same partition (and thus same consumer).
+
+**Interview answer template:** "I reach for X when Y is the bottleneck. For example, a Bloom Filter when I need sub-millisecond URL deduplication at scraping scale — storing every seen URL in Redis would use gigabytes of memory. A Min-Heap when I need top-10 out of a million rows — heapq.nlargest() is O(N log 10) vs O(N log N) for a full sort."
+
+---
+
+## Quick Reference Decision Matrix
+
+| Question | Answer |
+|----------|--------|
+| I/O-bound or CPU-bound? | I/O → async; CPU → processes |
+| API framework? | FastAPI (async JSON) / Django (full-stack) / Flask (simple) |
+| Primary DB? | PostgreSQL almost always; MongoDB for genuinely varied document shapes |
+| ORM vs raw SQL? | ORM for CRUD; raw SQL for analytics |
+| Cache or not? | Only after measuring; fail-open pattern |
+| Message broker? | Redpanda (learning/dev); Kafka/MSK (prod) |
+| Vector store? | pgvector (existing Postgres, < 10M); Qdrant (scale + dedicated) |
+| Frontend? | HTMX (backend devs, server-rendered); React (complex SPA) |
+| Cloud compute? | ECS Fargate (managed); EKS (K8s expertise required) |
+| Auth? | JWT (stateless, multi-service); Sessions (need immediate revocation) |
+| Distributed txn? | Saga pattern (event choreography) |
+| Schema migrations? | Alembic (production); `create_all()` (tests only) |

@@ -226,3 +226,44 @@ async def scrape_dynamic(url: str) -> list[dict]:
 - [Celery](https://docs.celeryproject.io/)
 - [arq](https://arq-docs.helpmanual.io/)
 - [fake-useragent](https://github.com/fake-useragent/fake-useragent)
+
+---
+
+## Checklist — Pillar 7: Data & ETL
+
+### Foundation 🟢
+
+- [ ] Explain the three ETL stages: Extract, Transform, Load — with an example
+  - [ ] Know: Extract = fetch raw; Transform = validate/clean; Load = persist
+- [ ] Use Pandas: `pd.read_json`, `DataFrame.dropna()`, `.astype()`, `.to_dict("records")`
+- [ ] Fetch data with `httpx.AsyncClient` and handle non-200 status codes
+- [ ] Parse HTML with BeautifulSoup: `soup.select()`, `soup.find()`, `.get_text()`
+
+### Middle 🟡
+
+- [ ] Use `asyncio.Semaphore` to cap concurrent scraping requests
+  - [ ] Know why `asyncio.gather` with no limit can hammer a target server
+- [ ] Implement exponential backoff with jitter for HTTP retries
+- [ ] Validate and transform data with Pydantic schemas as ETL transformers
+- [ ] Explain URL deduplication strategies: Redis SET vs Bloom Filter
+  - [ ] Know: Bloom Filter = probabilistic, memory-efficient, no false negatives
+- [ ] Use Playwright async API for JavaScript-rendered pages
+  - [ ] Know when to use Playwright over `httpx`: JS-rendered content, login flows
+
+### Senior 🔴
+
+- [ ] Compare Celery vs `arq` for async task queues with trade-offs
+  - [ ] Celery: Redis or RabbitMQ broker, mature, large ecosystem
+  - [ ] arq: asyncio-native, simpler, Redis-only
+- [ ] Design an incremental ETL pipeline vs full reload — when each applies
+  - [ ] Incremental: `WHERE updated_at > last_run`; full reload: simpler but expensive at scale
+- [ ] Handle schema evolution in ETL without breaking downstream consumers
+- [ ] Implement distributed URL assignment with consistent hashing (Kafka partitions)
+
+### Pre-Interview Refresh ✏️
+
+- [ ] Explain Extract-Transform-Load with a concrete example from this project
+- [ ] Why `asyncio.Semaphore` instead of unlimited `asyncio.gather` for scraping?
+- [ ] What is a Bloom Filter? Can it have false negatives?
+- [ ] When do you use Playwright instead of `httpx`?
+- [ ] Celery vs `arq` — which is better for an existing asyncio codebase and why?

@@ -5,6 +5,92 @@
 
 ---
 
+## Authentication Mechanisms
+
+This project demonstrates three distinct auth patterns for different use cases:
+
+### 1. HTTP Basic Auth (Documentation)
+
+**Use case:** Protecting sensitive documentation endpoints (`/docs`, `/redoc`, `/openapi.json`).
+
+**Mechanism:**
+
+- Credentials embedded in `Authorization: Basic base64(user:pass)` header
+- No server state (credentials validated against environment variables)
+- No expiry; credentials must be manually rotated
+
+**Production hardening:**
+
+- Always use HTTPS (never HTTP)
+- Rotate credentials quarterly
+- Store secrets in Secrets Manager (AWS, Vault, not .env)
+- Set rate limits on docs endpoints separately (e.g., 1 req/sec per IP)
+- Log all auth attempts (success + failure)
+- Place behind ALB or nginx for centralized auth logging
+
+**Best practice:** Use 2-3 overlapping keys with grace periods during rotation.
+
+---
+
+### 2. Bearer Token (v1 API, Stateless)
+
+**Use case:** Service-to-service or static token authentication. No server-side session needed.
+
+**Mechanism:**
+
+- Static `Authorization: Bearer <token>` header
+- Validated via exact string match (no lookup, no expiry)
+- Simple but cannot be revoked before expiry
+
+**Production hardening:**
+
+- No static bearer tokens in production (cannot revoke)
+- Solution: **Key versioning**
+  - Maintain N active keys (e.g., current + 1 old)
+  - Every 30 days: generate new key, promote to "current"
+  - Old key gets grace period (7 days) before deactivation
+  - Clients update config within grace period
+- Alternative: **API Key Service**
+  - Issue short-lived API keys stored in database
+  - Keys have: issue_time, expiry, last_used, revoked_at columns
+  - Instant revocation without client update
+  - Lookup key in cache (Redis) or database on each request
+- Anonymize rate-limit keys: map token to client_id instead of IP
+- Token format best practice: `sk_prod_v1_abc1234567890...` (type + env + version + random)
+
+---
+
+### 3. Session-Based Auth (v1 API, Stateful)
+
+**Use case:** Traditional web apps, browser-based UIs, need immediate revocation.
+
+**Mechanism:**
+
+- Server generates session ID and stores in Redis (or database)
+- `session_id` cookie sent to client (HttpOnly, Secure, SameSite=Strict)
+- Client returns cookie on future requests
+- Server looks up session in Redis and validates TTL
+
+**Production hardening:**
+
+- Use Redis (not in-memory dict) for session store
+- Set TTL on session key (expire after N hours of inactivity)
+- Use secure cookie flags: `HttpOnly=true` (no JS access), `Secure=true` (HTTPS only), `SameSite=Strict` (CSRF protection)
+- On logout: `DELETE session:{session_id}` from Redis (immediate revocation)
+- Monitor session count as metric (detect credential stuffing)
+- Use rotating session IDs: generate new ID on privilege escalation
+
+**Decision tree:**
+
+```text
+Need to revoke NOW (not at expiry)?           -> Session-based (Redis)
+Need stateless (no server lookup)?             -> Bearer token (with key versioning)
+Multiple services, shared auth?                -> JWT (with refresh tokens)
+Documentation only, no revocation needed?      -> HTTP Basic Auth
+```
+
+---
+
 ## Middle Tier (🟡)
 
 ### Authentication / Authorization
@@ -63,6 +149,13 @@ async def require_admin(user_id: int) -> User:
 async def delete_record(record_id: int, user: User = Depends(require_admin)):
     # Only admin can delete
 ```
+
+**When to use each auth mechanism:**
+
+- HTTP Basic Auth: Protecting internal dashboards, documentation
+- Bearer Token: API keys for services, automation, integrations (with key versioning)
+- Session-Based: Browser clients, user-facing apps (need revocation)
+- JWT: Multi-service auth, SPA frontends (with refresh tokens and short TTL)
 
 ---
 
@@ -213,3 +306,44 @@ Prevents accidentally committing API keys
 - [FastAPI Security](https://fastapi.tiangolo.com/tutorial/security/)
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 - [gitleaks](https://github.com/gitleaks/gitleaks)
+
+---
+
+## Checklist — Pillar 5: Security
+
+### Foundation 🟢
+
+- [ ] Describe JWT structure: header.payload.signature
+  - [ ] Know what `alg`, `exp`, `sub`, `iss` claims mean
+  - [ ] Know that the payload is Base64-encoded but NOT encrypted
+- [ ] Implement `X-API-Key` header auth with `Depends()` in FastAPI
+- [ ] List OWASP Top 10 from memory (at least 5)
+  - [ ] Know: Injection (A03), Broken Auth (A07), IDOR (A01), SSRF (A10)
+- [ ] Use parameterized queries (never string interpolation for SQL)
+
+### Middle 🟡
+
+- [ ] Explain OAuth2 flows: authorization code vs client credentials
+  - [ ] Know client credentials = machine-to-machine, no user interaction
+- [ ] Implement RBAC: role assignment → permission check in a FastAPI dependency
+- [ ] Explain short-lived access tokens + refresh token pattern
+  - [ ] Know that short TTL (15 min) limits blast radius of a stolen token
+- [ ] Use `secrets.compare_digest` to prevent timing attacks in token comparison
+- [ ] Know why rate limiting mitigates brute-force (OWASP A07 mitigation)
+
+### Senior 🔴
+
+- [ ] Explain envelope encryption: why encrypt the data encryption key, not just data
+- [ ] Describe Row-Level Security (RLS) in PostgreSQL and a real use case
+- [ ] Run `pip-audit` and explain what a CVE entry means
+- [ ] Apply STRIDE threat model to the records API
+  - [ ] Spoofing, Tampering, Repudiation, Info Disclosure, DoS, Elevation of Privilege
+- [ ] Explain supply chain attack and how `gitleaks` + Dependabot mitigate it
+
+### Pre-Interview Refresh ✏️
+
+- [ ] What is IDOR (Insecure Direct Object Reference)? Give an example and the fix
+- [ ] Why keep JWT access token TTL to 15 minutes?
+- [ ] Authentication vs authorization — what is the difference?
+- [ ] How does `secrets.compare_digest` prevent timing attacks?
+- [ ] Why is `os.environ["SECRET"]` wrong? What should you use instead?

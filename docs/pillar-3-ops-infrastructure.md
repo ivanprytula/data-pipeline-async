@@ -182,3 +182,42 @@ resource "google_cloud_run_service" "app" {
 - [Google Cloud Run](https://cloud.google.com/run/docs)
 - [Kubernetes Docs](https://kubernetes.io/docs/)
 - [Terraform AWS/GCP Providers](https://www.terraform.io/language/providers)
+
+---
+
+## Checklist — Pillar 3: Ops & Infrastructure
+
+### Foundation 🟢
+
+- [ ] Write a multi-stage Docker build that separates dependencies from source
+  - [ ] Know that copying `pyproject.toml` before source enables layer caching
+- [ ] Use `docker compose up --build`, `down`, `down -v`, `exec`, `logs -f`
+- [ ] Write conventional commits: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- [ ] Know basic Linux tools: `ps aux`, `lsof -i :8000`, `df -h`, `du -sh`
+
+### Middle 🟡
+
+- [ ] Write a GitHub Actions workflow with `jobs`, `steps`, `needs:`, `env:`, `secrets:`
+  - [ ] Know how `needs:` creates sequential job dependencies
+  - [ ] Know `secrets.GITHUB_TOKEN` is auto-injected
+- [ ] Use `docker compose profiles` to start selective service subsets
+- [ ] Optimize Docker image size: `--no-cache`, `.dockerignore`, `COPY --chown`
+- [ ] Set up pre-commit hooks: `ruff`, `trailing-whitespace`, `end-of-file-fixer`
+  - [ ] Know that `pre-commit install` installs git hooks, not just the tool
+
+### Senior 🔴
+
+- [ ] Write Terraform: `resource`, `variable`, `output`, `module`, `data`
+  - [ ] Explain `terraform plan` vs `apply` vs `destroy`
+  - [ ] Know that state drift happens when infra changes outside Terraform
+- [ ] Explain blue/green vs canary deployment strategies with trade-offs
+- [ ] Configure RBAC for GitHub Actions with `permissions:` key
+- [ ] Know the difference between Docker secrets and environment variables for sensitive data
+
+### Pre-Interview Refresh ✏️
+
+- [ ] Why does multi-stage Docker build reduce image size?
+- [ ] Explain `COPY pyproject.toml ./` before `COPY . .` — why this order?
+- [ ] What does `docker compose profiles` solve that plain `depends_on` does not?
+- [ ] What does `needs:` accomplish in a GitHub Actions job?
+- [ ] Blue/green vs canary — which has faster rollback and why?

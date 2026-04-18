@@ -469,3 +469,47 @@ async def find_expensive(db: AsyncSession) -> list[Record]:
 - [SQLAlchemy 2.0 ORM](https://docs.sqlalchemy.org/en/20/orm/quickstart.html)
 - [Alembic Docs](https://alembic.sqlalchemy.org/)
 - [MVCC Explained](https://www.postgresql.org/docs/current/mvcc-intro.html)
+
+---
+
+## Checklist — Pillar 2: Database
+
+### Foundation 🟢
+
+- [ ] Write all four JOIN types (INNER, LEFT, RIGHT, FULL) with a real use case
+  - [ ] Know that LEFT JOIN returns all rows from left table even without a match
+- [ ] Define SQLAlchemy 2.0 model with `Mapped[T]` and `mapped_column()`
+  - [ ] Know how `mapped_column(nullable=False)` maps to `NOT NULL`
+- [ ] Run Alembic: `current`, `history`, `upgrade head`, `revision --autogenerate`
+  - [ ] Know that `--autogenerate` diffs ORM models against DB state
+- [ ] Identify an N+1 query in code and fix it with a JOIN
+
+### Middle 🟡
+
+- [ ] Explain when to add an index (vs when an index hurts write performance)
+  - [ ] Know B-tree (default), GIN (JSONB/arrays), GiST (ranges) index types
+- [ ] Read `EXPLAIN ANALYZE` output: seq scan vs index scan, cost estimates
+  - [ ] Know that `cost=X..Y` means startup..total; `actual time=` is real
+- [ ] Explain `expire_on_commit=False` and why async SQLAlchemy needs it
+- [ ] Implement cursor-based (keyset) pagination vs OFFSET
+  - [ ] Know why OFFSET degrades at large page numbers
+- [ ] Calculate connection pool size given app instances and `max_connections`
+
+### Senior 🔴
+
+- [ ] Explain MVCC: how Postgres allows concurrent reads without locking writers
+  - [ ] Know what dead tuples are and why `VACUUM` is needed
+  - [ ] Understand `pg_stat_user_tables` columns: `n_dead_tup`, `last_autovacuum`
+- [ ] Write a CTE with `WITH RECURSIVE` or a window function (`ROW_NUMBER OVER`)
+- [ ] Use `JSONB` operators: `->`, `->>`, `@>`, `?`, `#>>`
+  - [ ] Know when to add a GIN index on a JSONB column
+- [ ] Explain two-phase locking vs MVCC and when each applies
+- [ ] Design Alembic migration for a zero-downtime column rename
+
+### Pre-Interview Refresh ✏️
+
+- [ ] When do you add an index? When does it hurt?
+- [ ] What does `EXPLAIN ANALYZE` show that `EXPLAIN` does not?
+- [ ] Difference between Alembic `downgrade -1` vs `downgrade base`
+- [ ] Why does async SQLAlchemy require `expire_on_commit=False`?
+- [ ] Why does OFFSET pagination degrade at page 1000 vs keyset pagination?

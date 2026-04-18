@@ -973,3 +973,51 @@ By end of Pillar 1, you should be able to:
 - [Pydantic v2 Docs](https://docs.pydantic.dev/latest/)
 - [asyncio Docs](https://docs.python.org/3/library/asyncio.html)
 - [pytest Docs](https://docs.pytest.org/)
+
+---
+
+## Checklist — Pillar 1: Core Backend
+
+### Foundation 🟢
+
+- [ ] Explain Python OOP: classes, inheritance, ABC, `__dunder__` methods
+  - [ ] Know the difference between `@classmethod` and `@staticmethod`
+  - [ ] Can write an ABC with abstract methods
+- [ ] Explain `async def`, `await`, and when NOT to use async
+  - [ ] Know that async is for I/O, not CPU-bound work
+  - [ ] Can write a simple `asyncio.gather` call
+- [ ] Build a FastAPI route with Pydantic request + response schemas
+  - [ ] Know how `HTTPException` works and what status codes to use
+- [ ] Write a pytest test with a fixture
+  - [ ] Know `asyncio_mode = "auto"` removes `@pytest.mark.asyncio`
+
+### Middle 🟡
+
+- [ ] Explain Pydantic v2: `model_config`, `field_validator`, `model_validator`
+  - [ ] Know the difference between `mode="before"` and `mode="after"` validators
+  - [ ] Can write a validator that checks one field against another
+- [ ] Use `Annotated[T, Depends(...)]` DI pattern (not bare `Depends()`)
+  - [ ] Explain why bare `Depends()` fails Ruff E275
+- [ ] Implement lifespan context manager (startup/shutdown tasks)
+- [ ] Write `httpx.AsyncClient` integration test with `ASGITransport`
+- [ ] Explain `asyncio.TaskGroup` vs `asyncio.gather` error semantics
+  - [ ] Know that `TaskGroup` cancels all on first failure; `gather` depends on `return_exceptions`
+
+### Senior 🔴
+
+- [ ] Explain the event loop: selectors, `run_until_complete`, `run_in_executor`
+  - [ ] Know what blocks the event loop (sync I/O, `time.sleep`, CPU work)
+  - [ ] Know how to offload blocking code to a thread pool
+- [ ] Use `asyncio.Semaphore` to cap concurrency on a hot path
+- [ ] Explain `asyncio.shield` and when it prevents unwanted cancellation
+- [ ] Design a middleware that propagates correlation IDs to all log calls
+- [ ] Explain `expire_on_commit=False` and the `MissingGreenlet` error
+
+### Pre-Interview Refresh ✏️
+
+- [ ] Explain `await` in one sentence
+- [ ] `asyncio.gather` vs `asyncio.create_task` — what is the difference?
+- [ ] What is the `expire_on_commit=False` gotcha in async SQLAlchemy?
+- [ ] Why use `Annotated[T, Depends()]` instead of bare `Depends()`?
+- [ ] `async def` vs `def` in FastAPI — when does FastAPI run them in a threadpool?
+- [ ] Explain Python's GIL and why it matters (or doesn't) for async code

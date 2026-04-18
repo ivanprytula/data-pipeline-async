@@ -151,3 +151,43 @@ Spans appear in **Jaeger UI** with full trace graph
 - [Grafana Dashboards](https://grafana.com/grafana/)
 - [OpenTelemetry](https://opentelemetry.io/docs/instrumentation/python/)
 - [Jaeger](https://www.jaegertracing.io/docs/)
+
+---
+
+## Checklist — Pillar 4: Observability
+
+### Foundation 🟢
+
+- [ ] Log structured JSON with `python-json-logger`: `event`, `level`, `cid`, context fields
+  - [ ] Know the five log levels and when to use each: `DEBUG/INFO/WARNING/ERROR/CRITICAL`
+- [ ] Explain the four golden signals: latency, traffic, errors, saturation
+- [ ] Inject a correlation ID at request boundary and propagate it through the call chain
+- [ ] Read Prometheus metrics output from `/metrics` endpoint
+
+### Middle 🟡
+
+- [ ] Know when to use `Counter` vs `Gauge` vs `Histogram` vs `Summary`
+  - [ ] Counter: monotonically increasing (requests, errors)
+  - [ ] Gauge: up and down (active connections, cache size)
+  - [ ] Histogram: distribution (latency, request size)
+- [ ] Write a Grafana query: `rate()`, `histogram_quantile(0.95, ...)`, `sum by (label)`
+- [ ] Explain why P95/P99 latency matters more than average
+  - [ ] Know that average hides tail latency impacting a fixed % of users
+- [ ] Configure alert thresholds: error rate, latency SLO
+
+### Senior 🔴
+
+- [ ] Explain OpenTelemetry spans: parent/child relationships, `trace_id`, `span_id`
+  - [ ] Know how `TraceContextPropagator` injects/extracts trace context across HTTP calls
+- [ ] Explain cardinality explosion: why `user_id` as a Prometheus label is dangerous
+- [ ] Link Prometheus exemplars to Jaeger traces
+- [ ] Design SLI/SLO/SLA for the records API (latency, availability, error rate)
+  - [ ] Know the difference: SLI = metric, SLO = target, SLA = contract
+
+### Pre-Interview Refresh ✏️
+
+- [ ] What is a correlation ID? Why inject it at middleware, not in each function?
+- [ ] `Counter` vs `Gauge` — give a real example of each
+- [ ] Why P95 latency over average? Give a scenario where average is misleading
+- [ ] What is `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))`?
+- [ ] What is cardinality in Prometheus and why does high cardinality cause problems?
