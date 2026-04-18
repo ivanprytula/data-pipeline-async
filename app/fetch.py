@@ -74,10 +74,6 @@ async def close_http_client() -> None:
     if client is None:
         return
 
-    client = _http_clients.pop(loop, None)
-    if client is None:
-        return
-
     with contextlib.suppress(RuntimeError):
         await client.aclose()
 
@@ -114,13 +110,7 @@ async def close_all_http_clients() -> None:
                     # wait a short time for the close to complete
                     fut.result(timeout=1)
                 except Exception:
-                    # Fallback to sync close if available
-                    try:
-                        close_fn = getattr(client, "close", None)
-                        if callable(close_fn):
-                            close_fn()
-                    except Exception:
-                        pass
+                    pass  # Best-effort: swallow errors during cross-loop cleanup
         except Exception:
             # Swallow any error to ensure best-effort cleanup
             pass

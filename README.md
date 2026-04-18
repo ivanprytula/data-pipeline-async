@@ -215,12 +215,15 @@ sync/ (and async/ — identical layout)
 - [x] Health check endpoint should also verify DB connectivity — `GET /readyz` runs `SELECT 1` (readiness probe); `GET /health` is lightweight liveness
 - [x] `docker compose` healthcheck for the app container (should hit `/readyz` for readiness-based restart)
 - [x] **Load test harness** — k6 + Locust comparing cursor vs offset at scale; see [Load Testing](#load-testing)
+- [x] **E2E test with external API retry loop** — `tests/integration/records/test_e2e_fetch.py` validates fetch.py + exponential backoff live behavior
 
 ## Gaps to Cover
 
-| Gap | Priority | Effort | Impact |
-|-----|----------|--------|--------|
-| E2E test with external API retry loop | Low | 30min | Validate fetch.py + retry exponential backoff live behavior |
+*All major features completed. Optional enhancements:*
+
+- Distributed tracing with OpenTelemetry (Jaeger/Zipkin)
+- Sync version parity with async (Postgres-backed integration tests)
+- Cache layer (Redis) benchmarks
 
 ---
 
@@ -265,3 +268,33 @@ Cursor    │  fast (indexed seek)         │  fast — O(1) at any depth
 | [scripts/load_test_pagination.js](scripts/load_test_pagination.js) | k6 | Two parallel scenarios, p50/p95/p99 summary table |
 | [scripts/locustfile.py](scripts/locustfile.py) | Locust | `OffsetPaginationUser` + `CursorPaginationUser` |
 | [scripts/load_test.sh](scripts/load_test.sh) | bash | Wrapper: seed / k6 / locust commands |
+
+---
+
+## E2E Tests — External API Retry Logic
+
+Validate `app/fetch.py` resilience patterns: retry with exponential backoff, timeout handling, graceful failure.
+
+```bash
+# Run only non-E2E tests (default — 241 tests, ~25s)
+uv run pytest tests/ -v
+
+# Run E2E tests against live external API (jsonplaceholder) — 11+ tests
+uv run pytest tests/integration/records/test_e2e_fetch.py -v -m e2e
+
+# Run all tests including E2E
+uv run pytest tests/ -v -m ""
+```
+
+### What's tested
+
+| Test | Tool | Coverage |
+|------|------|----------|
+| Successful fetch (no retries) | httpx + jsonplaceholder | Basic happy path |
+| Retry with exponential backoff | Mock + timing | 1s, 2s, 4s delays; attempt counting |
+| Exhaustion after max retries | Mock | Exception propagation |
+| Timeout handling | Mock | httpx.TimeoutException |
+| HTTP client lifecycle | Direct | Create, reuse, close, idempotent cleanup |
+| Concurrent fetches | asyncio.gather | Multi-VU stress test |
+
+**File**: [tests/integration/records/test_e2e_fetch.py](tests/integration/records/test_e2e_fetch.py)
