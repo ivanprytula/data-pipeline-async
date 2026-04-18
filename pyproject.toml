@@ -24,6 +24,9 @@ dependencies = [
     "pyjwt>=2.10.0",
     # Migrations
     "alembic>=1.13",
+    # HTTP clients (async) — both for multi-tool exposure
+    "httpx>=0.28.1",  # requests-like API, HTTP/2 support
+    "aiohttp>=3.9.4",  # aiohttp-native API, mature, updated Mar 2026
 ]
 
 [dependency-groups]

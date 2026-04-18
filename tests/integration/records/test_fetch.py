@@ -1,222 +1,164 @@
-"""Tests for external API fetch with retry logic.
+"""Tests for external API fetch with retry logic and httpx.
 
-Week 2 Milestone 4: Error Handling & Retry Logic
-Demonstrates resilience patterns: graceful failure, exponential backoff.
+Step 7: Real async HTTP with httpx, retry logic, and error handling.
+Demonstrates resilience patterns: graceful failure, exponential backoff, timeouts.
 """
 
 import asyncio
 import logging
-import time
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
-from app.fetch import fetch_from_external_api, fetch_with_retry
+from app.fetch import (
+    close_http_client,
+    fetch_with_retry,
+    get_http_client,
+)
 
 
 logger = logging.getLogger(__name__)
 
+# --- Constants (DRY: avoid string duplication)
+API_BASE = "https://jsonplaceholder.typicode.com"
+TEST_POST_ID = 1
+TEST_POST_URL = f"{API_BASE}/posts/{TEST_POST_ID}"
+MOCK_POST_RESPONSE = {"id": TEST_POST_ID, "title": "Test Post", "data": "success"}
+MOCK_POST_SUCCESS = {"id": TEST_POST_ID, "title": "Success after retry"}
 
-@pytest.mark.integration
-async def test_fetch_from_external_api_succeeds() -> None:
-    """Single call to external API sometimes succeeds (90% chance)."""
-    # This test may flake since it's random. Run multiple times to verify.
-    for _ in range(10):
-        try:
-            result = await fetch_from_external_api("http://api.example.com")
-            assert isinstance(result, dict)
-            assert result["data"] == "success"
-            break  # Success, exit loop
-        except Exception:
-            pass  # Expected 10% of the time, retry
-    # If we got here without breaking, all 10 attempts failed (flaky but unlikely)
+# Log messages
+LOG_FETCH_EXHAUSTED = "fetch_exhausted"
+LOG_FETCH_ATTEMPT = "fetch_attempt"
+LOG_FETCH_SUCCESS = "fetch_success"
+LOG_FETCH_TIMEOUT = "fetch_timeout"
+LOG_FETCH_HTTP_ERROR = "fetch_http_error"
+LOG_FETCH_RETRY = "fetch_retry"
 
 
-@pytest.mark.integration
-async def test_fetch_with_retry_eventually_succeeds() -> None:
-    """Retry logic succeeds despite transient failures.
-
-    Week 2 Milestone 4 core pattern: with exponential backoff, we can tolerate
-    transient failures. This test verifies the retry loop works end-to-end.
-    """
-    # Act — should eventually succeed (99.9% chance with 3 retries)
-    start = time.perf_counter()
-    result = await fetch_with_retry("http://api.example.com", max_retries=3)
-    elapsed = time.perf_counter() - start
-
-    # Assert
-    assert result is not None
-    assert result["data"] == "success"
-    # If retries happened, elapsed time will be longer (due to sleep(2^attempt))
-    # But should complete within reason (max: 1 + 2 + 4 = 7 seconds)
-    assert elapsed < 10.0, f"Retry took too long: {elapsed:.1f}s"
+@pytest.fixture
+async def cleanup_http_client():
+    """Fixture to ensure HTTP client is cleaned up after each test."""
+    yield
+    await close_http_client()
 
 
 @pytest.mark.integration
-async def test_fetch_with_retry_respects_max_retries() -> None:
-    """Verify retry logic stops after max_retries attempts.
+async def test_http_client_lifecycle(cleanup_http_client) -> None:
+    """Verify HTTP client is created once and reused, then can be closed."""
+    # Get client twice - should be same instance
+    client1 = await get_http_client()
+    client2 = await get_http_client()
+    assert client1 is client2
 
-    Even with max_retries=1 (no retries), we still try once and fail if
-    unlucky. With max_retries=10, we're nearly guaranteed success.
-    """
-    # Use many retries to virtually guarantee success
-    result = await fetch_with_retry(
-        "http://api.example.com",
-        max_retries=10,  # Very high to ensure success
-    )
-    assert result is not None
-
-
-@pytest.mark.integration
-async def test_fetch_with_retry_logging(caplog) -> None:
-    """Verify retry logic logs attempts, delays, and final status.
-
-    Week 2 Milestone 4 logging requirement: "Logging shows retry attempts"
-    """
-    with caplog.at_level(logging.INFO):
-        result = await fetch_with_retry(
-            "http://api.example.com",
-            max_retries=3,
-        )
-        assert result is not None
-
-    # At minimum, we should have logged something about the fetch
-    log_messages = [r.message for r in caplog.records]
-    log_text = " ".join(log_messages)
-
-    # Verify logging occurred (either success on first try or retry events)
-    assert "fetch_attempt" in log_text or "fetch_success" in log_text, (
-        f"Expected fetch logs, got: {log_text}"
-    )
+    # Close and verify new client is created
+    await close_http_client()
+    client3 = await get_http_client()
+    assert client1 is not client3
 
 
 @pytest.mark.integration
-async def test_fetch_with_retry_exponential_backoff_timing() -> None:
-    """Verify timing between retries follows exponential backoff pattern.
+async def test_fetch_success_without_failures(cleanup_http_client) -> None:
+    """Test successful fetch when simulate_failures=False."""
 
-    With max_retries=4:
-    - Attempt 1: now
-    - Attempt 2: now + 1s
-    - Attempt 3: now + 1 + 2 = 3s
-    - Attempt 4: now + 1 + 2 + 4 = 7s
+    async def mock_fetch(url: str, simulate_failures: bool = False) -> dict:
+        return MOCK_POST_RESPONSE
 
-    This test might be flaky since random failures aren't guaranteed.
-    Use high retry count to increase chance we run the sleep logic.
-    """
-    start = time.perf_counter()
-    result = await fetch_with_retry(
-        "http://api.example.com",
-        max_retries=5,  # Increase chances of hitting retries
-    )
-    elapsed = time.perf_counter() - start
-
-    assert result is not None
-    # If we hit any retries, elapsed > 0.1s (due to asyncio.sleep calls)
-    # This is probabilistic but should be reliable
-    # (very unlikely all 5 attempts succeed on first try with 10% failure rate each)
-    logger.info(f"[timing] Fetch with retry took {elapsed:.3f}s (max 5 retries)")
-    # No hard assertion on timing since it's probabilistic
-    # Just log for observation
+    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
+        assert result["title"] == "Test Post"
 
 
-# ---------------------------------------------------------------------------
-# Fetch exhaustion — all retries fail
-# ---------------------------------------------------------------------------
 @pytest.mark.integration
-async def test_fetch_all_retries_fail() -> None:
-    """When every attempt fails, the last exception is raised."""
+async def test_fetch_retry_on_transient_failure(cleanup_http_client) -> None:
+    """Retry succeeds after a transient failure."""
+    call_count = 0
+
+    async def mock_fetch(url: str, simulate_failures: bool = False) -> dict:
+        nonlocal call_count
+        call_count += 1
+        # Fail first time, succeed second
+        if call_count < 2:
+            raise httpx.TimeoutException("Timeout on call 1")
+        return MOCK_POST_SUCCESS
+
+    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
+        assert result["title"] == "Success after retry"
+        assert call_count == 2
+
+
+@pytest.mark.integration
+async def test_fetch_retry_exhaustion(cleanup_http_client, caplog) -> None:
+    """Max retries are respected and exhaustion is logged."""
+    call_count = 0
+
+    async def always_fail(url: str, simulate_failures: bool = False) -> dict:
+        nonlocal call_count
+        call_count += 1
+        raise Exception("Persistent API error")
+
     with (
-        patch(
-            "app.fetch.fetch_from_external_api",
-            new_callable=AsyncMock,
-            side_effect=Exception("API down"),
-        ),
+        patch("app.fetch.fetch_from_external_api", side_effect=always_fail),
         patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.ERROR),
     ):
-        with pytest.raises(Exception, match="API down"):
-            await fetch_with_retry("http://example.com", max_retries=3)
+        with pytest.raises(Exception, match="Persistent API error"):
+            await fetch_with_retry(TEST_POST_URL, max_retries=3)
+        assert call_count == 3
+
+    # Verify exhaustion was logged
+    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
 
 
 @pytest.mark.integration
-async def test_fetch_exhausted_logs_error(caplog: pytest.LogCaptureFixture) -> None:
-    """The fetch_exhausted log event fires on final failure."""
+async def test_fetch_timeout_error_handling(cleanup_http_client, caplog) -> None:
+    """Timeout exceptions are properly handled."""
+
+    async def timeout_fetch(url: str, simulate_failures: bool = False) -> dict:
+        raise httpx.TimeoutException("Request timeout")
+
     with (
-        patch(
-            "app.fetch.fetch_from_external_api",
-            new_callable=AsyncMock,
-            side_effect=Exception("timeout"),
-        ),
+        patch("app.fetch.fetch_from_external_api", side_effect=timeout_fetch),
         patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.ERROR),
     ):
-        with pytest.raises(Exception, match="timeout"):
-            await fetch_with_retry("http://example.com", max_retries=2)
+        with pytest.raises(httpx.TimeoutException):
+            await fetch_with_retry(TEST_POST_URL, max_retries=1)
 
-    assert any("fetch_exhausted" in r.message for r in caplog.records)
-
-
-@pytest.mark.integration
-async def test_fetch_with_retry_single_attempt() -> None:
-    """Edge case: max_retries=1 means only 1 attempt (no retries).
-
-    If it fails, exception is raised immediately (no sleep).
-    """
-    # Run multiple times to catch failure scenario (10% chance)
-    exception_caught = False
-    for _ in range(20):
-        try:
-            await fetch_with_retry(
-                "http://api.example.com",
-                max_retries=1,  # Only one attempt
-            )
-        except Exception as e:
-            exception_caught = True
-            assert "API temporarily unavailable" in str(e)
-            break
-
-    # We should eventually see the exception (10% failure rate × 20 tries ≈ 87% chance)
-    # But not always, so this is probabilistic
-    logger.info(f"[edge_case] max_retries=1, exception_caught={exception_caught}")
+    # Verify error was logged
+    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
 
 
 @pytest.mark.integration
-async def test_concurrent_fetches_with_retry(caplog) -> None:
-    """Verify retry logic works correctly when multiple requests concurrent.
+async def test_concurrent_fetches(cleanup_http_client) -> None:
+    """Concurrent fetch requests work correctly."""
 
-    Week 2 async pattern: gather multiple concurrent tasks with retry.
-    """
-    with caplog.at_level(logging.INFO):
-        # Launch 10 concurrent fetches
+    async def mock_fetch(url: str, simulate_failures: bool = False) -> dict:
+        post_id = int(url.split("/")[-1])
+        return {"id": post_id, "title": f"Post {post_id}"}
+
+    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        # Launch 5 concurrent fetches
         tasks = [
-            fetch_with_retry(f"http://api.example.com/{i}", max_retries=3)
-            for i in range(10)
+            fetch_with_retry(f"{API_BASE}/posts/{i}", max_retries=3)
+            for i in range(1, 6)
         ]
         results = await asyncio.gather(*tasks)
 
-    # Assert all succeeded
-    assert len(results) == 10
-    assert all(r["data"] == "success" for r in results)
-
-    # Assert logging shows multiple concurrent attempts
-    log_messages = [r.message for r in caplog.records]
-    assert len(log_messages) >= 10, (
-        "Expected at least 10 fetch logs for 10 concurrent tasks"
-    )
+        # All should succeed
+        assert len(results) == 5
+        assert all(r["title"].startswith("Post") for r in results)
 
 
 @pytest.mark.integration
-async def test_fetch_with_retry_timeout() -> None:
-    """Verify retry logic completes within reasonable time even with max_retries.
+async def test_http_client_lifecycle_multiple_rounds(cleanup_http_client) -> None:
+    """Test multiple cycles of get/close."""
+    for _ in range(3):
+        client = await get_http_client()
+        assert client is not None
+        await close_http_client()
 
-    Worst case: max_retries=4 means up to 1+2+4+8 = 15 seconds of sleep.
-    Here we test with max_retries=3 (max 1+2+4 = 7 seconds possible).
-    """
-    start = time.perf_counter()
-    result = await fetch_with_retry(
-        "http://api.example.com",
-        max_retries=3,
-    )
-    elapsed = time.perf_counter() - start
-
-    assert result is not None
-    # Should complete in < 15 seconds (very generous upper bound)
-    assert elapsed < 15.0, f"Retry took too long: {elapsed:.1f}s"
+    # Verify we can still get a client after cycles
+    final_client = await get_http_client()
+    assert final_client is not None

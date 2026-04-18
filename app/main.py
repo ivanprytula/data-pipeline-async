@@ -21,6 +21,8 @@ from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
 from app.database import engine, get_db
+from app.fetch import close_http_client
+from app.fetch_aiohttp import close_http_session
 from app.rate_limiting import limiter
 from app.routers import records, records_v2
 
@@ -70,7 +72,10 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     """
     logger.info("startup", extra={"event": "application_started"})
     yield
-    await engine.dispose()
+    # Shutdown: cleanup resources (cleanup order: app-level clients first, then engine)
+    await close_http_client()  # httpx client cleanup
+    await close_http_session()  # aiohttp session cleanup
+    await engine.dispose()  # Database connections cleanup
     logger.info("shutdown", extra={"event": "engine_disposed"})
 
 
