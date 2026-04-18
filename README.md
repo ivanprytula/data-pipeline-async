@@ -191,32 +191,35 @@ sync/ (and async/ — identical layout)
 
 ### Week 2 additions (do these yourself — they're the exercises)
 
-- [ ] **Cursor-based pagination** — replace `skip`/`limit` with an opaque cursor for
-  stable pages under concurrent inserts
-- [ ] **Duplicate detection** — add a `source + timestamp` unique constraint and handle
-  `IntegrityError` gracefully (idempotent upsert)
-- [ ] **Rate limiting** — add `slowapi` to the sync version; write a test that sends 101
-  requests and asserts the 101st returns 429
-- [ ] **Retry with exponential backoff** — add `app/fetch.py` that wraps an external
-  HTTP call with jitter-backoff using `tenacity`
+- [x] **Cursor-based pagination** — opaque base64-encoded cursors; `GET /api/v2/records/cursor`
+- [x] **Duplicate detection** — `source + timestamp` unique constraint; idempotent upsert with race-condition tests
+- [x] **Rate limiting** — `slowapi` integration; custom rate limiters in `app/rate_limiting.py`, `app/rate_limiting_advanced.py`
+- [x] **Retry with exponential backoff** — `app/fetch.py` with httpx AsyncClient, per-event-loop management, graceful failure handling
 
 ### Week 3 database optimisations
 
-- [ ] Run `EXPLAIN ANALYZE` on the list query; add a covering index on `(source, id)`
-- [ ] Introduce a `processed_at` column (nullable `DateTime`); remove `processed` bool —
-  presence of timestamp is the state
-- [ ] Add Alembic migrations (`alembic init migrations`)
+- [x] Run `EXPLAIN ANALYZE` on the list query; add a covering index on `(source, id)` — PostgreSQL-only integration tests
+- [x] Introduce a `processed_at` column (nullable `DateTime`); remove `processed` bool — Alembic migration complete
+- [x] Add Alembic migrations — `alembic/versions/` with timestamped revisions
 
 ### Week 4 async upgrades (async version)
 
-- [ ] Replace the single `await create_record(...)` with `asyncio.gather(...)` to fan out
-  100 concurrent writes; measure throughput difference
-- [ ] Add a `semaphore` to cap concurrency at 20 and prevent DB pool exhaustion
-- [ ] Test a race condition: two concurrent writes with the same `source + timestamp`
+- [x] Replace the single `await create_record(...)` with `asyncio.gather(...)` to fan out 100 concurrent writes — concurrent record enrichment
+- [x] Add a `semaphore` to cap concurrency at 20 — semaphore-limited concurrent operations, pooling tests
+- [x] Test a race condition: two concurrent writes with the same `source + timestamp` — concurrency tests with race-condition detection
 
 ### Production hardening
 
-- [ ] Add Prometheus metrics (`prometheus-fastapi-instrumentator`)
-- [ ] Add `X-Request-ID` middleware that injects a UUID into every log entry
-- [ ] Health check endpoint should also verify DB connectivity (run a `SELECT 1`)
-- [ ] `docker compose` healthcheck for the app container (hits `/health`)
+- [x] Add Prometheus metrics (`prometheus-fastapi-instrumentator`) — `GET /metrics` endpoint; instrumentation middleware
+- [x] Add `X-Request-ID` middleware — `CorrelationIdMiddleware` injects `cid` UUID into all logs; correlation tracking
+- [x] Health check endpoint should also verify DB connectivity — `GET /readyz` runs `SELECT 1` (readiness probe); `GET /health` is lightweight liveness
+- [ ] **MISSING:** `docker compose` healthcheck for the app container (should hit `/readyz` for readiness-based restart)
+
+## Gaps to Cover
+
+| Gap | Priority | Effort | Impact |
+|-----|----------|--------|--------|
+| App container `healthcheck` in `docker-compose.yml` | High | <5min | Kubernetes-like readiness orchestration (auto-restart + traffic draining) |
+| Postgres-backed tests in sync version | Medium | 1-2h | Parity with async version (currently sync has SQLite in-memory only) |
+| E2E test with external API retry loop | Low | 30min | Validate fetch.py + retry exponential backoff live behavior |
+| Load test harness (k6 or locust) | Low | 1-2h | Measure cursor vs offset pagination performance at scale |

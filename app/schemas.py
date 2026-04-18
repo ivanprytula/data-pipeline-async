@@ -232,3 +232,24 @@ class UpsertMode:
 
     STRICT: str = UPSERT_MODE_STRICT
     """201 on create, 409 on conflict — explicit error on duplicate."""
+
+
+# ---------------------------------------------------------------------------
+# Cursor-based pagination schemas (high-load pagination)
+# ---------------------------------------------------------------------------
+
+
+class CursorPaginationResponse(BaseModel):
+    """Response for cursor-based pagination.
+
+    Attributes:
+        records: List of records in this page.
+        next_cursor: Opaque cursor for the next page (None if no more results).
+        has_more: True if more records exist beyond this page.
+        limit: The limit used for this request.
+    """
+
+    records: list[RecordResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
+    limit: int

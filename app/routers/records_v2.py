@@ -60,6 +60,7 @@ from app.crud import (
 )
 from app.crud import (
     enrich_records_concurrent,
+    get_records_cursor_paginated,
     get_records_with_tag_counts,
     get_records_with_tag_counts_naive,
     upsert_record,
@@ -72,6 +73,7 @@ from app.metrics import (
 )
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
 from app.schemas import (
+    CursorPaginationResponse,
     EnrichRequest,
     EnrichResponse,
     RecordRequest,
@@ -398,8 +400,69 @@ async def demo_n_plus_one(
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v2/records/enrich — concurrent record enrichment (Step 8)
+# GET /api/v2/records/cursor — cursor-based pagination (high-load)
 # ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/cursor",
+    response_model=CursorPaginationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List records with cursor-based pagination",
+    description=(
+        "Fetches records using **cursor-based pagination** (ideal for high-load).\n\n"
+        "**Advantages over offset/limit**:\n"
+        "- No offset (avoids full table scan for deep pages)\n"
+        "- Stable under concurrent inserts (offset doesn't shift)\n"
+        "- Cache-friendly (cursor ties to a specific record)\n\n"
+        "**How it works**:\n"
+        "1. First request: `GET /api/v2/records/cursor?limit=50`\n"
+        "2. Response includes `next_cursor` and `has_more`\n"
+        "3. Next request: `GET /api/v2/records/cursor?cursor=<next_cursor>&limit=50`\n"
+        "4. Repeat until `has_more=false`\n\n"
+        '**Cursor format**: Opaque base64-encoded JSON `{"id": ..., "timestamp": ...}`\n\n'
+        "**Try it**:\n"
+        "```bash\n"
+        "# First page\n"
+        "http GET :8000/api/v2/records/cursor limit==10\n\n"
+        "# Next page (copy next_cursor from response)\n"
+        "http GET :8000/api/v2/records/cursor cursor==<value> limit==10\n"
+        "```"
+    ),
+)
+async def list_records_cursor(
+    db: DbDep,
+    cursor: Annotated[
+        str | None, Query(description="Opaque cursor for pagination")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    source: Annotated[str | None, Query(description="Optional source filter")] = None,
+) -> CursorPaginationResponse:
+    """List records using cursor-based pagination (stable under concurrent inserts).
+
+    Args:
+        db: Async database session (injected).
+        cursor: Opaque cursor from the previous response (None for first page).
+        limit: Number of records per page (1–100, default 50).
+        source: Optional source filter.
+
+    Returns:
+        CursorPaginationResponse with records, next_cursor, and has_more flag.
+    """
+    records, next_cursor, has_more = await get_records_cursor_paginated(
+        session=db,
+        cursor=cursor,
+        limit=limit,
+        source=source,
+    )
+    return CursorPaginationResponse(
+        records=[RecordResponse.model_validate(r) for r in records],
+        next_cursor=next_cursor,
+        has_more=has_more,
+        limit=limit,
+    )
+
+
 @router.post(
     "/enrich",
     response_model=EnrichResponse,

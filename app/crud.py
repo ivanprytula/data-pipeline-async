@@ -1,6 +1,8 @@
 """Async CRUD operations (SQLAlchemy 2.0 select() style)."""
 
 import asyncio
+import base64
+import json
 from datetime import datetime
 
 from sqlalchemy import func, insert, select
@@ -124,6 +126,113 @@ async def get_records(
     total = (await session.execute(count_q)).scalar_one()
     records = list((await session.execute(data_q)).scalars().all())
     return records, total
+
+
+def _encode_cursor(record_id: int, timestamp: datetime) -> str:
+    """Encode a cursor as base64(JSON) for opaque pagination positioning.
+
+    Args:
+        record_id: The last record ID in the current page.
+        timestamp: The timestamp of the last record (for tie-breaking).
+
+    Returns:
+        Base64-encoded cursor string.
+    """
+    cursor_data = {
+        "id": record_id,
+        "timestamp": timestamp.isoformat() if timestamp else None,
+    }
+    json_str = json.dumps(cursor_data, separators=(",", ":"))
+    return base64.b64encode(json_str.encode()).decode("ascii")
+
+
+def _decode_cursor(cursor: str | None) -> tuple[int, datetime | None] | None:
+    """Decode a cursor back into (record_id, timestamp) pair.
+
+    Args:
+        cursor: Base64-encoded cursor string.
+
+    Returns:
+        Tuple of (record_id, timestamp) or None if cursor is None or invalid.
+    """
+    if not cursor:
+        return None
+    try:
+        json_str = base64.b64decode(cursor).decode("utf-8")
+        data = json.loads(json_str)
+        record_id = data.get("id")
+        ts_str = data.get("timestamp")
+        timestamp = datetime.fromisoformat(ts_str) if ts_str else None
+        return (record_id, timestamp)
+    except ValueError, KeyError, json.JSONDecodeError:
+        return None
+
+
+async def get_records_cursor_paginated(
+    session: AsyncSession,
+    cursor: str | None = None,
+    limit: int = 50,
+    source: str | None = None,
+) -> tuple[list[Record], str | None, bool]:
+    """Fetch records using cursor-based pagination (stable under concurrent inserts).
+
+    Cursor-based pagination is ideal for high-load scenarios because:
+    - No offset needed (avoids full table scan for deep pages)
+    - Stable under concurrent inserts (offset doesn't shift)
+    - Cache-friendly (cursor is tied to a specific record position)
+
+    Args:
+        session: Active async database session.
+        cursor: Opaque cursor from the previous response (None for first page).
+        limit: Number of records to fetch (defines page size).
+        source: Optional source filter.
+
+    Returns:
+        Tuple of (records, next_cursor, has_more).
+        - records: List of Record objects (up to limit + 1 for has_more detection).
+        - next_cursor: Opaque cursor for the next page (None if no more records).
+        - has_more: True if more records exist beyond this page.
+    """
+    # Decode the cursor to find our starting position
+    cursor_data = _decode_cursor(cursor)
+    last_id = cursor_data[0] if cursor_data else 0
+    last_timestamp = cursor_data[1] if cursor_data else None
+
+    # Fetch limit + 1 records to detect if more exist
+    query = (
+        select(Record)
+        .where(Record.deleted_at.is_(None))
+        .order_by(Record.timestamp, Record.id)  # Stable sort order
+    )
+
+    # Apply cursor filter: we want records *after* the last one we returned
+    if cursor_data:
+        # Fetch records with (timestamp > last_timestamp) or
+        # (timestamp == last_timestamp and id > last_id)
+        query = query.where(
+            (Record.timestamp > last_timestamp)
+            | ((Record.timestamp == last_timestamp) & (Record.id > last_id))
+        )
+
+    if source:
+        query = query.where(Record.source == source)
+
+    # Fetch limit + 1 to detect has_more
+    query = query.limit(limit + 1)
+    result = await session.execute(query)
+    records_all = list(result.scalars().all())
+
+    # Determine if there are more records
+    has_more = len(records_all) > limit
+    records = records_all[:limit]
+
+    # Generate next cursor from the last record in this page
+    next_cursor = None
+    if records and has_more:
+        last_record = records[-1]
+        next_cursor = _encode_cursor(last_record.id, last_record.timestamp)
+
+    return records, next_cursor, has_more
 
 
 async def get_records_by_date_range(
