@@ -1,12 +1,13 @@
 name: Docker Build
 
-# When you're ready to enable it later, just uncomment those lines.
+# When you're ready to enable it later, uncomment workflow_run or push below.
+# For now, manually trigger via GitHub UI or API.
 on:
+  workflow_dispatch: {}
   # workflow_run:
-  #  workflows: ["CI"]            # Trigger only after ci.yml completes
-  #  branches: [main]
-  #  types: [completed]           # Run whether CI passed or failed
-  # Uncomment to also trigger manually or on tags
+  #   workflows: ["CI"]
+  #   branches: [main]
+  #   types: [completed]
   # push:
   #   tags:
   #     - "v*"
