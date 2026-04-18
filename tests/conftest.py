@@ -1,5 +1,6 @@
 """Pytest fixtures for the async stack (aiosqlite in-memory)."""
 
+import datetime
 import os
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, patch
@@ -14,6 +15,7 @@ os.environ.setdefault("DOCS_PASSWORD", "")
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
@@ -31,6 +33,8 @@ _engine = create_async_engine(_TEST_DB_URL, echo=False)
 _AsyncSessionLocal = async_sessionmaker(
     bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False
 )
+
+_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
 
 
 @pytest_asyncio.fixture()
@@ -127,9 +131,128 @@ async def created_records(client: AsyncClient) -> list[dict]:
 
 
 @pytest_asyncio.fixture()
+async def sample_records_with_tags(db: AsyncSession) -> list:
+    """Create sample records with varying tag counts for testing queries.
+
+    Useful for N+1 demo and other query optimization tests.
+    Creates records with 0, 2, 4, 6, 8 tags respectively.
+    """
+    from app.crud import create_record
+    from app.schemas import RecordRequest
+
+    records = []
+    for i in range(5):
+        request = RecordRequest(
+            source=f"sample-{i}",
+            timestamp=_RECORD_TIMESTAMP,
+            data={"index": i},
+            tags=[f"tag-{j}" for j in range(i * 2)],  # 0, 2, 4, 6, 8 tags
+        )
+        record = await create_record(db, request)
+        records.append(record)
+    return records
+
+
+@pytest_asyncio.fixture()
 async def record_payload() -> dict:
     """Valid record payload for testing."""
     return RECORD_API.copy()
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Fixture (for EXPLAIN ANALYZE tests)
+# ---------------------------------------------------------------------------
+# Uses conditional connection to Docker PostgreSQL:
+# 1. If Docker container at localhost:5433 is running: use it
+# 2. Otherwise: skip tests gracefully
+#
+# To enable: docker compose --profile test up db-test
+
+
+async def _check_postgres_available(
+    host: str, port: int, user: str, password: str, db: str
+) -> bool:
+    """Check if PostgreSQL service is available.
+
+    Args:
+        host: PostgreSQL host
+        port: PostgreSQL port
+        user: PostgreSQL user
+        password: PostgreSQL password
+        db: Database name
+
+    Returns:
+        True if connection successful, False otherwise
+    """
+    db_url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+    test_engine = create_async_engine(db_url, echo=False)
+    try:
+        async with test_engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+    finally:
+        await test_engine.dispose()
+
+
+@pytest_asyncio.fixture()
+async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
+    """Create PostgreSQL async session for EXPLAIN ANALYZE tests.
+
+    Tries to connect to Docker PostgreSQL service at localhost:5433.
+    If unavailable, skips tests gracefully.
+
+    To enable: docker compose --profile test up db-test
+
+    Yields:
+        AsyncSession connected to PostgreSQL with schema created
+    """
+    # Configuration for Docker PostgreSQL service
+    pg_config = {
+        "host": "localhost",
+        "port": 5433,
+        "user": "postgres",
+        "password": "postgres",
+        "db": "test_database",
+    }
+
+    # Check if PostgreSQL is available
+    available = await _check_postgres_available(
+        pg_config["host"],
+        pg_config["port"],
+        pg_config["user"],
+        pg_config["password"],
+        pg_config["db"],
+    )
+
+    if not available:
+        pytest.skip(
+            f"PostgreSQL not available at {pg_config['host']}:{pg_config['port']}. "
+            "Start with: docker compose --profile test up db-test"
+        )
+        return
+
+    # Connect to Docker PostgreSQL
+    db_url = f"postgresql+asyncpg://{pg_config['user']}:{pg_config['password']}@{pg_config['host']}:{pg_config['port']}/{pg_config['db']}"
+
+    pg_engine = create_async_engine(db_url, echo=False)
+    pg_sessionmaker = async_sessionmaker(
+        bind=pg_engine, autocommit=False, autoflush=False, expire_on_commit=False
+    )
+
+    # Create schema
+    try:
+        async with pg_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with pg_sessionmaker() as session:
+            yield session
+    finally:
+        # Cleanup
+        async with pg_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await pg_engine.dispose()
 
 
 # ---------------------------------------------------------------------------

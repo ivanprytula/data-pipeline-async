@@ -31,6 +31,7 @@ dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.25.3",
     "pytest-cov>=6.1.0",
+    "pytest-postgresql>=6.1.0",  # PostgreSQL fixtures for EXPLAIN ANALYZE tests
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
     # Pre-commit hooks & linting
@@ -47,6 +48,16 @@ markers = [
     "integration: Tests that touch DB/ASGI client",
     "e2e: End-to-end or long-running tests (skipped by default)",
 ]
+
+# pytest-postgresql configuration for Docker-based testing
+# To use: docker compose --profile test up db-test
+# The fixture will auto-detect the service or skip gracefully
+[tool.postgresql]
+host = "localhost"
+port = 5433
+user = "postgres"
+password = "postgres"
+dbname = "test_database"
 filterwarnings = [
     # slowapi depends on asyncio.iscoroutinefunction (deprecated in Python 3.15)
     # Will be fixed when slowapi updates; safe to ignore for now

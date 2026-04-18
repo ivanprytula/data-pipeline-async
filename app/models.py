@@ -37,6 +37,8 @@ class Record(Base, TimestampMixin):
             "source",
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        Index("ix_records_timestamp", "timestamp"),
+        Index("ix_records_processed", "processed"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -45,6 +47,7 @@ class Record(Base, TimestampMixin):
     raw_data: Mapped[dict] = mapped_column(JSON, nullable=False)
     tags: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return f"<Record id={self.id} source={self.source!r}>"

@@ -32,9 +32,10 @@ Try it with httpie:
 from __future__ import annotations
 
 import logging
+import time
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -50,7 +51,13 @@ from app.constants import (
     TOKEN_BUCKET_CAPACITY,
     TOKEN_BUCKET_REFILL_PER_SEC,
 )
-from app.crud import create_record as create_record_op
+from app.crud import (
+    create_record as create_record_op,
+)
+from app.crud import (
+    get_records_with_tag_counts,
+    get_records_with_tag_counts_naive,
+)
 from app.database import get_db
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
 from app.schemas import RecordRequest, RecordResponse
@@ -284,3 +291,89 @@ async def create_record_jwt(
     logger.info("jwt_create_record", extra={"user_id": user_id, "source": body.source})
     record = await create_record_op(db, body)
     return RecordResponse.model_validate(record)
+
+
+# ---------------------------------------------------------------------------
+# N+1 Query Problem Demo
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/n-plus-one-demo",
+    status_code=status.HTTP_200_OK,
+    summary="Demonstrate the N+1 query problem",
+    description=(
+        "Side-by-side comparison of naive (N+1) vs optimized (1 query) approaches "
+        "to fetch records with related data.\n\n"
+        "**What is the N+1 problem?**\n"
+        "When fetching 10 records with tag counts:\n"
+        "- **Naive**: 1 query to fetch records + 10 queries to count tags per record "
+        "= **11 total queries**\n"
+        "- **Optimized**: 1 query with `array_length(tags, 1)` computed server-side "
+        "= **1 total query**\n\n"
+        "**Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "naive_ms": 45.2,\n'
+        '  "optimized_ms": 12.1,\n'
+        '  "speedup": 3.73,\n'
+        '  "records_count": 10,\n'
+        '  "limit": 10\n'
+        "}\n"
+        "```\n\n"
+        "**Learning takeaways**:\n"
+        "1. Aggregate queries server-side (use `array_length`, `count`, etc.) not in loops\n"
+        "2. Measure before optimizing (the speedup magnitude depends on query cost)\n"
+        "3. Query *shape* matters more than caching (50x speedup is not uncommon)\n\n"
+        "**Try it**:\n"
+        "```bash\n"
+        "http GET :8000/api/v2/records/n-plus-one-demo limit==50\n"
+        "```"
+    ),
+)
+async def demo_n_plus_one(
+    db: DbDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> dict[str, float | int]:
+    """Demonstrate N+1 query problem with timing comparison.
+
+    Runs both naive and optimized approaches, measures their execution time,
+    and returns the speedup ratio. This is a teaching endpoint designed for
+    interviews and code reviews.
+
+    Args:
+        db: Async database session (injected).
+        limit: Number of records to fetch (1-100, default 10).
+
+    Returns:
+        Dict with keys: naive_ms, optimized_ms, speedup, records_count, limit.
+    """
+    # Time the naive approach (N+1 queries)
+    start_naive = time.perf_counter()
+    naive_results = await get_records_with_tag_counts_naive(db, limit=limit)
+    time_naive = (time.perf_counter() - start_naive) * 1000  # Convert to ms
+
+    # Time the optimized approach (1 query)
+    start_opt = time.perf_counter()
+    _ = await get_records_with_tag_counts(db, limit=limit)
+    time_opt = (time.perf_counter() - start_opt) * 1000  # Convert to ms
+
+    speedup = time_naive / time_opt if time_opt > 0 else 1.0
+
+    logger.info(
+        "n_plus_one_demo",
+        extra={
+            "limit": limit,
+            "naive_ms": round(time_naive, 2),
+            "optimized_ms": round(time_opt, 2),
+            "speedup": round(speedup, 2),
+        },
+    )
+
+    return {
+        "naive_ms": round(time_naive, 2),
+        "optimized_ms": round(time_opt, 2),
+        "speedup": round(speedup, 2),
+        "records_count": len(naive_results),
+        "limit": limit,
+    }

@@ -29,6 +29,7 @@ from app.crud import (
     get_records,
     mark_processed,
     soft_delete_record,
+    update_record,
 )
 from app.database import get_db
 from app.rate_limiting import limiter
@@ -38,6 +39,7 @@ from app.schemas import (
     RecordListResponse,
     RecordRequest,
     RecordResponse,
+    UpdateRecordRequest,
 )
 
 
@@ -146,6 +148,34 @@ async def list_records(
 async def get_record(record_id: int, db: DbDep) -> RecordResponse:
     """Retrieve a single record by ID."""
     record = await get_record_op(db, record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
+    return record  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# Records — update by ID (partial)
+# ---------------------------------------------------------------------------
+@router.patch(
+    "/{record_id}",
+    response_model=RecordResponse,
+)
+async def update_record_endpoint(
+    record_id: int, body: UpdateRecordRequest, db: DbDep
+) -> RecordResponse:
+    """Update a record with provided fields (partial update).
+
+    All fields are optional. Only provided fields are updated; others are
+    left unchanged.
+
+    Example (update source and tags):
+    ```json
+    {"source": "new-source", "tags": ["updated", "tags"]}
+    ```
+    """
+    record = await update_record(db, record_id, body)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
