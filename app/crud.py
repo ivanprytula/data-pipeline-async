@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime
 
 from sqlalchemy import func, insert, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Record, _utcnow
@@ -431,3 +432,75 @@ async def enrich_records_concurrent(
     # --- 3. Launch all enrichments concurrently, bounded by semaphore ---
     tasks = [enrich_one(rid) for rid in record_ids]
     return list(await asyncio.gather(*tasks))
+
+
+async def upsert_record(
+    session: AsyncSession,
+    request: RecordRequest,
+) -> tuple[Record, bool]:
+    """Insert a record or return the existing one on (source, timestamp) conflict.
+
+    Idempotency key: the (source, timestamp) unique constraint.
+    A second call with the same source+timestamp returns the existing record
+    without raising an error — safe to retry from clients.
+
+    Pattern:
+        Optimistic INSERT → detect IntegrityError → rollback → SELECT existing
+
+    Why optimistic insert (not SELECT-then-INSERT):
+        SELECT-then-INSERT has a TOCTOU race: two concurrent requests both see
+        no row, both INSERT, one wins, one fails. Catching IntegrityError is the
+        correct atomic pattern.
+
+    Args:
+        session: Active async database session.
+        request: RecordRequest payload (source+timestamp = idempotency key).
+
+    Returns:
+        Tuple of (record, created):
+            - record: The Record ORM instance (new or pre-existing).
+            - created: True if a new row was inserted; False if existing was found.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    record = Record(
+        source=request.source,
+        timestamp=request.timestamp,
+        raw_data=request.data,
+        tags=request.tags,
+    )
+    try:
+        session.add(record)
+        # flush before commit to surface IntegrityError early (before other work)
+        await session.flush()
+        await session.commit()
+        await session.refresh(record)
+        logger.info(
+            "upsert_created",
+            extra={"source": request.source, "timestamp": str(request.timestamp)},
+        )
+        return record, True
+    except IntegrityError:
+        # Unique constraint violated — rollback and fetch the existing row
+        await session.rollback()
+        result = await session.execute(
+            select(Record).where(
+                Record.source == request.source,
+                Record.timestamp == request.timestamp,
+                Record.deleted_at.is_(None),
+            )
+        )
+        existing = result.scalar_one_or_none()
+        logger.info(
+            "upsert_conflict",
+            extra={
+                "source": request.source,
+                "timestamp": str(request.timestamp),
+                "existing_id": existing.id if existing else None,
+            },
+        )
+        # existing can only be None in an extremely rare edge case (soft-deleted race);
+        # return it as-is — the route layer handles the None → 404 case if needed
+        return existing, False  # type: ignore[return-value]

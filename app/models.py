@@ -2,7 +2,16 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Index, Integer, String, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -39,6 +48,7 @@ class Record(Base, TimestampMixin):
         ),
         Index("ix_records_timestamp", "timestamp"),
         Index("ix_records_processed", "processed"),
+        UniqueConstraint("source", "timestamp", name="uq_records_source_timestamp"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

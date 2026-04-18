@@ -18,8 +18,17 @@ _RECORD = RECORD_PERF
 @pytest.mark.integration
 async def test_batch_insert_1000(client: AsyncClient) -> None:
     """Baseline: How fast can we insert 1000 records?"""
-    # Arrange
-    payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
+    # Arrange — unique (source, timestamp) per record to satisfy unique constraint
+    payload = {
+        "records": [
+            {
+                **_RECORD,
+                "timestamp": f"2024-01-15T{10 + i // 3600:02d}:{(i % 3600) // 60:02d}:{i % 60:02d}",
+                "data": {"value": i},
+            }
+            for i in range(1000)
+        ]
+    }
     start = time.perf_counter()
 
     # Act
@@ -35,8 +44,17 @@ async def test_batch_insert_1000(client: AsyncClient) -> None:
 @pytest.mark.integration
 async def test_list_1000_records(client: AsyncClient) -> None:
     """Baseline: How fast can we list 1000 records?"""
-    # Arrange
-    payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(1000)]}
+    # Arrange — unique (source, timestamp) per record to satisfy unique constraint
+    payload = {
+        "records": [
+            {
+                **_RECORD,
+                "timestamp": f"2024-01-15T{10 + i // 3600:02d}:{(i % 3600) // 60:02d}:{i % 60:02d}",
+                "data": {"value": i},
+            }
+            for i in range(1000)
+        ]
+    }
     await client.post("/api/v1/records/batch", json=payload)
     start = time.perf_counter()
 
@@ -65,13 +83,27 @@ async def test_single_vs_batch_insert(client: AsyncClient) -> None:
     # ------ Single insert (loop through and create each individually) ------
     start_single = time.perf_counter()
     for i in range(count):
-        r = await client.post("/api/v1/records", json={**_RECORD, "data": {"value": i}})
+        # Unique timestamp per record to satisfy (source, timestamp) unique constraint
+        ts = f"2024-01-15T10:{i // 60:02d}:{i % 60:02d}"
+        r = await client.post(
+            "/api/v1/records", json={**_RECORD, "timestamp": ts, "data": {"value": i}}
+        )
         assert r.status_code == 201
     elapsed_single = time.perf_counter() - start_single
 
     # ------ Batch insert (all at once) ------
     start_batch = time.perf_counter()
-    payload = {"records": [{**_RECORD, "data": {"value": i}} for i in range(count)]}
+    # Offset timestamps beyond those used by single inserts (count + i)
+    payload = {
+        "records": [
+            {
+                **_RECORD,
+                "timestamp": f"2024-01-15T11:{(count + i) // 60:02d}:{(count + i) % 60:02d}",
+                "data": {"value": i},
+            }
+            for i in range(count)
+        ]
+    }
     r = await client.post("/api/v1/records/batch", json=payload)
     assert r.status_code == 201
     elapsed_batch = time.perf_counter() - start_batch

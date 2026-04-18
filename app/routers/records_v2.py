@@ -52,6 +52,8 @@ from app.constants import (
     SLIDING_WINDOW_SECONDS,
     TOKEN_BUCKET_CAPACITY,
     TOKEN_BUCKET_REFILL_PER_SEC,
+    UPSERT_MODE_IDEMPOTENT,
+    UPSERT_MODE_STRICT,
 )
 from app.crud import (
     create_record as create_record_op,
@@ -60,10 +62,18 @@ from app.crud import (
     enrich_records_concurrent,
     get_records_with_tag_counts,
     get_records_with_tag_counts_naive,
+    upsert_record,
 )
 from app.database import get_db
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
-from app.schemas import EnrichRequest, EnrichResponse, RecordRequest, RecordResponse
+from app.schemas import (
+    EnrichRequest,
+    EnrichResponse,
+    RecordRequest,
+    RecordResponse,
+    UpsertRequest,
+    UpsertResponse,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -457,4 +467,115 @@ async def enrich_records(
         failed_count=failed_count,
         duration_ms=round(duration_ms, 2),
         results=results,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v2/records/upsert — idempotent upsert + race condition demo (Step 9)
+# ---------------------------------------------------------------------------
+@router.post(
+    "/upsert",
+    response_model=UpsertResponse,
+    summary="Idempotent upsert — insert or return existing record",
+    description=(
+        "Insert a record using `(source, timestamp)` as the idempotency key.\n\n"
+        "A second call with the **same source + timestamp** pair returns the "
+        "existing record instead of inserting a duplicate.\n\n"
+        "**Conflict resolution modes** (via `?mode=` query param):\n\n"
+        "| mode | first call | duplicate call |\n"
+        "|------|-----------|----------------|\n"
+        "| `idempotent` (default) | 201 Created | 200 OK — same record, `created: false` |\n"
+        "| `strict` | 201 Created | 409 Conflict — explicit error |\n\n"
+        "**Pattern demonstrated**: optimistic INSERT → catch `IntegrityError` → "
+        "SELECT existing\n\n"
+        "Why not SELECT-then-INSERT? That pattern has a TOCTOU race: two concurrent "
+        "requests can both see no row, both attempt INSERT, and one fails with an "
+        "unhandled error. Catching `IntegrityError` atomically handles the race.\n\n"
+        "**Race condition demo**:\n"
+        "```bash\n"
+        "# Fire two concurrent upserts with the same key:\n"
+        "for i in 1 2; do\n"
+        "  http POST :8000/api/v2/records/upsert \\\n"
+        "    source=sensor-1 timestamp=2024-01-15T10:00:00 data:='{}' &\n"
+        "done\n"
+        "# One returns 201 (created: true), one returns 200 (created: false)\n"
+        "```\n\n"
+        "**Response fields**:\n"
+        "- `record`: the record (new or existing)\n"
+        "- `created`: `true` if inserted, `false` if conflict resolved\n"
+        "- `mode`: the mode used"
+    ),
+)
+async def upsert_record_endpoint(
+    payload: UpsertRequest,
+    db: DbDep,
+    mode: Annotated[
+        str,
+        Query(
+            description="Conflict mode: 'idempotent'(200 on conflict) or 'strict'(409 on conflict)",
+            pattern=f"^({UPSERT_MODE_IDEMPOTENT}|{UPSERT_MODE_STRICT})$",
+        ),
+    ] = UPSERT_MODE_IDEMPOTENT,
+) -> UpsertResponse:
+    """Insert or return existing record by (source, timestamp) key.
+
+    Handles the race condition atomically: optimistic INSERT, catch IntegrityError,
+    rollback, SELECT existing. Both concurrent requests receive a valid response.
+
+    Args:
+        payload: UpsertRequest with source, timestamp, data, tags.
+        db: Async database session (injected).
+        mode: "idempotent" (default) or "strict" conflict resolution.
+
+    Returns:
+        UpsertResponse with the record, created flag, and mode used.
+
+    Raises:
+        HTTPException 409: Only in strict mode when a conflict is detected.
+    """
+    from fastapi import HTTPException
+
+    record, created = await upsert_record(session=db, request=payload)
+
+    if not created and mode == UPSERT_MODE_STRICT:
+        logger.warning(
+            "upsert_strict_conflict",
+            extra={"source": payload.source, "timestamp": str(payload.timestamp)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "conflict",
+                "message": (
+                    f"A record with source={payload.source!r} and "
+                    f"timestamp={payload.timestamp} already exists."
+                ),
+                "existing_id": record.id if record else None,
+            },
+        )
+
+    http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    logger.info(
+        "upsert_complete",
+        extra={
+            "was_created": created,
+            "mode": mode,
+            "record_id": record.id if record else None,
+        },
+    )
+
+    # FastAPI route return; status_code is set dynamically via Response injection
+    # Since we can't easily return dynamic status codes from response_model routes,
+    # we use a JSONResponse directly to set 201 vs 200.
+    from fastapi.encoders import jsonable_encoder
+    from fastapi.responses import JSONResponse
+
+    response_body = UpsertResponse(
+        record=RecordResponse.model_validate(record),
+        created=created,
+        mode=mode,
+    )
+    return JSONResponse(  # type: ignore[return-value]
+        status_code=http_status,
+        content=jsonable_encoder(response_body),
     )

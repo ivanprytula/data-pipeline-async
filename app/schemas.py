@@ -13,6 +13,8 @@ from app.constants import (
     SOURCE_MAX_LENGTH,
     SOURCE_MIN_LENGTH,
     TAGS_MAX_COUNT,
+    UPSERT_MODE_IDEMPOTENT,
+    UPSERT_MODE_STRICT,
 )
 
 
@@ -190,3 +192,43 @@ class EnrichResponse(BaseModel):
     failed_count: int
     duration_ms: float
     results: list[EnrichedRecord]
+
+
+# ---------------------------------------------------------------------------
+# Idempotent upsert schemas (Step 9)
+# ---------------------------------------------------------------------------
+
+
+class UpsertRequest(RecordRequest):
+    """Request payload for POST /api/v2/records/upsert.
+
+    Inherits all fields and validators from RecordRequest.
+    The (source, timestamp) pair is the idempotency key — a second upsert
+    with the same pair returns the existing record rather than creating a duplicate.
+    """
+
+
+class UpsertResponse(BaseModel):
+    """Response from POST /api/v2/records/upsert.
+
+    Attributes:
+        record: The record (newly created or pre-existing).
+        created: True if a new row was inserted; False if an existing row was returned.
+        mode: The conflict resolution mode used ("idempotent" or "strict").
+    """
+
+    record: RecordResponse
+    created: bool
+    mode: str = UPSERT_MODE_IDEMPOTENT
+
+    model_config = {"from_attributes": False}
+
+
+class UpsertMode:
+    """Valid values for the upsert ?mode= query parameter."""
+
+    IDEMPOTENT: str = UPSERT_MODE_IDEMPOTENT
+    """201 on create, 200 on conflict — safe to retry."""
+
+    STRICT: str = UPSERT_MODE_STRICT
+    """201 on create, 409 on conflict — explicit error on duplicate."""

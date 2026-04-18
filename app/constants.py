@@ -66,3 +66,9 @@ JITTER_MAX_SECONDS: float = 10.0  # maximum random offset
 ENRICH_SEMAPHORE_LIMIT: int = 10  # cap concurrent external API calls
 ENRICH_MAX_IDS: int = 50  # max record IDs per /enrich request
 ENRICH_MIN_IDS: int = 1  # min record IDs per /enrich request
+
+# ---------------------------------------------------------------------------
+# Idempotent upsert (Step 9)
+# ---------------------------------------------------------------------------
+UPSERT_MODE_IDEMPOTENT: str = "idempotent"  # 201 on create, 200 on conflict
+UPSERT_MODE_STRICT: str = "strict"  # 201 on create, 409 on conflict
