@@ -59,3 +59,10 @@ SLIDING_WINDOW_SECONDS: int = 60  # rolling window size
 # ---------------------------------------------------------------------------
 JITTER_MIN_SECONDS: float = 5.0  # minimum random offset
 JITTER_MAX_SECONDS: float = 10.0  # maximum random offset
+
+# ---------------------------------------------------------------------------
+# Concurrent enrichment (Step 8)
+# ---------------------------------------------------------------------------
+ENRICH_SEMAPHORE_LIMIT: int = 10  # cap concurrent external API calls
+ENRICH_MAX_IDS: int = 50  # max record IDs per /enrich request
+ENRICH_MIN_IDS: int = 1  # min record IDs per /enrich request

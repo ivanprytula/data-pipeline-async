@@ -1,12 +1,13 @@
 """Async CRUD operations (SQLAlchemy 2.0 select() style)."""
 
+import asyncio
 from datetime import datetime
 
 from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Record, _utcnow
-from app.schemas import RecordRequest, UpdateRecordRequest
+from app.schemas import EnrichedRecord, RecordRequest, UpdateRecordRequest
 
 
 async def create_record(session: AsyncSession, request: RecordRequest) -> Record:
@@ -335,3 +336,98 @@ async def get_records_with_tag_counts(
         }
         for row in rows
     ]
+
+
+async def enrich_records_concurrent(
+    session: AsyncSession,
+    record_ids: list[int],
+    semaphore: asyncio.Semaphore,
+) -> list[EnrichedRecord]:
+    """Enrich a batch of records with external API data concurrently.
+
+    Uses asyncio.Semaphore to cap concurrent outbound HTTP calls (default: 10).
+    All records are fetched from DB in a single query, then enriched in parallel,
+    each limited by the semaphore so we never exceed the outbound concurrency cap.
+
+    Pattern:
+        DB fetch (single query)
+              │
+              └─► asyncio.gather(
+                      enrich(id=1),  ─► httpx fetch (under semaphore)
+                      enrich(id=2),  ─► httpx fetch (under semaphore)
+                      ...            ─► httpx fetch (under semaphore)
+                  )
+
+    Why semaphore: Without it, 50 concurrent requests fire simultaneously.
+    asyncio.Semaphore(10) means at most 10 are inflight at once—protecting
+    both the external API (rate limits) and the connection pool.
+
+    Args:
+        session: Active async database session.
+        record_ids: List of record primary keys to enrich (1–50).
+        semaphore: Shared semaphore to cap concurrent outbound requests.
+
+    Returns:
+        List of EnrichedRecord results (one per requested ID, in order).
+        Failed enrichments include enriched=False and an error message.
+    """
+    import logging
+
+    from app.fetch import fetch_with_retry
+
+    logger = logging.getLogger(__name__)
+
+    # --- 1. Fetch all requested records in a single DB query ---
+    result = await session.execute(
+        select(Record)
+        .where(Record.id.in_(record_ids))
+        .where(Record.deleted_at.is_(None))
+    )
+    records_by_id: dict[int, Record] = {r.id: r for r in result.scalars().all()}
+
+    # --- 2. Define the per-record enrichment coroutine ---
+    async def enrich_one(record_id: int) -> EnrichedRecord:
+        """Fetch external metadata for a single record, respecting semaphore."""
+        record = records_by_id.get(record_id)
+        if record is None:
+            return EnrichedRecord(
+                record_id=record_id,
+                source="unknown",
+                enriched=False,
+                error=f"Record {record_id} not found",
+            )
+
+        # Semaphore ensures at most N concurrent fetches across all coroutines
+        async with semaphore:
+            try:
+                # jsonplaceholder post IDs cycle 1–100; use modulo to stay in range
+                post_id = (record_id % 100) or 1
+                url = f"https://jsonplaceholder.typicode.com/posts/{post_id}"
+                data = await fetch_with_retry(url, max_retries=2)
+
+                logger.info(
+                    "record_enriched",
+                    extra={"record_id": record_id, "post_id": post_id},
+                )
+                return EnrichedRecord(
+                    record_id=record_id,
+                    source=record.source,
+                    external_title=data.get("title"),
+                    external_body=data.get("body"),
+                    enriched=True,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "record_enrich_failed",
+                    extra={"record_id": record_id, "error": str(exc)},
+                )
+                return EnrichedRecord(
+                    record_id=record_id,
+                    source=record.source,
+                    enriched=False,
+                    error=str(exc),
+                )
+
+    # --- 3. Launch all enrichments concurrently, bounded by semaphore ---
+    tasks = [enrich_one(rid) for rid in record_ids]
+    return list(await asyncio.gather(*tasks))

@@ -31,6 +31,7 @@ Try it with httpie:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Annotated, Any
@@ -44,6 +45,7 @@ from starlette.responses import Response
 from app.auth import create_jwt_token, verify_jwt_token
 from app.constants import (
     API_V2_PREFIX,
+    ENRICH_SEMAPHORE_LIMIT,
     JITTER_MAX_SECONDS,
     JITTER_MIN_SECONDS,
     SLIDING_WINDOW_LIMIT,
@@ -55,12 +57,13 @@ from app.crud import (
     create_record as create_record_op,
 )
 from app.crud import (
+    enrich_records_concurrent,
     get_records_with_tag_counts,
     get_records_with_tag_counts_naive,
 )
 from app.database import get_db
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
-from app.schemas import RecordRequest, RecordResponse
+from app.schemas import EnrichRequest, EnrichResponse, RecordRequest, RecordResponse
 
 
 logger = logging.getLogger(__name__)
@@ -377,3 +380,81 @@ async def demo_n_plus_one(
         "records_count": len(naive_results),
         "limit": limit,
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v2/records/enrich — concurrent record enrichment (Step 8)
+# ---------------------------------------------------------------------------
+@router.post(
+    "/enrich",
+    response_model=EnrichResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Enrich records with external API data concurrently",
+    description=(
+        "Fetches external metadata for up to 50 records concurrently using "
+        "`asyncio.gather` + `asyncio.Semaphore` to cap outbound HTTP to "
+        f"{ENRICH_SEMAPHORE_LIMIT} concurrent calls.\n\n"
+        "**Pattern demonstrated**: Semaphore-limited fan-out\n\n"
+        "```\n"
+        "POST /api/v2/records/enrich\n"
+        '{"record_ids": [1, 2, 3, 4, 5]}\n'
+        "```\n\n"
+        "Each record is enriched by fetching a matching post from "
+        "`jsonplaceholder.typicode.com`. Failed enrichments are included in the "
+        "response with `enriched: false` and an error message — partial failures "
+        "**do not** fail the entire request.\n\n"
+        "**Why semaphore**: Without it, 50 requests fire simultaneously. "
+        f"Semaphore({ENRICH_SEMAPHORE_LIMIT}) ensures at most {ENRICH_SEMAPHORE_LIMIT} "
+        "are in-flight at once, protecting the external API and the DB connection pool.\n\n"
+        "**Try it**:\n"
+        "```bash\n"
+        "http POST :8000/api/v2/records/enrich record_ids:='[1,2,3]'\n"
+        "```"
+    ),
+)
+async def enrich_records(
+    payload: EnrichRequest,
+    db: DbDep,
+) -> EnrichResponse:
+    """Concurrently enrich a batch of records with external API metadata.
+
+    Uses asyncio.Semaphore to prevent thundering herd against external API.
+    Partial failures are tolerated — failed records appear in results with
+    enriched=False; the endpoint always returns 200 unless all records fail.
+
+    Args:
+        payload: EnrichRequest with list of record_ids (1–50).
+        db: Async database session (injected).
+
+    Returns:
+        EnrichResponse with per-record results, counts, and wall-clock duration.
+    """
+    start = time.perf_counter()
+    semaphore = asyncio.Semaphore(ENRICH_SEMAPHORE_LIMIT)
+
+    results = await enrich_records_concurrent(
+        session=db,
+        record_ids=payload.record_ids,
+        semaphore=semaphore,
+    )
+
+    duration_ms = (time.perf_counter() - start) * 1000
+    enriched_count = sum(1 for r in results if r.enriched)
+    failed_count = len(results) - enriched_count
+
+    logger.info(
+        "enrich_complete",
+        extra={
+            "total": len(results),
+            "enriched": enriched_count,
+            "failed": failed_count,
+            "duration_ms": round(duration_ms, 2),
+        },
+    )
+
+    return EnrichResponse(
+        enriched_count=enriched_count,
+        failed_count=failed_count,
+        duration_ms=round(duration_ms, 2),
+        results=results,
+    )

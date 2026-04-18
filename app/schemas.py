@@ -6,6 +6,8 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from app.constants import (
+    ENRICH_MAX_IDS,
+    ENRICH_MIN_IDS,
     MAX_BATCH_SIZE,
     MIN_BATCH_SIZE,
     SOURCE_MAX_LENGTH,
@@ -155,3 +157,36 @@ class PaginationMeta(BaseModel):
 class RecordListResponse(BaseModel):
     records: list[RecordResponse]
     pagination: PaginationMeta
+
+
+class EnrichRequest(BaseModel):
+    """Request payload for the concurrent enrichment endpoint."""
+
+    record_ids: list[int] = Field(
+        ...,
+        min_length=ENRICH_MIN_IDS,
+        max_length=ENRICH_MAX_IDS,
+        description=f"Record IDs to enrich (1–{ENRICH_MAX_IDS} IDs per call)",
+    )
+
+
+class EnrichedRecord(BaseModel):
+    """Single enrichment result — the original record plus external metadata."""
+
+    record_id: int
+    source: str
+    external_title: str | None = None
+    external_body: str | None = None
+    enriched: bool
+    error: str | None = None
+
+    model_config = {"from_attributes": False}
+
+
+class EnrichResponse(BaseModel):
+    """Response from POST /api/v2/records/enrich."""
+
+    enriched_count: int
+    failed_count: int
+    duration_ms: float
+    results: list[EnrichedRecord]
