@@ -1,65 +1,148 @@
-# Data Pipeline — Async
+# Data Zoo — 8-Phase Backend Platform Learning
 
-Async FastAPI + SQLAlchemy 2.0 REST API for ingesting and querying pipeline records.
+**Comprehensive full-stack backend learning journey**: Event streaming → Data scraping → CI/CD → AI/embeddings → Testing → Database optimization → Security → Infrastructure as Code.
 
-> **Historical reference**: [docs/sync-vs-async.md](docs/sync-vs-async.md)
+Build production-ready capabilities across all major backend domains while creating interview-ready portfolio artifacts.
 
 ---
 
-## Quick Start
+## 8-Phase Platform Overview
+
+| Phase       | Focus            | Core Interview Q                               | Tech Stack                                       |
+| ----------- | ---------------- | ---------------------------------------------- | ------------------------------------------------ |
+| **Phase 1** | Event Streaming  | Design real-time ETL for 1000+ events/sec      | Redpanda, Celery, partitioning                   |
+| **Phase 2** | Data Scraping    | Design scraper for 100K URLs without ban       | GraphQL, Playwright, rate limiting               |
+| **Phase 3** | Docker + CI/CD   | Walk me through dev → prod pipeline            | Multi-stage Docker, GitHub Actions, ECR          |
+| **Phase 4** | AI + Vector DB   | Design semantic search over 100K docs          | OpenAI embeddings, Qdrant, LRU cache             |
+| **Phase 5** | Testing          | How do you test code that calls external APIs? | pytest (10 fixtures), async mocking, chaos tests |
+| **Phase 6** | Database Mastery | This query is slow (5s). Fix it.               | 40 SQL patterns, EXPLAIN ANALYZE, indexing       |
+| **Phase 7** | Security         | Design JWT auth for multi-service app          | JWT + refresh tokens, rate limiting, secrets     |
+| **Phase 8** | Infrastructure   | Design multi-env Terraform (dev/staging/prod)  | Terraform, AWS (RDS/Fargate), state mgmt         |
+
+**Timeline**: 16 weeks / 2 weeks per phase
+**Deliverables**: 100+ commits, 8 LinkedIn posts, 8 portfolio items, 100% test coverage
+
+---
+
+## Getting Started — Phase 1
+
+### Prerequisites
 
 ```bash
-# 1. One-time setup:
-cp .env.example .env
-# Edit .env with your local values (PostgreSQL running in Docker, etc.)
-
-# 2. From now on, everything "just works"
-docker compose up -d db redis      # Start containers
-
-# 3. Install uv (if missing)
+# Install uv (one-time)
 pip install uv   # or: curl -Ls https://astral.sh/uv/install.sh | sh
 
-# 4. Sync dependencies
+# One-time setup
+cp .env.example .env
+# Edit .env with your local values (PostgreSQL running in Docker, etc.)
+```
+
+### Quick Start
+
+```bash
+# Start containers (db + redis)
+docker compose up -d db redis
+
+# Sync dependencies
 uv sync
 
-# 5. Run tests (aiosqlite in-memory — no Docker needed)
+# Run tests (no Docker needed for tests — aiosqlite in-memory)
 uv run pytest tests/ -v
 
-# 6. Start the app (auto-reloads on code changes)
-uv run alembic upgrade head   # Alembic reads from settings
-uv run uvicorn app.main:app   # App reads settings
+# Apply database migrations
+uv run alembic upgrade head
 
-# 7. Open API docs
+# Start the app (auto-reloads on code changes)
+uv run uvicorn app.main:app
+
+# Open API docs
 open http://localhost:8000/docs
 ```
 
+### Tracking Your Progress
+
+See [`.github/instructions/middle-tier-grind-tracking.md`](.github/instructions/middle-tier-grind-tracking.md) for:
+
+- 8-phase timeline with weekly checklist
+- 40 SQL patterns (to master by Phase 6)
+- 10 pytest fixtures (by Phase 5)
+- 5 async gotchas (quick reference)
+- Weekly interview Q checkpoint (8 total)
+- Success metrics per phase
+
 ---
 
-## Database Migrations (Alembic)
+## Phase Guides (Scaffolding Blueprint)
 
-Schema is managed by Alembic — **never** run `Base.metadata.create_all` alongside migrations.
+All 8 phases have complete execution blueprints in `.github/instructions/`:
 
-```bash
-# Apply all pending migrations (inside Docker Compose — uses db:5432 from .env)
-docker compose run --rm app uv run alembic upgrade head
+| File                     | Content                              | Use When                          |
+| ------------------------ | ------------------------------------ | --------------------------------- |
+| **phase-1-events.md**    | Redpanda + Celery toy example        | Starting Phase 1 (week 1–2)       |
+| **phase-2-scrapers.md**  | GraphQL scraper + rate limiting      | Starting Phase 2 (week 3–4)       |
+| **docker-ci-guide.md**   | Multi-stage Docker + GitHub Actions  | Starting Phase 3 CI/CD (week 5–6) |
+| **phase-3-ai-qdrant.md** | Embeddings + vector DB + caching     | Starting Phase 4 (week 7–8)       |
+| **phase-4-testing.md**   | 10 pytest fixtures + async mocking   | Starting Phase 5 (week 9–10)      |
+| **phase-5-database.md**  | 40 SQL patterns + EXPLAIN ANALYZE    | Starting Phase 6 (week 11–12)     |
+| **phase-6-security.md**  | JWT + refresh tokens + rate limiting | Starting Phase 7 (week 13–14)     |
+| **phase-7-terraform.md** | Terraform modules + multi-env        | Starting Phase 8 (week 15–16)     |
 
-# Run Alembic locally (outside Docker — use localhost instead of db)
-# No prepending needed
-uv run alembic upgrade head
+Each guide includes:
+✅ Core interview question + suggested answer
+✅ 2 follow-up questions you'll face
+✅ Concrete toy example to build
+✅ Weekly checklist (8–15 commits per phase)
+✅ Interview prep talking points
+✅ Success criteria + metrics
 
-# This reads DATABASE_URL from:
-# 1. Environment variable (if set)
-# 2. .env file (if exists)
-# 3. Settings default (if neither exists)
+---
+
+## Project Structure (Phase 1 — Core API)
+
+This codebase implements Phase 1's foundation: async FastAPI + SQLAlchemy 2.0 for event ingestion.
+
+```text
+app/
+├── main.py               — FastAPI routes, lifespan, middleware
+├── config.py             — Pydantic settings (from .env)
+├── database.py           — Engine, session factory, migrations
+├── models.py             — SQLAlchemy ORM (Record, Event models)
+├── schemas.py            — Pydantic v2 request/response schemas
+├── crud.py               — Async DB operations (batch, list, get)
+├── cache.py              — Redis caching layer (fail-open)
+├── rate_limiting.py      — slowapi + custom limiters
+├── rate_limiting_advanced.py — Token bucket, sliding window
+├── auth.py               — JWT validation, Bearer tokens
+├── metrics.py            — Prometheus middleware
+├── fetch.py              — httpx + exponential backoff retry
+└── fetch_aiohttp.py      — aiohttp alternative (comparison)
+
+tests/
+├── conftest.py           — Fixtures (in-memory DB, client, redis)
+├── test_api.py           — Integration tests
+├── test_performance.py   — Baseline timing tests
+└── integration/          — E2E tests (cache, fetch, auth)
+
+.github/instructions/
+├── middle-tier-grind-tracking.md  — Weekly checklist (root)
+├── phase-1-events.md              — Redpanda + Celery blueprint
+├── phase-2-scrapers.md            — GraphQL + rate limiting
+├── docker-ci-guide.md             — CI/CD pipeline
+├── phase-3-ai-qdrant.md           — AI + embeddings
+├── phase-4-testing.md             — pytest + mocking
+├── phase-5-database.md            — 40 SQL patterns
+├── phase-6-security.md            — JWT + auth
+└── phase-7-terraform.md           — Infrastructure as Code
+
+docs/templates/
+├── linkedin-post-template.md      — 280-char technical tone
+├── portfolio-item-template.md     — GitHub link + learning
+└── github-commit-template.md      — Structured commits
 ```
 
-Migration files live in `alembic/versions/` and are named
-`YYYYMMDD_HHmmss_<revhash>_<slug>.py` — the datetime prefix keeps them sorted
-chronologically; the rev hash guarantees uniqueness.
-
 ---
 
-## API Endpoints
+## API Endpoints (Phase 1—Core)
 
 | Method   | Path                           | Description                          |
 | -------- | ------------------------------ | ------------------------------------ |
@@ -98,31 +181,21 @@ print(json.dumps({'records': records}))
 
 ---
 
-## Project Structure
+## Database Migrations (Alembic)
 
-```text
-async/
-├── app/
-│   ├── __init__.py
-│   ├── config.py      — Pydantic BaseSettings (reads from .env)
-│   ├── database.py    — Engine, session factory, get_db() dependency
-│   ├── models.py      — SQLAlchemy ORM (Record)
-│   ├── schemas.py     — Pydantic request / response models
-│   ├── crud.py        — DB operations (create, batch, list, get, mark_processed)
-│   ├── cache.py       — Redis caching layer (fail-open, single-record lookups)
-│   └── main.py        — FastAPI app, lifespan, route handlers
-├── tests/
-│   ├── conftest.py    — Fixtures (in-memory DB, test client, fake redis)
-│   ├── test_api.py    — Integration tests (all happy + error paths)
-│   ├── test_performance.py — Baseline timing tests
-│   └── integration/records/test_cache.py — Cache hit/miss/invalidation tests
-├── scripts/
-│   └── run_tests.sh
-├── Dockerfile
-├── docker-compose.yml — db + redis services
-├── .env.example
-└── pyproject.toml
+Schema is managed by Alembic — **never** run `Base.metadata.create_all` alongside migrations.
+
+```bash
+# Apply pending migrations (inside Docker — uses db:5432)
+docker compose run --rm app uv run alembic upgrade head
+
+# Apply locally (outside Docker — uses localhost)
+uv run alembic upgrade head
+
+# This reads DATABASE_URL from: env var → .env → settings default
 ```
+
+Migration files in `alembic/versions/` use format: `YYYYMMDD_HHmmss_<revhash>_<slug>.py` (chronologically sorted)
 
 ---
 
@@ -163,61 +236,199 @@ Write paths:
 
 ---
 
-## Week 1 Milestones
+## 8-Phase Execution Roadmap
 
-- [x] **Milestone 1** — App runs, `/docs` loads, can create a record via Swagger UI
-- [x] **Milestone 2** — All tests pass (`pytest tests/ -v`)
-- [x] **Milestone 3** — Understand the `PATCH /process` endpoint you got for free; add a
-  `DELETE /api/v1/records/{id}` that hard-deletes; `TimestampMixin` adds `deleted_at` for future soft-delete
-- [x] **Milestone 4** — Confirm JSON logs appear on every request (`docker compose logs app`)
-- [x] **Milestone 5** — Run `test_performance.py -s`, note the numbers; revisit after
-  adding caching in Week 3
+### Phase 1: Event Streaming (Weeks 1–2)
+
+**Goal**: Build real-time event processor with Redpanda + Celery
+**Deliverables**: Event topic, consumer group, exactly-once processing, partition-aware consumer
+**Interview Q**: "Design real-time ETL for 1000+ events/sec" ([phase-1-events.md](.github/instructions/phase-1-events.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Set up Redpanda container + event producer
+- [ ] Implement Celery consumer (retry logic, DLQ)
+- [ ] Design partitioning by source_id
+- [ ] Monitor consumer lag
+- [ ] Test exactly-once semantics (idempotency)
+
+### Phase 2: Data Scraping (Weeks 3–4)
+
+**Goal**: Build concurrent scraper with rate limiting
+**Deliverables**: GraphQL endpoint, 3 scraper types (REST/HTML/browser), rate limiter
+**Interview Q**: "Design scraper for 100K URLs without ban" ([phase-2-scrapers.md](.github/instructions/phase-2-scrapers.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Implement async scraper (GraphQL + Playwright)
+- [ ] Add exponential backoff retry
+- [ ] Design semaphore-based rate limiting
+- [ ] Validate output with Pydantic
+- [ ] Test ban mitigation strategies
+
+### Phase 3: Docker + CI/CD (Weeks 5–6)
+
+**Goal**: Production-ready Docker image + GitHub Actions pipeline
+**Deliverables**: Multi-stage Dockerfile, CI workflow (lint/test/build), ECR push
+**Interview Q**: "Walk me through dev → prod pipeline" ([docker-ci-guide.md](.github/instructions/docker-ci-guide.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Create multi-stage Dockerfile (build / runtime)
+- [ ] Set up GitHub Actions: lint → test → build → push
+- [ ] Add image scanning for vulnerabilities
+- [ ] Implement health check endpoints
+- [ ] Test full CI/CD cycle locally
+
+### Phase 4: AI + Vector DB (Weeks 7–8)
+
+**Goal**: Embeddings + semantic search over 100K documents
+**Deliverables**: Embedding service, Qdrant client, LRU cache, similarity search API
+**Interview Q**: "Design semantic search over 100K docs" ([phase-3-ai-qdrant.md](.github/instructions/phase-3-ai-qdrant.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Integrate OpenAI embeddings API
+- [ ] Spin up Qdrant vector database
+- [ ] Implement LRU cache for embeddings
+- [ ] Build similarity search endpoint
+- [ ] Measure NDCG ranking metrics
+
+### Phase 5: Testing Mastery (Weeks 9–10)
+
+**Goal**: 100% test coverage with 10 pytest patterns + async mocking
+**Deliverables**: Parametrized fixtures, Celery mocking, chaos tests, time travel
+**Interview Q**: "How do you test code that calls external APIs?" ([phase-4-testing.md](.github/instructions/phase-4-testing.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Implement 10 core pytest fixtures
+- [ ] Mock external APIs + Celery tasks
+- [ ] Add time travel testing (freezegun)
+- [ ] Design chaos tests (network failures, timeouts)
+- [ ] Achieve 100% code coverage
+
+### Phase 6: Database Optimization (Weeks 11–12)
+
+**Goal**: Master 40 SQL patterns + query optimization
+**Deliverables**: Indexed queries <50ms p99, EXPLAIN ANALYZE walkthroughs, materialized views
+**Interview Q**: "This query is slow (5s). Fix it." ([phase-5-database.md](.github/instructions/phase-5-database.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Implement 40 SQL patterns (foundations to advanced)
+- [ ] Analyze slow queries with EXPLAIN ANALYZE
+- [ ] Add covering indices for key queries
+- [ ] Build materialized views for complex joins
+- [ ] Measure latency improvements
+
+### Phase 7: Security (Weeks 13–14)
+
+**Goal**: JWT auth, token rotation, rate limiting, input validation
+**Deliverables**: Bearer token auth, refresh token flow, API key rotation, HMAC webhooks
+**Interview Q**: "Design JWT auth for multi-service app" ([phase-6-security.md](.github/instructions/phase-6-security.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Implement JWT + refresh token flow
+- [ ] Add rate limiting on auth endpoints
+- [ ] Integrate AWS Secrets Manager
+- [ ] Design API key rotation strategy
+- [ ] Implement input validation layer
+
+### Phase 8: Infrastructure as Code (Weeks 15–16)
+
+**Goal**: Terraform multi-env (dev/staging/prod) with GitOps deployment
+**Deliverables**: Reusable Terraform modules, state locking, drift detection, Fargate deployment
+**Interview Q**: "Design multi-env Terraform (dev/staging/prod)" ([phase-7-terraform.md](.github/instructions/phase-7-terraform.md))
+**Artifacts**: 8–10 commits, LinkedIn post, portfolio item
+
+- [ ] Create Terraform modules (VPC, RDS, ECS, ALB, Secrets)
+- [ ] Set up S3 + DynamoDB state backend
+- [ ] Implement GitHub Actions Terraform workflow
+- [ ] Test rollback and drift detection
+- [ ] Deploy full stack to AWS
+
+---
+
+## Success Checklist
+
+**All 8 Phases:**
+
+- [ ] 100+ total commits (12–15 per phase)
+- [ ] 8 LinkedIn posts (280 chars, technical tone, metrics-driven)
+- [ ] 8 portfolio items (GitHub link + interview prep per phase)
+- [ ] 100% test coverage (all phases)
+- [ ] Zero CVEs in dependencies (pip-audit clean)
+- [ ] Interview Q + 2 follow-ups mastered per phase
+- [ ] Production-ready infrastructure (Terraform)
+
+**Final CV Narrative:**
+> "Backend engineer specializing in event-driven architectures, async Python, and full-stack platform design. I've shipped multi-service systems with 10M+ daily events, optimized databases from 5s to 50ms queries, and automated infrastructure with Terraform across dev/staging/prod environments."
+
+---
+
+## Quick Reference
+
+**Run all tests:**
+
+```bash
+uv run pytest tests/ -v
+```
+
+**Check code quality:**
+
+```bash
+uv run ruff check . && uv run ruff format .
+```
+
+**Start development server:**
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+**Load test performance (Phase 1):**
+
+```bash
+./scripts/load_test.sh seed 10000
+./scripts/load_test.sh k6
+```
+
+**View API docs:**
+Open `http://localhost:8000/docs` after starting the app
 
 ---
 
 ## TODO / Next Steps
 
-### Week 2 additions (do these yourself — they're the exercises)
+### Week 1 Milestones
 
-- [x] **Cursor-based pagination** — opaque base64-encoded cursors; `GET /api/v2/records/cursor`
-- [x] **Duplicate detection** — `source + timestamp` unique constraint; idempotent upsert with race-condition tests
-- [x] **Rate limiting** — `slowapi` integration; custom rate limiters in `app/rate_limiting.py`, `app/rate_limiting_advanced.py`
-- [x] **Retry with exponential backoff** — `app/fetch.py` with httpx AsyncClient, per-event-loop management, graceful failure handling
+- [x] **Milestone 1** — App runs, `/docs` loads, can create a record via Swagger UI
+- [x] **Milestone 2** — All tests pass (`pytest tests/ -v`)
+- [x] **Milestone 3** — Understand the `PATCH /process` endpoint; implement `DELETE /{id}`
+- [x] **Milestone 4** — Confirm JSON logs appear on every request
+- [x] **Milestone 5** — Run `test_performance.py -s`, establish baseline metrics
 
-### Week 3 database optimisations
+### Week 2 Exercises
 
-- [x] Run `EXPLAIN ANALYZE` on the list query; add a covering index on `(source, id)` — PostgreSQL-only integration tests
-- [x] Introduce a `processed_at` column (nullable `DateTime`); remove `processed` bool — Alembic migration complete
-- [x] Add Alembic migrations — `alembic/versions/` with timestamped revisions
+- [x] **Cursor-based pagination** — opaque base64 cursors; `GET /api/v2/records/cursor`
+- [x] **Duplicate detection** — `source + timestamp` unique constraint; idempotent upsert
+- [x] **Rate limiting** — `slowapi` + custom limiters (`app/rate_limiting.py`)
+- [x] **Retry logic** — httpx with exponential backoff (`app/fetch.py`)
 
-### Week 4 async upgrades (async version)
+### Week 3+ Database Optimizations
 
-- [x] Replace the single `await create_record(...)` with `asyncio.gather(...)` to fan out 100 concurrent writes — concurrent record enrichment
-- [x] Add a `semaphore` to cap concurrency at 20 — semaphore-limited concurrent operations, pooling tests
-- [x] Test a race condition: two concurrent writes with the same `source + timestamp` — concurrency tests with race-condition detection
+- [x] Run `EXPLAIN ANALYZE`; add covering index on `(source, id)`
+- [x] Introduce `processed_at` column (nullable DateTime)
+- [x] Add Alembic migrations (`alembic/versions/`)
 
-### Production hardening
+### Phase 2+ Next Phases
 
-- [x] Add Prometheus metrics (`prometheus-fastapi-instrumentator`) — `GET /metrics` endpoint; instrumentation middleware
-- [x] Add `X-Request-ID` middleware — `CorrelationIdMiddleware` injects `cid` UUID into all logs; correlation tracking
-- [x] Health check endpoint should also verify DB connectivity — `GET /readyz` runs `SELECT 1` (readiness probe); `GET /health` is lightweight liveness
-- [x] `docker compose` healthcheck for the app container (should hit `/readyz` for readiness-based restart)
-- [x] **Load test harness** — k6 + Locust comparing cursor vs offset at scale; see [Load Testing](#load-testing)
-- [x] **E2E test with external API retry loop** — `tests/integration/records/test_e2e_fetch.py` validates fetch.py + exponential backoff live behavior
+Follow the phase guides in `.github/instructions/`:
 
-## Gaps to Cover
+1. **Next**: Start [Phase 1: Events](
 
-*All major features completed. Optional enhancements:*
-
-- Distributed tracing with OpenTelemetry (Jaeger/Zipkin)
-- Sync version parity with async (Postgres-backed integration tests)
-- ~~Cache layer (Redis) benchmarks~~ ✅ Redis cache layer added (Week 3)
+.github/instructions/phase-1-events.md) with Redpanda + Celery
+2. See [`.github/instructions/middle-tier-grind-tracking.md`](.github/instructions/middle-tier-grind-tracking.md) for weekly tracking
+3. Reference [templates](docs/templates/) for LinkedIn posts + portfolio items
 
 ---
 
-## Load Testing
-
-Compare **cursor** vs **offset** pagination performance at scale using k6 or Locust.
+## Load Testing (Phase 1 Optional)
 
 ### Quick start
 
@@ -250,39 +461,57 @@ Cursor    │  fast (indexed seek)         │  fast — O(1) at any depth
 
 ### Files
 
-| File | Tool | Purpose |
-|------|------|---------|
-| [scripts/seed_data.py](scripts/seed_data.py) | httpx | Seed N records via batch API |
-| [scripts/load_test_pagination.js](scripts/load_test_pagination.js) | k6 | Two parallel scenarios, p50/p95/p99 summary table |
-| [scripts/locustfile.py](scripts/locustfile.py) | Locust | `OffsetPaginationUser` + `CursorPaginationUser` |
-| [scripts/load_test.sh](scripts/load_test.sh) | bash | Wrapper: seed / k6 / locust commands |
+| File                                                               | Tool   | Purpose                                           |
+| ------------------------------------------------------------------ | ------ | ------------------------------------------------- |
+| [scripts/seed_data.py](scripts/seed_data.py)                       | httpx  | Seed N records via batch API                      |
+| [scripts/load_test_pagination.js](scripts/load_test_pagination.js) | k6     | Two parallel scenarios, p50/p95/p99 summary table |
+| [scripts/locustfile.py](scripts/locustfile.py)                     | Locust | `OffsetPaginationUser` + `CursorPaginationUser`   |
+| [scripts/load_test.sh](scripts/load_test.sh)                       | bash   | Wrapper: seed / k6 / locust commands              |
 
 ---
 
-## E2E Tests — External API Retry Logic
+## E2E Tests — External API Resilience
 
 Validate `app/fetch.py` resilience patterns: retry with exponential backoff, timeout handling, graceful failure.
 
 ```bash
-# Run only non-E2E tests (default — 241 tests, ~25s)
+# Run only core tests (default — no external APIs)
 uv run pytest tests/ -v
 
-# Run E2E tests against live external API (jsonplaceholder) — 11+ tests
+# Run E2E tests against live external API (jsonplaceholder)
 uv run pytest tests/integration/records/test_e2e_fetch.py -v -m e2e
-
-# Run all tests including E2E
-uv run pytest tests/ -v -m ""
 ```
 
-### What's tested
+**Test Coverage**:
 
-| Test | Tool | Coverage |
-|------|------|----------|
-| Successful fetch (no retries) | httpx + jsonplaceholder | Basic happy path |
-| Retry with exponential backoff | Mock + timing | 1s, 2s, 4s delays; attempt counting |
-| Exhaustion after max retries | Mock | Exception propagation |
-| Timeout handling | Mock | httpx.TimeoutException |
-| HTTP client lifecycle | Direct | Create, reuse, close, idempotent cleanup |
-| Concurrent fetches | asyncio.gather | Multi-VU stress test |
+- Successful fetch (no retries)
+- Retry with exponential backoff (1s, 2s, 4s delays)
+- Exhaustion after max retries
+- Timeout handling
+- HTTP client lifecycle (create, reuse, close, idempotent cleanup)
+- Concurrent fetches (asyncio.gather)
 
 **File**: [tests/integration/records/test_e2e_fetch.py](tests/integration/records/test_e2e_fetch.py)
+
+---
+
+## Learn More
+
+**Historical Deep Dives:**
+
+- [docs/sync-vs-async.md](docs/sync-vs-async.md) — Why this project uses async
+- [docs/testing-postgres.md](docs/testing-postgres.md) — Testing with real PostgreSQL
+- [docs/architecture.md](docs/architecture.md) — System design decisions
+
+**Phase-Specific Learning:**
+
+- [`.github/instructions/`](.github/instructions/) — All 8 phase guides + tracking
+- [`docs/templates/`](docs/templates/) — Commit + portfolio templates
+- [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — Project conventions
+
+**External References:**
+
+- [FastAPI Docs](https://fastapi.tiangolo.com/) — Official guide
+- [SQLAlchemy 2.0](https://docs.sqlalchemy.org/) — ORM patterns
+- [pytest Documentation](https://docs.pytest.org/) — Testing framework
+- [PostgreSQL 17 Docs](https://www.postgresql.org/docs/current/) — Database
