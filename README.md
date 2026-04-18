@@ -213,13 +213,55 @@ sync/ (and async/ — identical layout)
 - [x] Add Prometheus metrics (`prometheus-fastapi-instrumentator`) — `GET /metrics` endpoint; instrumentation middleware
 - [x] Add `X-Request-ID` middleware — `CorrelationIdMiddleware` injects `cid` UUID into all logs; correlation tracking
 - [x] Health check endpoint should also verify DB connectivity — `GET /readyz` runs `SELECT 1` (readiness probe); `GET /health` is lightweight liveness
-- [ ] **MISSING:** `docker compose` healthcheck for the app container (should hit `/readyz` for readiness-based restart)
+- [x] `docker compose` healthcheck for the app container (should hit `/readyz` for readiness-based restart)
+- [x] **Load test harness** — k6 + Locust comparing cursor vs offset at scale; see [Load Testing](#load-testing)
 
 ## Gaps to Cover
 
 | Gap | Priority | Effort | Impact |
 |-----|----------|--------|--------|
-| App container `healthcheck` in `docker-compose.yml` | High | <5min | Kubernetes-like readiness orchestration (auto-restart + traffic draining) |
-| Postgres-backed tests in sync version | Medium | 1-2h | Parity with async version (currently sync has SQLite in-memory only) |
 | E2E test with external API retry loop | Low | 30min | Validate fetch.py + retry exponential backoff live behavior |
-| Load test harness (k6 or locust) | Low | 1-2h | Measure cursor vs offset pagination performance at scale |
+
+---
+
+## Load Testing
+
+Compare **cursor** vs **offset** pagination performance at scale using k6 or Locust.
+
+### Quick start
+
+```bash
+# 1. Start the app
+docker compose up -d app
+
+# 2. Seed 10 000 test records
+./scripts/load_test.sh seed 10000
+
+# 3a. Run k6 (install: brew install k6  |  snap install k6)
+./scripts/load_test.sh k6
+VUS=20 DURATION=60s ./scripts/load_test.sh k6
+
+# 3b. Run Locust headless
+./scripts/load_test.sh locust
+
+# 3c. Run Locust with web UI → http://localhost:8089
+./scripts/load_test.sh locust --web
+```
+
+### What it measures
+
+```text
+Strategy  │  Shallow page (skip=0–200)   │  Deep page (skip=5000–9000)
+──────────┼──────────────────────────────┼──────────────────────────────
+Offset    │  fast (small index scan)     │  SLOW — full table scan O(skip)
+Cursor    │  fast (indexed seek)         │  fast — O(1) at any depth
+```
+
+### Files
+
+| File | Tool | Purpose |
+|------|------|---------|
+| [scripts/seed_data.py](scripts/seed_data.py) | httpx | Seed N records via batch API |
+| [scripts/load_test_pagination.js](scripts/load_test_pagination.js) | k6 | Two parallel scenarios, p50/p95/p99 summary table |
+| [scripts/locustfile.py](scripts/locustfile.py) | Locust | `OffsetPaginationUser` + `CursorPaginationUser` |
+| [scripts/load_test.sh](scripts/load_test.sh) | bash | Wrapper: seed / k6 / locust commands |

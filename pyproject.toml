@@ -41,6 +41,8 @@ dev = [
     # Pre-commit hooks & linting
     "pre-commit>=4.1.1",
     "ruff>=0.15.10",
+    # Load testing
+    "locust>=2.32.0",
 ]
 
 [tool.pytest.ini_options]
