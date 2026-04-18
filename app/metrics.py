@@ -1,0 +1,75 @@
+"""Custom Prometheus metrics for the data pipeline.
+
+This module defines all application-level counters and histograms.
+It is imported once at startup and kept as module-level singletons —
+prometheus_client enforces that metric names are globally unique within
+a process, so registering the same name twice raises a ValueError.
+
+Metric naming convention (Prometheus best practice):
+  <namespace>_<subsystem>_<unit>_<suffix>
+  e.g. pipeline_records_created_total
+
+Exposed on: GET /metrics (text/plain; version=0.0.4)
+
+Pillars:
+  Pillar 4 — Observability (entry point)
+  Next step: connect Grafana dashboard (Week 5)
+"""
+
+from prometheus_client import Counter, Histogram
+
+
+# ---------------------------------------------------------------------------
+# Counters
+# ---------------------------------------------------------------------------
+
+records_created_total = Counter(
+    name="pipeline_records_created_total",
+    documentation="Number of records successfully inserted (all endpoints combined).",
+    labelnames=["endpoint"],
+)
+"""Incremented on every successful record INSERT.
+
+Labels:
+  endpoint: "single" | "batch" | "upsert"
+
+Usage::
+
+    from app.metrics import records_created_total
+    records_created_total.labels(endpoint="single").inc()
+"""
+
+records_upsert_conflicts_total = Counter(
+    name="pipeline_records_upsert_conflicts_total",
+    documentation="Number of upsert requests that hit an existing record (conflict resolved).",
+    labelnames=["mode"],
+)
+"""Incremented when upsert detects a (source, timestamp) conflict.
+
+Labels:
+  mode: "idempotent" | "strict"
+"""
+
+# ---------------------------------------------------------------------------
+# Histograms
+# ---------------------------------------------------------------------------
+
+batch_size_histogram = Histogram(
+    name="pipeline_batch_insert_size",
+    documentation="Distribution of batch insert sizes (number of records per /batch request).",
+    buckets=[1, 5, 10, 25, 50, 100, 250, 500, 1000],
+)
+"""Observe the batch size on every POST /api/v1/records/batch call.
+
+Usage::
+
+    from app.metrics import batch_size_histogram
+    batch_size_histogram.observe(len(records))
+"""
+
+enrich_duration_seconds = Histogram(
+    name="pipeline_enrich_duration_seconds",
+    documentation="Wall-clock time (seconds) for a full /enrich fan-out request.",
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+)
+"""Observe total enrichment wall time per /enrich call."""

@@ -65,6 +65,11 @@ from app.crud import (
     upsert_record,
 )
 from app.database import get_db
+from app.metrics import (
+    enrich_duration_seconds,
+    records_created_total,
+    records_upsert_conflicts_total,
+)
 from app.rate_limiting_advanced import SlidingWindowLimiter, TokenBucketLimiter
 from app.schemas import (
     EnrichRequest,
@@ -452,6 +457,8 @@ async def enrich_records(
     enriched_count = sum(1 for r in results if r.enriched)
     failed_count = len(results) - enriched_count
 
+    enrich_duration_seconds.observe(duration_ms / 1000)
+
     logger.info(
         "enrich_complete",
         extra={
@@ -555,6 +562,10 @@ async def upsert_record_endpoint(
         )
 
     http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    if created:
+        records_created_total.labels(endpoint="upsert").inc()
+    else:
+        records_upsert_conflicts_total.labels(mode=mode).inc()
     logger.info(
         "upsert_complete",
         extra={

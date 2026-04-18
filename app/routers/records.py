@@ -32,6 +32,7 @@ from app.crud import (
     update_record,
 )
 from app.database import get_db
+from app.metrics import batch_size_histogram, records_created_total
 from app.rate_limiting import limiter
 from app.schemas import (
     BatchRecordsRequest,
@@ -72,6 +73,7 @@ async def create_record(
     Rate limit: 1000/minute per IP.
     """
     record = await create_record_op(db, body)
+    records_created_total.labels(endpoint="single").inc()
     return RecordResponse.model_validate(record)
 
 
@@ -111,6 +113,8 @@ async def create_records_batch(
     )
     logger.info("batch_create", extra={"count": len(body.records), "impl": impl})
     records = await impl_fn(db, body.records)
+    batch_size_histogram.observe(len(records))
+    records_created_total.labels(endpoint="batch").inc(len(records))
     logger.info("batch_created", extra={"count": len(records), "impl": impl})
     return {"created": len(records), "impl": impl}
 

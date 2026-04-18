@@ -10,6 +10,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,12 @@ from app.core.logging import set_cid, setup_logging
 from app.database import engine, get_db
 from app.fetch import close_http_client
 from app.fetch_aiohttp import close_http_session
+from app.metrics import (  # noqa: F401 — imported to register metrics at startup
+    batch_size_histogram,
+    enrich_duration_seconds,
+    records_created_total,
+    records_upsert_conflicts_total,
+)
 from app.rate_limiting import limiter
 from app.routers import records, records_v2
 
@@ -66,7 +73,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 # Lifespan: startup and shutdown events (e.g. for resource management)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001
+async def lifespan(app: FastAPI):
     """Replaces the deprecated `@app.on_event("startup")` pattern.
     Everything before `yield` is startup; after `yield` is shutdown.
     """
@@ -102,6 +109,11 @@ app = FastAPI(
 
 # Attach limiter to app (required by slowapi)
 app.state.limiter = limiter
+
+# Prometheus: register /metrics endpoint and instrument all HTTP routes.
+# Must be called at module level (not inside lifespan) so the route is
+# registered immediately — ASGITransport in tests does not trigger lifespan.
+Instrumentator().instrument(app).expose(app, include_in_schema=False, tags=["ops"])
 
 
 # Add rate limit exception handler
