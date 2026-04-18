@@ -118,6 +118,17 @@ class Settings(BaseSettings):
         description="Enable Redis caching. Disabled by default (tests use fakeredis)",
     )
 
+    # ============ Kafka / Redpanda ============
+    kafka_broker_url: str = Field(
+        default="localhost:9092",
+        description="Kafka bootstrap servers (comma-separated). Override with KAFKA_BROKER_URL.",
+    )
+
+    kafka_enabled: bool = Field(
+        default=False,
+        description="Enable Kafka event publishing. Disabled by default (safe for tests w/o broker).",  # noqa: E501
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",

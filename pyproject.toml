@@ -30,6 +30,8 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.1.0",
     # Caching
     "redis>=5.2.0",  # async redis client
+    # Event streaming
+    "aiokafka>=0.11",  # async Kafka/Redpanda producer + consumer
 ]
 
 [dependency-groups]

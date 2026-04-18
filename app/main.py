@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 
-from app import cache
+from app import cache, events
 from app.auth import verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
@@ -91,11 +91,25 @@ async def lifespan(app: FastAPI):
             )
             # Non-fatal: cache is optional, app continues without it
 
+    # Startup: connect Kafka producer if enabled
+    if settings.kafka_enabled:
+        try:
+            await events.connect_producer(settings.kafka_broker_url)
+        except Exception as e:
+            logger.warning(
+                "kafka_startup_failed",
+                extra={"error": str(e)},
+            )
+            # Non-fatal: events are fail-open, app continues without broker
+
     yield
 
     # Shutdown: cleanup resources (cleanup order: app-level clients first, then Redis, then engine)
     await close_http_client()  # httpx client cleanup
     await close_http_session()  # aiohttp session cleanup
+    await (
+        events.disconnect_producer()
+    )  # Kafka producer cleanup (safe even if not connected)
     await cache.disconnect_cache()  # Redis cleanup (safe even if not connected)
     await engine.dispose()  # Database connections cleanup
     logger.info("shutdown", extra={"event": "engine_disposed"})

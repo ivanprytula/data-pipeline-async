@@ -12,13 +12,16 @@
 data-pipeline-async/
 ├── app/                          (Phase 1+: Ingestor service)
 │   ├── main.py
-│   ├── crud.py
+│   ├── crud.py                   (Ingestor-specific CRUD: Record operations)
 │   ├── models.py
 │   ├── schemas.py
-│   ├── events.py                 (← Phase 1: Kafka producer)
+│   ├── events.py                 (← Phase 1: Kafka producer singleton)
 │   ├── routers/
 │   ├── scrapers/                 (← Phase 2: Scraper implementations)
-│   ├── storage/mongo.py           (← Phase 2: MongoDB client)
+│   ├── storage/                  (← Platform-wide storage layer)
+│   │   ├── __init__.py
+│   │   ├── events.py             (← Phase 1: ProcessedEvent CRUD for event tracking)
+│   │   └── mongo.py              (← Phase 2: MongoDB client)
 │   └── core/circuit_breaker.py    (← Phase 4: Resilience patterns)
 │
 ├── services/                      (← Phase 1+: New microservices)
@@ -65,15 +68,15 @@ data-pipeline-async/
 
 | Phase | Focus | Services | Components Added |
 |-------|-------|----------|------------------|
-| **0** | Docs & Planning | — | ADRs, architecture, ACTION_PLAN |
-| **1** | Event Streaming | ingestor, processor | Redpanda, Kafka producer/consumer |
-| **2** | Data Scraping | scrapers, MongoDB | HTTP/HTML/browser scrapers |
-| **3** | Docker + CI/CD | + build pipeline | Multi-stage Docker, GitHub Actions |
-| **4** | AI + Vector DB | ai-gateway | Qdrant, embeddings, semantic search |
-| **5** | Testing | + chaos tests | pytest fixtures, async mocking |
-| **6** | Database | query-api | 40 SQL patterns, materialized views |
-| **7** | Security | auth layer | JWT, rate limiting, secrets |
-| **8** | Infrastructure | + Terraform | AWS deployment (RDS, ECS, Fargate) |
+| **0** | Docs & Planning | — | ADRs, architecture, ACTION_PLAN, monorepo structure |
+| **1** | Event Streaming | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events |
+| **2** | Data Scraping | + scrapers | HTTP/HTML/browser scrapers, MongoDB client |
+| **3** | AI + Vector DB | ai-gateway | Qdrant, sentence-transformers, embeddings |
+| **4** | Resilience Patterns | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger |
+| **5** | CQRS Read Layer | query-api | Materialized views, window functions, partitioning |
+| **6** | Dashboard | dashboard | HTMX, Jinja2, SSE, backend-rendered UI |
+| **7** | Cloud Deployment | (all services) | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache |
+| **8** | Production Hardening | (all services) | Prometheus, Grafana, backups, chaos testing |
 
 ---
 
@@ -138,58 +141,77 @@ graph TB
 
 ---
 
-## High-Level View (Phase 1 — Current State)
+## Phase 1: Event-Driven Architecture (Current State)
 
 ```mermaid
 graph TB
-    Client["👤 API Client"]
-    LB["⚡ Load Balancer"]
+    Client["👤 API Client<br/>HTTP"]
 
-    subgraph App["FastAPI (Async)"]
+    subgraph Ingestor["📝 Ingestor Service (app/)"]
         Router["🔀 Router<br/>/api/v1/records"]
-        CID["🏷️ Correlation ID<br/>ContextVar"]
-        CRUD["📦 CRUD<br/>async functions"]
-        Validation["✔️ Pydantic v2<br/>Validation"]
+        Validation["✔️ Pydantic v2"]
+        CRUD["📦 Record CRUD<br/>app/crud.py"]
+        Producer["📤 Kafka Producer<br/>app/events.py"]
     end
 
-    subgraph DB["PostgreSQL 17"]
+    subgraph Storage["🗄️ Platform Storage (app/storage/)"]
+        EventsCRUD["📊 Event Storage<br/>app/storage/events.py<br/>(shared: ingestor + processor)"]
+    end
+
+    subgraph DB["🗄️ PostgreSQL 17"]
         Pool["🔌 AsyncSessionLocal<br/>asyncpg pool"]
-        Tables["📋 Tables<br/>records, processed_at"]
-        Index["🚀 Indexes<br/>on source, timestamp"]
+        Tables["📋 records table"]
     end
 
-    subgraph Logging["Logging Layer"]
-        DevFmt["💻 Development<br/>Human-readable<br/>+ File Rotation"]
-        ProdFmt["📊 Production<br/>Minimal JSON<br/>→ ELK/Sentry"]
+    subgraph Cache["⚡ Redis Optional"]
+        RedisNode["💾 Cache<br/>app/cache.py"]
     end
 
-    subgraph Testing["Testing & QA"]
-        Unit["🧪 Unit Tests<br/>pytest"]
-        Integration["🔗 Integration Tests<br/>aiosqlite"]
-        E2E["🌐 E2E Tests<br/>AsyncClient"]
+    subgraph Messaging["📬 Redpanda<br/>Kafka-compatible"]
+        Topic1["📌 records.events"]
+        Topic2["⚠️ records.events.dlq"]
     end
 
-    Client -->|HTTP| LB
-    LB -->|async| Router
-    Router --> CID
+    subgraph ProcessorService["⚙️ Processor Service<br/>services/processor/"]
+        Consumer["📥 AIOKafkaConsumer"]
+        EventLogger["📝 Event Logger"]
+    end
+
+    Client -->|HTTP POST| Router
     Router --> Validation
     Validation --> CRUD
-    CRUD -->|AsyncSession| Pool
-    Pool -->|SQLAlchemy 2.0<br/>Mapped| Tables
-    Tables -->|query| Index
+    CRUD -->|INSERT| Pool
+    Pool -->|SQLAlchemy 2.0| Tables
 
-    Router -->|log| DevFmt
-    Router -->|log| ProdFmt
-    ProdFmt -->|JSON stream| ELK["📈 ELK/VictoriaMetrics<br/>Sentry"]
+    CRUD -->|cache check| RedisNode
+    RedisNode -->|hit/miss| CRUD
 
-    Router -.->|integration| E2E
-    CRUD -.->|unit| Unit
+    CRUD -->|after write| Producer
+    Producer -->|publish| Topic1
+    Producer -.->|fail-open:error| Topic2
 
-    style App fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    Topic1 -->|consume| Consumer
+    Consumer -->|track (idempotency)| EventsCRUD
+    EventsCRUD -->|store status| Pool
+    Consumer --> EventLogger
+    EventLogger -->|stdout JSON| Logs["📊 docker logs<br/>processor"]
+
+    style Ingestor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Storage fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style DB fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style Logging fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style Testing fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style Cache fill:#ffe0b2,stroke:#e65100,stroke-width:1px
+    style Messaging fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style ProcessorService fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
+
+**Phase 1 Flows:**
+
+- **Ingest**: POST `/api/v1/records` → validate → store in PostgreSQL → publish Kafka event
+- **Event**: Redpanda topic receives `{record_id, source}` payload
+- **Consume**: Processor subscribes, logs each event to stdout
+- **Fail-open**: If Kafka unavailable, request still succeeds (warning logged, event lost)
+- **Cache** (optional): Redis for read-through caching
+- **DLQ**: Failed messages route to dead letter queue for replay
 
 ## Components
 
@@ -239,6 +261,99 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
 
 Tracks requests end-to-end via ContextVar, injected into every log.
 
+### 📤 Kafka Producer (Phase 1)
+
+**Location**: `app/events.py`
+
+**Responsibilities:**
+
+- Singleton AIOKafkaProducer connected in `app/main.py` lifespan
+- `publish_record_created(record_id, payload)` — publishes to `records.events` topic
+- Fail-open: logs KafkaError but doesn't crash the request
+- Generic type: `EventPayload[T]` for typed event payloads
+
+**Key Pattern:**
+
+```python
+async def publish_record_created(record_id: int, payload: dict) -> None:
+    """Publish record creation event to Kafka (fail-open)."""
+    if _producer is None:
+        return  # Not connected; silently skip
+    try:
+        value = json.dumps({"record_id": record_id, **payload}).encode()
+        await _producer.send_and_wait("records.events", value=value)
+    except KafkaError as exc:
+        logger.warning("kafka_publish_failed", extra={"error": str(exc)})
+        # Don't crash; events are best-effort observability
+```
+
+### 📊 Event Storage Layer (Platform-Wide) — Phase 1+
+
+**Location**: `app/storage/events.py`
+
+**Why it exists**: Processor needs to track consumed events with **industry-standard patterns**:
+
+- **Idempotency**: Duplicate messages don't cause double-processing
+- **Status tracking**: Event moves pending → processing → completed/failed/dead_letter
+- **DLQ routing**: Failed events persist for later replay/inspection
+- **Offset tracking**: Kafka offset stored for recovery after crashes
+- **Batch efficiency**: Bulk-insert via INSERT...RETURNING (single round-trip)
+
+**Shared by**: Both ingestor service and processor service (decoupled from `app/crud.py` which is ingestor-specific)
+
+**Core Functions:**
+
+```python
+# Deduplication on consume
+event, created = await create_processed_event(
+    db,
+    kafka_topic="records.events",
+    kafka_partition=0,
+    kafka_offset=1234,
+    idempotency_key="uuid-of-event",  # Unique per event
+    event_type="record.created",
+    payload={"record_id": 42, "source": "api"}
+)
+# If same idempotency_key arrives twice: created=False (duplicate ignored)
+
+# Track processing state
+await mark_event_processing(db, event.id)   # pending → processing
+await mark_event_completed(db, event.id)     # processing → completed ✓
+await mark_event_failed(db, event.id, "timeout error", {"stack": "..."})  # → failed
+await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (human inspection)
+```
+
+**ORM Model**: `app/models.py::ProcessedEvent` with fields:
+
+- `kafka_topic`, `kafka_partition`, `kafka_offset` — Kafka metadata
+- `idempotency_key` — unique per event (prevents double-processing)
+- `status` — pending | processing | completed | failed | dead_letter
+- `payload` — JSON event data
+- `error_message`, `error_details` — full context if failed
+- `dead_letter_queue` — boolean flag for DLQ routing
+- `processing_attempts` — retry count
+- `processed_at` — completion timestamp (via TimestampMixin)
+
+### 📥 Kafka Consumer (Phase 1)
+
+**Location**: `services/processor/main.py`
+
+**Responsibilities:**
+
+- Runs as standalone service in Docker
+- Subscribes to `records.events` topic with group `processor-group`
+- Retry loop on startup (waits for Redpanda leader election)
+- Logs each event as JSON to stdout
+- Handles malformed messages gracefully
+
+**Execution:**
+
+```bash
+docker compose up processor
+# or
+cd services/processor && python main.py
+```
+
 ### 📊 Environment-Aware Logging
 
 **Development:**
@@ -270,6 +385,51 @@ Tracks requests end-to-end via ContextVar, injected into every log.
 4. GitHub auto-renders the diagram
 5. Team reviews in PR before merging
 
+## Phase 1 Design Patterns
+
+### Observer Pattern — Event Publishing
+
+When a record is created, the ingestor publishes an event without coupling to the processor:
+
+```
+Record created → Kafka event → Processor consumes asynchronously
+↑
+No tight dependency between ingestor and processor
+```
+
+**Benefits:**
+
+- Processor can be down; ingestor still works (fail-open)
+- Multiple consumers can process same event (add more services later)
+- Decoupled: ingestor doesn't care if processor succeeds/fails
+
+### TypeVar + Generic — Typed Event Payloads
+
+```python
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class EventPayload(Generic[T]):
+    """Future: extend for strongly-typed event schemas."""
+    record_id: int
+    data: T  # Can be any type: dict, RecordData, etc.
+```
+
+This prepares for Phase 2+ when we add scrapers with different payload types.
+
+### Fail-Open Principle
+
+If Kafka is unavailable:
+
+1. `publish_record_created()` logs warning, returns silently
+2. POST /api/v1/records still returns 201
+3. Request completes; event is lost (telemetry only, not critical data)
+
+This is the opposite of fail-closed (crash on error). For observability, fail-open is acceptable.
+
+---
+
 ## Key Design Decisions
 
 | Decision | Rationale |
@@ -279,6 +439,10 @@ Tracks requests end-to-end via ContextVar, injected into every log.
 | Pydantic v2 | Validation + serialization in one place |
 | Environment-aware logging | Dev: readable; Prod: structured JSON |
 | In-memory aiosqlite tests | Fast, no infrastructure needed |
+| Redpanda (not Kafka) | Simpler Docker setup, no Zookeeper, Kafka-compatible API |
+| Fail-open events | Kafka unavailability doesn't block ingestor; events are observability only |
+| Processor as separate service | Enables independent scaling, deployment, and development (Phase 2+) |
+| Single topic `records.events` | Start simple; add `records.events.dlq` in Phase 4 for error handling |
 
 ## Related Documents
 

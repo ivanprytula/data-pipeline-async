@@ -106,16 +106,23 @@ app/
 ├── main.py               — FastAPI routes, lifespan, middleware
 ├── config.py             — Pydantic settings (from .env)
 ├── database.py           — Engine, session factory, migrations
-├── models.py             — SQLAlchemy ORM (Record, Event models)
+├── models.py             — SQLAlchemy ORM (Record, ProcessedEvent models)
 ├── schemas.py            — Pydantic v2 request/response schemas
-├── crud.py               — Async DB operations (batch, list, get)
+├── crud.py               — Ingestor CRUD: Record operations (async)
 ├── cache.py              — Redis caching layer (fail-open)
 ├── rate_limiting.py      — slowapi + custom limiters
 ├── rate_limiting_advanced.py — Token bucket, sliding window
 ├── auth.py               — JWT validation, Bearer tokens
 ├── metrics.py            — Prometheus middleware
 ├── fetch.py              — httpx + exponential backoff retry
-└── fetch_aiohttp.py      — aiohttp alternative (comparison)
+├── fetch_aiohttp.py      — aiohttp alternative (comparison)
+├── events.py             — Kafka producer singleton (Phase 1)
+├── storage/              — Platform-wide storage layer (shared across services)
+│   ├── __init__.py
+│   ├── events.py         — ProcessedEvent CRUD (Phase 1: idempotency, DLQ, status tracking)
+│   └── mongo.py          — MongoDB client (Phase 2)
+└── core/
+    └── circuit_breaker.py — Resilience patterns (Phase 4)
 
 tests/
 ├── conftest.py           — Fixtures (in-memory DB, client, redis)
@@ -245,11 +252,19 @@ Write paths:
 **Interview Q**: "Design real-time ETL for 1000+ events/sec" ([phase-1-events.md](.github/instructions/phase-1-events.md))
 **Artifacts**: 8–10 commits, LinkedIn post, portfolio item
 
+**Core Components**:
+
+- **Event Producer** (`app/events.py`): Kafka singleton, fail-open publishing
+- **Event Storage** (`app/storage/events.py`): ProcessedEvent CRUD for idempotency, DLQ routing, status tracking
+- **Processor** (`services/processor/`): Standalone consumer with retry logic and JSON logging
+
+**Checklist**:
+
 - [ ] Set up Redpanda container + event producer
 - [ ] Implement Celery consumer (retry logic, DLQ)
 - [ ] Design partitioning by source_id
 - [ ] Monitor consumer lag
-- [ ] Test exactly-once semantics (idempotency)
+- [ ] Test exactly-once semantics (idempotency via ProcessedEvent)
 
 ### Phase 2: Data Scraping (Weeks 3–4)
 

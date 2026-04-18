@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import cache
+from app import cache, events
 from app.auth import create_session, verify_bearer_token, verify_session
 from app.constants import API_V1_PREFIX, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, V1_RATE_LIMIT
 from app.crud import (
@@ -80,6 +80,11 @@ async def create_record(
     """
     record = await create_record_op(db, body)
     records_created_total.labels(endpoint="single").inc()
+    # Publish event after successful DB write (Observer pattern — fail-open)
+    await events.publish_record_created(
+        record_id=record.id,
+        payload={"source": record.source},
+    )
     return RecordResponse.model_validate(record)
 
 

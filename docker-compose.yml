@@ -99,18 +99,56 @@ services:
           cpus: '0.25'
           memory: '256M'
 
+  redpanda:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: data-pipeline-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr internal://redpanda:29092,external://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - '9092:9092'   # host access (rpk, local dev)
+      - '8082:8082'   # Pandaproxy / admin UI
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
+
   app:
     build: .
     container_name: data-pipeline-app
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
+      KAFKA_BROKER_URL: redpanda:29092
+      KAFKA_ENABLED: "true"
     ports:
       - '8000:8000'
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redpanda:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8000/readyz']
@@ -139,6 +177,29 @@ services:
         limits:
           cpus: '0.5'
           memory: '512M'
+
+  processor:
+    build:
+      context: ./services/processor
+      dockerfile: Dockerfile
+    container_name: data-pipeline-processor
+    environment:
+      KAFKA_BROKER_URL: redpanda:29092
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '64M'
+        limits:
+          cpus: '0.25'
+          memory: '128M'
 
 volumes:
   pg_data:
