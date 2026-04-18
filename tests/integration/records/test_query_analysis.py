@@ -38,12 +38,29 @@ def parse_explain_output(explain_output: str) -> dict:
         Dict with keys: planning_ms, execution_ms, nodes, uses_index.
     """
     try:
-        plan_json = json.loads(explain_output)
+        # Explain output may already be a Python structure or a JSON string
+        if isinstance(explain_output, (bytes, bytearray)):
+            explain_output = explain_output.decode()
+        if isinstance(explain_output, str):
+            plan_json = json.loads(explain_output)
+        else:
+            plan_json = explain_output
+
         if isinstance(plan_json, list):
             plan_json = plan_json[0]
 
-        planning_ms = plan_json.get("Plan", {}).get("Planning Time", 0)
-        execution_ms = plan_json.get("Execution Time", 0)
+        # Typical PG JSON: top-level keys 'Planning Time' and 'Execution Time'
+        planning_ms = plan_json.get("Planning Time")
+        execution_ms = plan_json.get("Execution Time")
+
+        # Fallbacks: sometimes tooling nests timing under 'Plan'
+        if planning_ms is None:
+            planning_ms = plan_json.get("Plan", {}).get("Planning Time")
+        if execution_ms is None:
+            execution_ms = plan_json.get("Plan", {}).get("Execution Time")
+        # As last resort, use Plan->Actual Total Time
+        if execution_ms is None:
+            execution_ms = plan_json.get("Plan", {}).get("Actual Total Time")
 
         def extract_nodes(node, node_list=None):
             if node_list is None:
@@ -319,7 +336,7 @@ class TestQueryAnalysis:
                 id,
                 source,
                 timestamp,
-                COALESCE(array_length(tags, 1), 0) as tag_count
+                COALESCE(json_array_length(tags), 0) as tag_count
             FROM records
             WHERE deleted_at IS NULL
             ORDER BY id DESC
@@ -361,10 +378,10 @@ class TestQueryAnalysis:
             SELECT
                 records.id,
                 records.source,
-                unnest(records.tags) as tag
+                json_array_elements_text(records.tags) as tag
             FROM records
             WHERE deleted_at IS NULL
-              AND array_length(tags, 1) > 0
+              AND json_array_length(tags) > 0
             ORDER BY records.id
             """
         )

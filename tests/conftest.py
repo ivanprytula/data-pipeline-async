@@ -1,4 +1,14 @@
-"""Pytest fixtures for the async stack (aiosqlite in-memory)."""
+"""Pytest fixtures for the async stack (aiosqlite in-memory or PostgreSQL).
+
+Database selection:
+  - Default: SQLite in-memory (no external dependency)
+  - If DATABASE_URL_TEST env var set: Use PostgreSQL (for concurrent tests)
+
+To run with PostgreSQL:
+  1. Start test DB: docker compose --profile test up db-test
+  2. Set env: export DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_database
+  3. Run tests: pytest tests/integration/records/test_concurrency.py -v
+"""
 
 import datetime
 import os
@@ -17,6 +27,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.config import Settings
 from app.database import Base, get_db
@@ -25,35 +36,108 @@ from tests.shared.payloads import RECORD_API
 
 
 # ---------------------------------------------------------------------------
-# In-memory aiosqlite engine — no real PostgreSQL needed for unit tests
+# Database engine selection (SQLite fallback, PostgreSQL for concurrent tests)
 # ---------------------------------------------------------------------------
-_TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
-
-_engine = create_async_engine(_TEST_DB_URL, echo=False)
-_AsyncSessionLocal = async_sessionmaker(
-    bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False
+_TEST_DB_URL = os.environ.get(
+    "DATABASE_URL_TEST",
+    "sqlite+aiosqlite:///:memory:",  # Default: in-memory SQLite
 )
 
+# For PostgreSQL, set pool size to match concurrent test load
+_engine_kwargs = {}
+if "postgresql" in _TEST_DB_URL:
+    # Use NullPool in tests to ensure connections are not pooled across
+    # event loop boundaries. Pooling can create connections attached to a
+    # different asyncio event loop, causing "Future attached to a different
+    # loop" RuntimeError when pytest_asyncio switches loops between tests.
+    _engine_kwargs["poolclass"] = NullPool
+
+_engine = None
+_AsyncSessionLocal = None
+
+
+def _ensure_sessionmaker() -> None:
+    """Lazily create the async engine and sessionmaker.
+
+    Must be called from the test event loop (i.e., inside fixtures). Creating
+    the engine at import time can bind asyncpg internals to a different
+    asyncio event loop which causes "Future attached to a different loop"
+    errors during testing. Creating lazily inside fixtures avoids that.
+    """
+    global _engine, _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        _engine = create_async_engine(_TEST_DB_URL, echo=False, **_engine_kwargs)
+        _AsyncSessionLocal = async_sessionmaker(
+            bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False
+        )
+
+
 _RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
+
+# Export flag for use in test markers
+IS_POSTGRES = "postgresql" in _TEST_DB_URL
+IS_SQLITE = "sqlite" in _TEST_DB_URL
 
 
 @pytest_asyncio.fixture()
 async def db() -> AsyncGenerator[AsyncSession]:
     """Create schema, yield session, teardown schema — all async."""
-    async with _engine.begin() as conn:
+    _ensure_sessionmaker()
+    async with _engine.begin() as conn:  # type: ignore[arg-type]
         await conn.run_sync(Base.metadata.create_all)
-    async with _AsyncSessionLocal() as session:
+    async with _AsyncSessionLocal() as session:  # type: ignore[call-arg]
         yield session
-    async with _engine.begin() as conn:
+    async with _engine.begin() as conn:  # type: ignore[arg-type]
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture()
 async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
-    """Async HTTPX client with DB dependency overridden."""
+    """Async HTTPX client with DB dependency overridden.
+
+    For PostgreSQL (and general robustness), provide a fresh `AsyncSession`
+    for each HTTP request by using the module-level `_AsyncSessionLocal`.
+    The `db` fixture is still depended-on to ensure schema creation.
+    """
+
+    # Ensure the module-level sessionmaker is created on the active test event loop
+    _ensure_sessionmaker()
 
     async def _override() -> AsyncGenerator[AsyncSession]:
-        yield db
+        # Defensive: ensure sessionmaker initialized (may be None if not created)
+        _ensure_sessionmaker()
+        assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
+        SessionLocal = _AsyncSessionLocal  # type: ignore[assignment]
+
+        # Provide a fresh session for each request to avoid sharing a single
+        # session across concurrent requests (which causes asyncpg errors).
+        async with SessionLocal() as session:  # type: ignore[call-arg]
+            yield session
+
+    app.dependency_overrides[get_db] = _override
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture()
+async def client_isolated(
+    postgresql_async_session_isolated: AsyncSession,
+) -> AsyncGenerator[AsyncClient]:
+    """Async HTTPX client with isolated PostgreSQL session (no connection pooling).
+
+    Use for concurrent tests to avoid asyncpg "another operation in progress" errors.
+    Each HTTP request gets independent DB connection. Skips if PostgreSQL unavailable.
+    """
+    # Store the sessionmaker from the isolated session so we can create fresh sessions
+    SessionLocal = postgresql_async_session_isolated._sessionmaker  # type: ignore
+
+    async def _override() -> AsyncGenerator[AsyncSession]:
+        # Create a FRESH session for each HTTP request (critical for concurrent tests!)
+        async with SessionLocal() as session:
+            yield session
 
     app.dependency_overrides[get_db] = _override
     async with AsyncClient(
@@ -255,6 +339,57 @@ async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
         await pg_engine.dispose()
 
 
+@pytest_asyncio.fixture()
+async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
+    """PostgreSQL-only fixture: Fresh engine + session per test (no connection pooling).
+
+    Use for concurrent tests to avoid asyncpg "another operation in progress" errors.
+    Skips if DATABASE_URL_TEST not set or points to SQLite.
+
+    Each test gets isolated connection — no connection pooling/reuse within test.
+    Solves: asyncpg cannot handle concurrent operations on same connection.
+    """
+    db_url = os.environ.get("DATABASE_URL_TEST")
+    if not db_url or "sqlite" in db_url:
+        pytest.skip(
+            "DATABASE_URL_TEST not set or SQLite in use. "
+            "Concurrent tests require PostgreSQL. "
+            "Start with: docker compose --profile test up db-test"
+        )
+
+    # Create isolated engine — NO connection pooling (pool_size=1, max_overflow=0)
+    # This ensures each test gets a fresh connection without reuse conflicts
+    isolated_engine = create_async_engine(
+        db_url,
+        echo=False,
+        pool_size=1,
+        max_overflow=0,
+        pool_pre_ping=True,  # Validate connections before use
+    )
+
+    # Create schema
+    try:
+        async with isolated_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        # Create session (expires_on_commit=False required for async)
+        SessionLocal = async_sessionmaker(
+            isolated_engine,
+            expire_on_commit=False,
+            autoflush=False,
+        )
+
+        async with SessionLocal() as session:
+            # Store sessionmaker on the session for use by client_isolated
+            session._sessionmaker = SessionLocal  # type: ignore
+            yield session
+    finally:
+        # Cleanup
+        async with isolated_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await isolated_engine.dispose()
+
+
 # ---------------------------------------------------------------------------
 # Mock/Override Fixtures
 # ---------------------------------------------------------------------------
@@ -281,3 +416,31 @@ def app_with_api_token(settings_with_api_token: Settings):
     """FastAPI app with API token authentication enabled."""
     with patch("app.main.settings", settings_with_api_token):
         yield app
+
+
+# ---------------------------------------------------------------------------
+# Pytest Hooks & Configuration
+# ---------------------------------------------------------------------------
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "postgresonly: mark test to run only when PostgreSQL is available "
+        "(skip on SQLite in-memory)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-skip PostgreSQL-only tests when using SQLite.
+
+    Tests marked with @pytest.mark.postgresonly will skip if DATABASE_URL_TEST
+    is not set or points to SQLite.
+    """
+    if IS_SQLITE:
+        skip_marker = pytest.mark.skip(
+            reason="PostgreSQL not available. "
+            "Run with: DATABASE_URL_TEST=postgresql+asyncpg://... pytest ..."
+        )
+        for item in items:
+            if "postgresonly" in item.keywords:
+                item.add_marker(skip_marker)

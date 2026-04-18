@@ -8,6 +8,7 @@ Week 4 Phase 2 pattern: Real async HTTP with concurrency control.
 """
 
 import asyncio
+import contextlib
 import logging
 
 import httpx
@@ -18,36 +19,111 @@ logger = logging.getLogger(__name__)
 # jsonplaceholder base URL (free, no authentication required)
 EXTERNAL_API_BASE = "https://jsonplaceholder.typicode.com"
 
-# Global HTTP client (reused across calls for connection pooling)
-_http_client: httpx.AsyncClient | None = None
+"""
+Per-event-loop HTTP client management.
+
+httpx.AsyncClient instances are bound to the event loop they were created on.
+Sharing a single client across different asyncio event loops can cause
+``RuntimeError: Event loop is closed`` when tests/consumers close a loop while a
+client from another loop still exists. To avoid this, we keep a mapping of
+running event loop -> AsyncClient and return the client for the current loop.
+
+`get_http_client()` and `close_http_client()` operate on the current running
+loop only, which is safe for tests that create/close loops per test. This is a
+best-effort approach for cleanup; a `close_all_http_clients()` helper is also
+provided for global shutdown if needed.
+"""
+
+# Mapping: event loop -> AsyncClient
+_http_clients: dict[asyncio.AbstractEventLoop, httpx.AsyncClient] = {}
 
 
 async def get_http_client() -> httpx.AsyncClient:
-    """Get or create global async HTTP client.
+    """Return an AsyncClient associated with the current running event loop.
 
-    Connection pooling improves performance for multiple requests.
-
-    Returns:
-        AsyncClient configured with timeout and limits.
+    Ensures we don't reuse a client created on another event loop which would
+    make closing it from the current loop raise ``RuntimeError: Event loop is
+    closed``.
     """
-    global _http_client
-    if _http_client is None:
-        _http_client = httpx.AsyncClient(
-            timeout=30.0,  # 30 second timeout per request
-            limits=httpx.Limits(
-                max_connections=100,
-                max_keepalive_connections=20,
-            ),
-        )
-    return _http_client
+    loop = asyncio.get_running_loop()
+    client = _http_clients.get(loop)
+    if client is not None:
+        return client
+
+    client = httpx.AsyncClient(
+        timeout=30.0,
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+    )
+    _http_clients[loop] = client
+    return client
 
 
 async def close_http_client() -> None:
-    """Close the global HTTP client (call on app shutdown)."""
-    global _http_client
-    if _http_client is not None:
-        await _http_client.aclose()
-        _http_client = None
+    """Close the AsyncClient associated with the current running event loop.
+
+    Safe to call multiple times. If there's no running loop (e.g. being called
+    from synchronous shutdown), this is a no-op.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop on this thread; nothing to close here.
+        return
+
+    client = _http_clients.pop(loop, None)
+    if client is None:
+        return
+
+    client = _http_clients.pop(loop, None)
+    if client is None:
+        return
+
+    with contextlib.suppress(RuntimeError):
+        await client.aclose()
+
+
+async def close_all_http_clients() -> None:
+    """Best-effort close of all tracked AsyncClient instances.
+
+    Iterates over the loop->client mapping and attempts to close each client.
+    If the client's loop is different from the current running loop, this will
+    schedule the coroutine on that loop using ``asyncio.run_coroutine_threadsafe``
+    and wait briefly for completion. Any errors during close are swallowed to
+    keep shutdown best-effort.
+    """
+    # Snapshot keys to avoid mutation during iteration
+    loops = list(_http_clients.keys())
+    for loop in loops:
+        client = _http_clients.pop(loop, None)
+        if client is None:
+            continue
+        try:
+            try:
+                current_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                current_loop = None
+
+            if current_loop is loop:
+                # Close directly on the same loop
+                with contextlib.suppress(Exception):
+                    await client.aclose()
+            else:
+                # Close on the client's loop thread-safely
+                try:
+                    fut = asyncio.run_coroutine_threadsafe(client.aclose(), loop)
+                    # wait a short time for the close to complete
+                    fut.result(timeout=1)
+                except Exception:
+                    # Fallback to sync close if available
+                    try:
+                        close_fn = getattr(client, "close", None)
+                        if callable(close_fn):
+                            close_fn()
+                    except Exception:
+                        pass
+        except Exception:
+            # Swallow any error to ensure best-effort cleanup
+            pass
 
 
 async def fetch_from_external_api(
