@@ -81,7 +81,7 @@ Master async concurrency patterns: semaphore (concurrency cap), task pooling, ba
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 

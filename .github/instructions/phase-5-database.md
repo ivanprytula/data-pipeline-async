@@ -67,7 +67,7 @@ Master PostgreSQL performance: query planning, index strategies, pagination, con
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 
@@ -316,16 +316,16 @@ Master SQL from basic to advanced. **✓ = Implemented; ○ = Understood; ✗ = 
 
 **Per pattern, code implements or demonstrates:**
 
-| Pattern | SQL Example | Python Code | Test Case | Interview Q |
-|---------|-------------|-------------|-----------|-------------|
-| 1. SELECT WHERE | `SELECT * FROM records WHERE price > 100` | `stmt = select(Record).where(Record.price > 100)` | Test 5 filters | "Filter 1M rows efficiently?" |
-| 2. ORDER BY LIMIT | `SELECT * FROM records ORDER BY created_at DESC LIMIT 10` | `.order_by(Record.created_at.desc()).limit(10)` | Pagination test | "Paginate 1M rows?" |
-| 6. INNER JOIN | `SELECT * FROM records r JOIN sources s ON r.source_id = s.id` | `select(Record, Source).join(Source)` | Multi-table test | "Join logic?" |
-| 11. GROUP BY | `SELECT source, COUNT(*) FROM records GROUP BY source HAVING COUNT(*) > 10` | `.group_by(Record.source)` | Aggregation test | "GROUP BY vs window?" |
-| 21. CTE | `WITH active AS (...) SELECT * FROM active` | `select(...).from_(cte)` | CTE test | "CTE vs subquery?" |
-| 29. ROW_NUMBER | `SELECT *, ROW_NUMBER() OVER (ORDER BY created_at) FROM records` | `func.row_number().over(order_by=Record.created_at)` | Rank test | "ROW_NUMBER vs RANK?" |
-| 36. Composite Index | `CREATE INDEX idx ON records(source_id, created_at)` | Run EXPLAIN ANALYZE, verify index_scan | Index usage test | "Index ordering?" |
-| 39. Keyset Pagination | `SELECT * FROM records WHERE id > 999 LIMIT 10` | `(Record.id > cursor).limit(10)` | Large offset test | "Why keyset > OFFSET?" |
+| Pattern               | SQL Example                                                                 | Python Code                                          | Test Case         | Interview Q                   |
+| --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------- | ----------------------------- |
+| 1. SELECT WHERE       | `SELECT * FROM records WHERE price > 100`                                   | `stmt = select(Record).where(Record.price > 100)`    | Test 5 filters    | "Filter 1M rows efficiently?" |
+| 2. ORDER BY LIMIT     | `SELECT * FROM records ORDER BY created_at DESC LIMIT 10`                   | `.order_by(Record.created_at.desc()).limit(10)`      | Pagination test   | "Paginate 1M rows?"           |
+| 6. INNER JOIN         | `SELECT * FROM records r JOIN sources s ON r.source_id = s.id`              | `select(Record, Source).join(Source)`                | Multi-table test  | "Join logic?"                 |
+| 11. GROUP BY          | `SELECT source, COUNT(*) FROM records GROUP BY source HAVING COUNT(*) > 10` | `.group_by(Record.source)`                           | Aggregation test  | "GROUP BY vs window?"         |
+| 21. CTE               | `WITH active AS (...) SELECT * FROM active`                                 | `select(...).from_(cte)`                             | CTE test          | "CTE vs subquery?"            |
+| 29. ROW_NUMBER        | `SELECT *, ROW_NUMBER() OVER (ORDER BY created_at) FROM records`            | `func.row_number().over(order_by=Record.created_at)` | Rank test         | "ROW_NUMBER vs RANK?"         |
+| 36. Composite Index   | `CREATE INDEX idx ON records(source_id, created_at)`                        | Run EXPLAIN ANALYZE, verify index_scan               | Index usage test  | "Index ordering?"             |
+| 39. Keyset Pagination | `SELECT * FROM records WHERE id > 999 LIMIT 10`                             | `(Record.id > cursor).limit(10)`                     | Large offset test | "Why keyset > OFFSET?"        |
 
 ---
 
@@ -372,7 +372,7 @@ Master SQL from basic to advanced. **✓ = Implemented; ○ = Understood; ✗ = 
 
 | Metric                      | Target | How to Measure                                                 |
 | --------------------------- | ------ | -------------------------------------------------------------- |
-| SQL patterns mastered | 40/40 | Can write/explain all 40 patterns from memory |
+| SQL patterns mastered       | 40/40  | Can write/explain all 40 patterns from memory                  |
 | Query latency (p99)         | <50ms  | EXPLAIN ANALYZE + load test (measure end-to-end)               |
 | Index usage                 | 100%   | pg_stat_user_indexes: all created indices have idx_scan > 0    |
 | Connection pool utilization | 60–80% | Monitor `SELECT count(*) FROM pg_stat_activity` during peak    |

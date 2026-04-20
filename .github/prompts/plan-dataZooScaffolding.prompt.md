@@ -17,10 +17,10 @@ Create 12 reference files (8 phase guides + 3 templates + 1 tracking root) in `.
 
 ### Batch 2 (Phase Guides) — ~2–3 hours, parallel
 
-5. `.github/instructions/phase-1-events.md` — Redpanda + Celery toy (consumer lag, partitioning, exactly-once)
-6. `.github/instructions/phase-2-scrapers.md` — GraphQL toy (rate limiting, async semaphore)
-7. `.github/instructions/docker-ci-guide.md` — WebSocket toy (GitHub Actions, ECR, multi-stage Docker)
-8. `.github/instructions/phase-3-ai-qdrant.md` — gRPC toy (embeddings, vector DB, caching)
+5. `.github/instructions/phase-1-events.md` — Redpanda + Celery real life production example (consumer lag, partitioning, exactly-once)
+6. `.github/instructions/phase-2-scrapers.md` — GraphQL real life production example (rate limiting, async semaphore)
+7. `.github/instructions/docker-ci-guide.md` — WebSocket real life production example (GitHub Actions, ECR, multi-stage Docker)
+8. `.github/instructions/phase-3-ai-qdrant.md` — gRPC real life production example (embeddings, vector DB, caching)
 9. `.github/instructions/phase-4-testing.md` — Pytest fixtures + Celery mocking (10 patterns, 5 async gotchas)
 10. `.github/instructions/phase-5-database.md` — SQL mastery (40 patterns, EXPLAIN ANALYZE, indexes)
 11. `.github/instructions/phase-6-security.md` — JWT + refresh tokens, rate limiting, input validation
@@ -36,7 +36,7 @@ Create 12 reference files (8 phase guides + 3 templates + 1 tracking root) in `.
 | Core Interview Q | The main question you'll face | "Design real-time ETL for 1000+ events/sec" |
 | Suggested Answer Arc | 3–4 bullet points you should cover | Topic partitioning by entity ID, consumer groups for scale |
 | Follow-up Questions | Gotchas interviewers ask | Consumer lag definition, exactly-once idempotency |
-| Toy Example | Concrete feature to build | Celery background job publishing to Kafka |
+| Real life production example | Concrete feature to build | Celery background job publishing to Kafka |
 | Code Checklist | Step-by-step (from existing plan) | Add Redpanda to docker-compose, create app/events.py |
 | Interview Prep | Specific talking points | Partition assignment strategies, offset management |
 | Artifacts | Portfolio items to create | LinkedIn post, portfolio-phase-N.md, 8–15 commits |
@@ -83,7 +83,7 @@ These new files **reference** (don't duplicate):
 **Purpose:** Single source of truth for weekly tracking, checklists, measurements.
 
 **Sections:**
-- Phase timeline table (weeks 1–16, core Q, toys)
+- Phase timeline table (weeks 1–16, core Q, real life production examples)
 - **SQL Patterns Checklist (40)**
   - Basic 10: SELECT, JOIN, GROUP BY, subqueries, UNION, DISTINCT, CASE, CAST, COALESCE, CROSS JOIN
   - Mid 15: Composite index, PARTIAL INDEX, BRIN, GIN, EXPLAIN ANALYZE, CTE, recursive, window functions, PARTITION BY, LATERAL, keyset pagination, self-join, UPDATE/DELETE with JOIN, transaction isolation
@@ -142,7 +142,7 @@ These new files **reference** (don't duplicate):
 - {Q1}
 - {Q2}
 
-## Toy Example: {Feature Name}
+## Real life production example: {Feature Name}
 {Concrete feature to build, 2–3 sentences}
 
 **Files to Create:**
@@ -184,50 +184,50 @@ Aim for 8–15 commits over 2 weeks
 **Per-Phase Details:**
 
 #### Phase 1: Events (Redpanda + Celery)
-- Toy: Production-ready Celery background job (retry, timeout, DLQ) publishing to Redpanda topic with partitioning by source_id
+- Real life production example: Production-ready Celery background job (retry, timeout, DLQ) publishing to Redpanda topic with partitioning by source_id
 - Interview Q: "Design real-time ETL for 1000+ events/sec"
 - Follow-ups: "What's consumer lag? Why monitor?", "Exactly-once vs at-least-once?"
 - Talking points: Consumer lag, topic partitioning, exactly-once vs at-least-once, offset management
 - Success: Processor receives events reliably, Kafka unavailability doesn't crash service (fail-open), tests verify event delivery
 
 #### Phase 2: Scrapers (GraphQL + Playwright)
-- Toy: GraphQL endpoint `query { scraperStatus { source, urlsQueued, successRate } }`
+- Real life production example: GraphQL endpoint `query { scraperStatus { source, urlsQueued, successRate } }`
 - Interview Q: "Design scraper for 100K URLs without ban"
 - Talking points: Rate limiting, exponential backoff, Pydantic validation as ETL filter
 - Success: 3 scraper types (REST, HTML, browser), Motor async client, events published
 
 #### Docker+CI: WebSocket + GitHub Actions
-- Toy: WebSocket `/ws/scraper-status/{source}` streams live stats
+- Real life production example: WebSocket `/ws/scraper-status/{source}` streams live stats
 - Interview Q: "Walk me through dev → prod pipeline"
 - Talking points: CI/CD stages, Docker multi-stage, image registry, artifact push
 - Success: GitHub Actions workflow (test → ruff → build → ECR push), multi-stage Dockerfile -80% size
 
 #### Phase 3: AI+Qdrant (gRPC + Embeddings)
-- Toy: gRPC service `EmbeddingService.EmbedText() → embedding: [float]`
+- Real life production example: gRPC service `EmbeddingService.EmbedText() → embedding: [float]`
 - Interview Q: "Design semantic search over 100K docs"
 - Talking points: Embedding models, vector DB trade-offs, LRU caching, cosine similarity
 - Success: Qdrant running, API endpoint returns top-10 by similarity in <500ms
 
 #### Phase 4: Testing (Pytest + Celery Mocking)
-- Toy: Parametrized test for Celery retry logic + mock external API
+- Real life production example: Parametrized test for Celery retry logic + mock external API
 - Interview Q: "How do you test function calling external API?"
 - Talking points: 10 pytest patterns, async testing, freezegun for time travel
 - Success: All 5 async gotchas documented with examples, 10 fixtures demonstrated
 
 #### Phase 5: Database (SQL Mastery)
-- Toy: EXPLAIN ANALYZE walkthrough; create index that cuts query from 5s → 50ms
+- Real life production example: EXPLAIN ANALYZE walkthrough; create index that cuts query from 5s → 50ms
 - Interview Q: "This query is slow (5s). Fix it."
 - Talking points: Query plans, index strategies, materialized views, window functions
 - Success: 40 SQL patterns checklist complete, all basic + mid tier demonstrated in code
 
 #### Phase 6: Security (JWT + Rate Limiting)
-- Toy: JWT refresh token flow + rate limit on /login endpoint
+- Real life production example: JWT refresh token flow + rate limit on /login endpoint
 - Interview Q: "Design JWT auth for multi-service"
 - Talking points: JWT structure (not encrypted), refresh token strategy, rate limiting, input validation
 - Success: Bearer token auth working, HMAC webhook validation, 3rd service can verify JWT
 
 #### Phase 7: Terraform (IaC + Multi-Env)
-- Toy: Terraform modules (PostgreSQL RDS, Fargate, ElastiCache, Secret Manager)
+- Real life production example: Terraform modules (PostgreSQL RDS, Fargate, ElastiCache, Secret Manager)
 - Interview Q: "Walk me through code → production"
 - Talking points: Terraform state, multi-env variables, secrets management, rollback strategy
 - Success: `terraform plan` shows multi-env setup, GitHub Actions applies plan on merge
@@ -404,7 +404,7 @@ Prepared for interviews:
 
 - ✅ 11 files exist with ~2,500 lines total
 - ✅ Tracking file: 40 SQL patterns, 10 pytest fixtures, 5 async gotchas, 8 interview Q rows
-- ✅ Each phase guide: overview, core Q + arc, toy, checklist, interview prep, artifacts section
+- ✅ Each phase guide: overview, core Q + arc, real life production example, checklist, interview prep, artifacts section
 - ✅ All file paths match project structure
 - ✅ Example code blocks realistic, copy-paste ready
 - ✅ No typos in interview questions
@@ -422,7 +422,7 @@ Prepared for interviews:
 Refinements Applied:
 - ✅ Phase 5 simplified: 15 practical SQL patterns (not 40)
 - ✅ Interview Q with follow-ups on every phase
-- ✅ Toy examples marked as "production-ready" (not minimal)
+- ✅ Real life production examples marked as "production-ready" (not minimal)
 - ✅ LinkedIn posts in technical/measured tone (not celebratory)
 - ✅ No README.md for `.github/instructions/`
 

@@ -69,7 +69,7 @@ Understand event-driven architecture: partitioning, consumer groups, idempotency
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 

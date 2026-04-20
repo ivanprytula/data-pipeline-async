@@ -71,11 +71,11 @@ Master infrastructure-as-code: Terraform modules, state locking, multi-environme
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 
-```
+```text
 Code repo (main branch)
   ↓
 GitHub Actions: terraform plan
@@ -104,7 +104,7 @@ Instances
 
 - [ ] **Terraform Project Structure**
 
-  ```
+  ```text
   infra/
   ├── main.tf (provider, state backend)
   ├── variables.tf (input vars)
@@ -457,16 +457,16 @@ Instances
 
 ## Success Metrics
 
-| Metric | Target | How to Measure |
-|--------|--------|--------|
-| Terraform plan time | <30s | Time `terraform plan` output |
-| State lock timeout | Never stuck | No manual `force-unlock` needed over 2 weeks |
-| Manual AWS changes | 0 detected | `terraform plan` reports zero drift daily |
-| Workspace isolation | 3 separate | `terraform workspace list` shows dev/staging/prod with separate state |
-| Secrets in code | 0 | `git log -S "sk_\|AKIA"` finds nothing |
-| Approval gates | Required | Prod apply requires manual GitHub approval, tracked in logs |
-| Rollback time | <5 min | Revert code + apply takes <5 min (tested) |
-| Commit count | 11–15 | 1 per module / workflow update |
+| Metric              | Target      | How to Measure                                                        |
+| ------------------- | ----------- | --------------------------------------------------------------------- |
+| Terraform plan time | <30s        | Time `terraform plan` output                                          |
+| State lock timeout  | Never stuck | No manual `force-unlock` needed over 2 weeks                          |
+| Manual AWS changes  | 0 detected  | `terraform plan` reports zero drift daily                             |
+| Workspace isolation | 3 separate  | `terraform workspace list` shows dev/staging/prod with separate state |
+| Secrets in code     | 0           | `git log -S "sk_\|AKIA"` finds nothing                                |
+| Approval gates      | Required    | Prod apply requires manual GitHub approval, tracked in logs           |
+| Rollback time       | <5 min      | Revert code + apply takes <5 min (tested)                             |
+| Commit count        | 11–15       | 1 per module / workflow update                                        |
 
 ---
 
@@ -553,4 +553,4 @@ aws dynamodb scan --table-name terraform-lock
 
 ---
 
-**END OF DATA ZOO PLATFORM — 8-PHASE LEARNING COMPLETION**
+END OF DATA ZOO PLATFORM — 8-PHASE LEARNING COMPLETION

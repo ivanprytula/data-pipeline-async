@@ -13,6 +13,8 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 - Code > prose. Facts only.
 - Single line answers when possible.
 
+- Prefer compact chat replies to conserve context tokens; expand only on request.
+
 **Response structure**:
 - State what was done/found (or ask for clarity).
 - Provide code or specifics immediately.
@@ -20,6 +22,8 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 - Avoid: Explanations, pleasantries, second statements of the same fact.
 
 **When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy).
+
+When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
 
 ## Build and Test
 

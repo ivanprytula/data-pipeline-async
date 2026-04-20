@@ -67,7 +67,7 @@ Understand vector databases, embedding models, similarity search, and LRU cachin
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 

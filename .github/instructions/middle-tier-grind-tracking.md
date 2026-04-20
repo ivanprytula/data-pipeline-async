@@ -1,15 +1,15 @@
 ---
-description: "10-week middle-tier interview prep: SQL/pytest checklists, toy examples (GraphQL/gRPC/WebSockets/Celery), document-as-you-go tracking"
+description: "10-week middle-tier interview prep: SQL/pytest checklists, real life production examples (GraphQL/gRPC/WebSockets/Celery), document-as-you-go tracking"
 applyTo: "docs/**/*.md, .github/**/*.md"
 ---
 
 # Middle Tier Grind — 10-Week Tracking
 
-Compressed: 70 days (10 days/phase). Each phase = toy examples + portfolio artifact + interview prep.
+Compressed: 70 days (10 days/phase). Each phase = real life production examples + portfolio artifact + interview prep.
 
 ## Phase Timeline & Interview Questions
 
-| Phase        | Weeks | Core Q                            | Follow-ups                                  | Toy Examples                                        |
+| Phase        | Weeks | Core Q                            | Follow-ups                                  | Real life production examples                       |
 | ------------ | ----- | --------------------------------- | ------------------------------------------- | --------------------------------------------------- |
 | 1: Events    | 1–2   | "Design ETL for 1000+ events/sec" | "Consumer lag?", "Exactly-once?"            | Celery + Redpanda + DLQ                             |
 | 2: Scrapers  | 3–4   | "Scraper for 100K URLs?"          | "Prevent ban?", "Concurrent vs sequential?" | GraphQL status + Playwright + Semaphore             |

@@ -71,11 +71,11 @@ Master application security (authentication, authorization, secrets) and infrast
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 
-```
+```text
 User login
   ↓
 POST /api/v1/auth/login {username, password}
@@ -391,16 +391,16 @@ Logout
 
 ## Success Metrics
 
-| Metric | Target | How to Measure |
-|--------|--------|--------|
-| API endpoints authenticated | 100% | Public endpoints only: /health, /docs. Others all gated. |
-| Token expiry | 15min access, 30d refresh | JWT decode + check exp claim. Refresh tokens in Redis with TTL. |
-| Refresh rate limit | 5/hour | Test: 6 refreshes in 1 min → 6th returns 429 |
-| CVE vulnerabilities | 0 | `pip-audit` output → should be clean |
-| Secrets in repo | 0 | `grep -r "sk_\|AKIA" .` → should find nothing |
-| Terraform state locked | Always | DynamoDB table shows lock on apply, auto-released on completion |
-| Deployment approval | Manual on prod | GitHub environment approval required for prod apply |
-| Commit count | 11–15 | 1 per auth feature / terraform module |
+| Metric                      | Target                    | How to Measure                                                  |
+| --------------------------- | ------------------------- | --------------------------------------------------------------- |
+| API endpoints authenticated | 100%                      | Public endpoints only: /health, /docs. Others all gated.        |
+| Token expiry                | 15min access, 30d refresh | JWT decode + check exp claim. Refresh tokens in Redis with TTL. |
+| Refresh rate limit          | 5/hour                    | Test: 6 refreshes in 1 min → 6th returns 429                    |
+| CVE vulnerabilities         | 0                         | `pip-audit` output → should be clean                            |
+| Secrets in repo             | 0                         | `grep -r "sk_\|AKIA" .` → should find nothing                   |
+| Terraform state locked      | Always                    | DynamoDB table shows lock on apply, auto-released on completion |
+| Deployment approval         | Manual on prod            | GitHub environment approval required for prod apply             |
+| Commit count                | 11–15                     | 1 per auth feature / terraform module                           |
 
 ---
 
@@ -465,9 +465,9 @@ OTEL tracing, Grafana dashboards, log aggregation, SLO/SLI metrics. Not included
 
 ---
 
-## Project Completion Checklist
+Project Completion Checklist
 
-- [ ] 7 phases complete, each with working toy example
+- [ ] 7 phases complete, each with working real life production example
 - [ ] 100+ commits across all phases (8–15 per phase)
 - [ ] 8 LinkedIn posts (1 per phase), archived
 - [ ] 8 portfolio items (1 per phase), with GitHub links
@@ -479,4 +479,4 @@ OTEL tracing, Grafana dashboards, log aggregation, SLO/SLI metrics. Not included
 
 ---
 
-**END OF DATA ZOO PLATFORM — 8-PHASE LEARNING PATH**
+END OF DATA ZOO PLATFORM — 8-PHASE LEARNING PATH

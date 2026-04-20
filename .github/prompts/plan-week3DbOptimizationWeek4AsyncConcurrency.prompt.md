@@ -1,7 +1,7 @@
 # Plan: Week 3–4 Feature Increment — DB Optimization + Async & Concurrency
 
 ## TL;DR
-Two sequential phases. Phase 1 (DB) adds indexes, an N+1 benchmark endpoint, processed_at migration, and EXPLAIN ANALYZE habits. Phase 2 (Async) replaces toy fetch.py with real httpx HTTP fan-out, a semaphore-limited batch enrichment endpoint, an idempotent upsert race-condition demo, and Prometheus metrics as the Pillar 4 bridge.
+Two sequential phases. Phase 1 (DB) adds indexes, an N+1 benchmark endpoint, processed_at migration, and EXPLAIN ANALYZE habits. Phase 2 (Async) replaces example fetch.py with real httpx HTTP fan-out, a semaphore-limited batch enrichment endpoint, an idempotent upsert race-condition demo, and Prometheus metrics as the Pillar 4 bridge.
 
 ---
 

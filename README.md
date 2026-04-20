@@ -76,21 +76,21 @@ See [`.github/instructions/middle-tier-grind-tracking.md`](.github/instructions/
 
 All 8 phases have complete execution blueprints in `.github/instructions/`:
 
-| File                     | Content                              | Use When                          |
-| ------------------------ | ------------------------------------ | --------------------------------- |
-| **phase-1-events.md**    | Redpanda + Celery toy example        | Starting Phase 1 (week 1–2)       |
-| **phase-2-scrapers.md**  | GraphQL scraper + rate limiting      | Starting Phase 2 (week 3–4)       |
-| **docker-ci-guide.md**   | Multi-stage Docker + GitHub Actions  | Starting Phase 3 CI/CD (week 5–6) |
-| **phase-3-ai-qdrant.md** | Embeddings + vector DB + caching     | Starting Phase 4 (week 7–8)       |
-| **phase-4-testing.md**   | 10 pytest fixtures + async mocking   | Starting Phase 5 (week 9–10)      |
-| **phase-5-database.md**  | 40 SQL patterns + EXPLAIN ANALYZE    | Starting Phase 6 (week 11–12)     |
-| **phase-6-security.md**  | JWT + refresh tokens + rate limiting | Starting Phase 7 (week 13–14)     |
-| **phase-7-terraform.md** | Terraform modules + multi-env        | Starting Phase 8 (week 15–16)     |
+| File                     | Content                                        | Use When                          |
+| ------------------------ | ---------------------------------------------- | --------------------------------- |
+| **phase-1-events.md**    | Redpanda + Celery real life production example | Starting Phase 1 (week 1–2)       |
+| **phase-2-scrapers.md**  | GraphQL scraper + rate limiting                | Starting Phase 2 (week 3–4)       |
+| **docker-ci-guide.md**   | Multi-stage Docker + GitHub Actions            | Starting Phase 3 CI/CD (week 5–6) |
+| **phase-3-ai-qdrant.md** | Embeddings + vector DB + caching               | Starting Phase 4 (week 7–8)       |
+| **phase-4-testing.md**   | 10 pytest fixtures + async mocking             | Starting Phase 5 (week 9–10)      |
+| **phase-5-database.md**  | 40 SQL patterns + EXPLAIN ANALYZE              | Starting Phase 6 (week 11–12)     |
+| **phase-6-security.md**  | JWT + refresh tokens + rate limiting           | Starting Phase 7 (week 13–14)     |
+| **phase-7-terraform.md** | Terraform modules + multi-env                  | Starting Phase 8 (week 15–16)     |
 
 Each guide includes:
 ✅ Core interview question + suggested answer
 ✅ 2 follow-up questions you'll face
-✅ Concrete toy example to build
+✅ Concrete real life production example to build
 ✅ Weekly checklist (8–15 commits per phase)
 ✅ Interview prep talking points
 ✅ Success criteria + metrics

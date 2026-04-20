@@ -14,7 +14,7 @@ Always start with a shebang and include metadata:
 
 ################################################################################
 # Script: start.sh
-# Description: Spin up Docker Compose services for scenario 1
+# Description: Spin up Docker Compose services
 # Usage: ./start.sh [--build]
 # Author: data-pipeline-async
 ################################################################################

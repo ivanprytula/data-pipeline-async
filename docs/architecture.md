@@ -8,7 +8,7 @@
 
 ## Monorepo Target Structure (Phases 0–8)
 
-```
+```text
 data-pipeline-async/
 ├── app/                          (Phase 1+: Ingestor service)
 │   ├── main.py
@@ -60,7 +60,7 @@ data-pipeline-async/
 ├── docker-compose.yml            (← Evolves per phase)
 ├── pyproject.toml                (← Evolves per phase)
 └── README.md
-```
+```text
 
 ---
 
@@ -117,7 +117,7 @@ graph TB
 
     Ingestor -->|publish| Topics\n    Ingestor -->|write| RDS\n    Ingestor -->|cache| Redis\n    \n    Topics -->|consume| Processor\n    Processor -->|embed| AIGateway\n    Processor -->|store| Qdrant\n    Processor -->|log errors| Topics\n    \n    AIGateway -->|store| Qdrant\n    QueryAPI -->|read analytics| RDS\n    QueryAPI -->|listen| Topics\n    \n    Dashboard -->|query| QueryAPI\n    Dashboard -->|search| AIGateway\n    \n    Ingestor -->|metrics| Prometheus\n    Processor -->|metrics| Prometheus\n    QueryAPI -->|metrics| Prometheus\n    Prometheus -->|visualize| Grafana\n    \n    Ingestor -->|trace| Jaeger\n    Processor -->|trace| Jaeger
     \n    style Compute fill:#e3f2fd,stroke:#1976d2\n    style Data fill:#fff3e0,stroke:#e65100\n    style Messaging fill:#f3e5f5,stroke:#6a1b9a\n    style Observability fill:#e8f5e9,stroke:#2e7d32
-```
+```mermaid
 
 ---
 
@@ -202,7 +202,7 @@ graph TB
     style Cache fill:#ffe0b2,stroke:#e65100,stroke-width:1px
     style Messaging fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style ProcessorService fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
+```mermaid
 
 **Phase 1 Flows:**
 
@@ -285,7 +285,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
     except KafkaError as exc:
         logger.warning("kafka_publish_failed", extra={"error": str(exc)})
         # Don't crash; events are best-effort observability
-```
+```python
 
 ### 📊 Event Storage Layer (Platform-Wide) — Phase 1+
 
@@ -321,7 +321,7 @@ await mark_event_processing(db, event.id)   # pending → processing
 await mark_event_completed(db, event.id)     # processing → completed ✓
 await mark_event_failed(db, event.id, "timeout error", {"stack": "..."})  # → failed
 await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (human inspection)
-```
+```python
 
 **ORM Model**: `app/models.py::ProcessedEvent` with fields:
 
@@ -352,7 +352,7 @@ await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (h
 docker compose up processor
 # or
 cd services/processor && python main.py
-```
+```bash
 
 ### 📊 Environment-Aware Logging
 
@@ -391,11 +391,11 @@ cd services/processor && python main.py
 
 When a record is created, the ingestor publishes an event without coupling to the processor:
 
-```
+```text
 Record created → Kafka event → Processor consumes asynchronously
 ↑
 No tight dependency between ingestor and processor
-```
+```text
 
 **Benefits:**
 
@@ -414,7 +414,7 @@ class EventPayload(Generic[T]):
     """Future: extend for strongly-typed event schemas."""
     record_id: int
     data: T  # Can be any type: dict, RecordData, etc.
-```
+```python
 
 This prepares for Phase 2+ when we add scrapers with different payload types.
 

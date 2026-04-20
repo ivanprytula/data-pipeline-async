@@ -71,11 +71,11 @@ Master containerization and GitOps: multi-stage builds (layer caching), secret m
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 
-```
+```text
 Push to main
   ↓
 GitHub Actions (ci.yml) triggers
@@ -121,7 +121,7 @@ GitHub Actions (ci.yml) triggers
 
 - [ ] **.dockerignore**
 
-  ```
+  ```text
   .git
   __pycache__
   tests/
@@ -284,15 +284,15 @@ GitHub Actions (ci.yml) triggers
 
 ## Success Metrics
 
-| Metric | Target | How to Measure |
-|--------|--------|--------|
-| CI time | <5 min | GitHub Actions run time (lint + test + build + push) |
-| Image size | <150MB | `docker images` output, app:latest size column |
-| Layer cache hit | 80%+ | Second CI run on code-only change should skip `pip install` layer |
-| Test pass | 100% | All matrix jobs (3.10/3.11/3.12) pass |
-| Image push | Success | ECR dashboard shows image with correct tags |
-| Lint pass | 100% | No Ruff warnings on every push |
-| Commit count | 11–15 | 1 per feature + docs |
+| Metric          | Target  | How to Measure                                                    |
+| --------------- | ------- | ----------------------------------------------------------------- |
+| CI time         | <5 min  | GitHub Actions run time (lint + test + build + push)              |
+| Image size      | <150MB  | `docker images` output, app:latest size column                    |
+| Layer cache hit | 80%+    | Second CI run on code-only change should skip `pip install` layer |
+| Test pass       | 100%    | All matrix jobs (3.10/3.11/3.12) pass                             |
+| Image push      | Success | ECR dashboard shows image with correct tags                       |
+| Lint pass       | 100%    | No Ruff warnings on every push                                    |
+| Commit count    | 11–15   | 1 per feature + docs                                              |
 
 ---
 

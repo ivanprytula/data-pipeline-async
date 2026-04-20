@@ -68,7 +68,7 @@ Master async testing (fixtures, mocking), dependency injection, test data factor
 
 ---
 
-## Toy Example — Production-Ready
+## Real life production example — Production-Ready
 
 ### Architecture
 
