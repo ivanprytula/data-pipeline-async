@@ -1,4 +1,12 @@
-repos:
+  repos:
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty type checker
+        entry: ty
+        language: system
+        types: [python]
+        pass_filenames: true
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -40,7 +48,7 @@ repos:
     hooks:
       -   id: pip-audit
 
-ci:
-  # Leave pip-audit to only run locally and not in CI
-  # pre-commit.ci does not allow network calls
-  skip: [pip-audit]
+  ci:
+    # Leave pip-audit to only run locally and not in CI
+    # pre-commit.ci does not allow network calls
+    skip: [pip-audit]

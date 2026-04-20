@@ -48,6 +48,8 @@ dev = [
     "ruff>=0.15.10",
     # Load testing
     "locust>=2.32.0",
+    # Type checker
+    "ty",
 ]
 
 [tool.pytest.ini_options]
