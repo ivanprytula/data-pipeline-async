@@ -88,12 +88,12 @@
 
 *Trade-off table*:
 
-| N | Time (100K) | Ban Risk | Memory | Config |
-|---|-------------|----------|--------|--------|
-| 1 | 11 days | None | Low | Default for testing |
-| 5 | 6 hours | Low | Medium | **← Default (Phase 2)** |
-| 20 | 1.5 hours | Medium | High | Enterprise (requires proxy) |
-| 100 | 3 min | High | Very High | Distributed system + proxies |
+| N   | Time (100K) | Ban Risk | Memory    | Config                       |
+| --- | ----------- | -------- | --------- | ---------------------------- |
+| 1   | 11 days     | None     | Low       | Default for testing          |
+| 5   | 6 hours     | Low      | Medium    | **← Default (Phase 2)**      |
+| 20  | 1.5 hours   | Medium   | High      | Enterprise (requires proxy)  |
+| 100 | 3 min       | High     | Very High | Distributed system + proxies |
 
 ---
 
@@ -176,13 +176,13 @@ This architecture is portable: same Pattern (Factory + async client + fail-open)
 
 ## Metrics
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Scraper endpoint latency (p50) | <2s | ✅ ~200ms for 20 items |
-| Error rate (timeouts + parser failures) | <5% | ✅ ~1% on Hacker News |
-| MongoDB write latency | <10ms | ✅ ~2ms local, TBD prod |
-| Kafka event publish latency | <50ms | ✅ ~5ms async (fail-open) |
-| Code coverage (scrapers + routes) | >85% | 🟡 ~70% (needs fixture for Playwright) |
+| Metric                                  | Target | Status                                |
+| --------------------------------------- | ------ | ------------------------------------- |
+| Scraper endpoint latency (p50)          | <2s    | ✅ ~200ms for 20 items                |
+| Error rate (timeouts + parser failures) | <5%    | ✅ ~1% on Hacker News                 |
+| MongoDB write latency                   | <10ms  | ✅ ~2ms local, TBD prod               |
+| Kafka event publish latency             | <50ms  | ✅ ~5ms async (fail-open)             |
+| Code coverage (scrapers + routes)       | >85%   | 🟡 ~70% (needs fixture for Playwright)|
 
 ---
 

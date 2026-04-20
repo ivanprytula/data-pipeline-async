@@ -59,10 +59,15 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--cov=app --cov-report=term-missing --cov-report=html -v -m 'not e2e'"
+filterwarnings = [
+    "ignore::DeprecationWarning:slowapi",
+]
 markers = [
     "unit: Fast, isolated unit tests (no I/O, no DB)",
     "integration: Tests that touch DB/ASGI client",
     "e2e: End-to-end or long-running tests (skipped by default)",
+    "browser: Browser-based tests using Playwright (may require system dependencies)",
+    "mongo: MongoDB-dependent tests (skipped if MongoDB unavailable)",
 ]
 
 # pytest-postgresql configuration for Docker-based testing
@@ -131,3 +136,13 @@ include = ["app", "tests"]
 unresolved-attribute = "ignore"
 invalid-argument-type = "ignore"
 # invalid-assignment = "ignore"
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    ".venv",
+    "venv",
+]
+skips = [
+    "B101",  # assert_used in tests
+]

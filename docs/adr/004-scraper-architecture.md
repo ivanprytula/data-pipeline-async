@@ -116,12 +116,12 @@ except Exception as e:
 
 **Trade-off table** (100K URLs, 1 req/s baseline):
 
-| N | Time | Ban Risk | Observability |
-|---|------|----------|---------------|
-| 1 | 27h | Minimal | Best |
-| 5 | 5.5h | Low | Good |
-| 20 | 1.5h | Medium | Fair |
-| 100 | 3m | High | Poor |
+| N   | Time | Ban Risk | Observability |
+| --- | ---- | -------- | ------------- |
+| 1   | 27h  | Minimal  | Best          |
+| 5   | 5.5h | Low      | Good          |
+| 20  | 1.5h | Medium   | Fair          |
+| 100 | 3m   | High     | Poor          |
 
 **Decision**: Default to 5; overridable per-source via config (`app/config.py` → `SEMAPHORE_LIMITS`)
 

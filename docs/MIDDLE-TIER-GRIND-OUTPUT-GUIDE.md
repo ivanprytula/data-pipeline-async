@@ -28,11 +28,11 @@ Every **2-week phase completion** produces **ONE** output document (like [docs/w
 
 A table comparing goals vs actual:
 
-| Metric | Goal | Actual | Status |
-|--------|------|--------|--------|
-| Core Q answered cold | 1/1 | ✅ 1/1 | ✅ |
-| Code commits | 8–15 | 12 | ✅ |
-| Tests passing | 100% | 70% | 🟡 |
+| Metric               | Goal | Actual | Status |
+| -------------------- | ---- | ------ | ------ |
+| Core Q answered cold | 1/1  | ✅ 1/1 | ✅     |
+| Code commits         | 8–15 | 12     | ✅     |
+| Tests passing        | 100% | 70%    | 🟡     |
 
 ### 3. Interview Readiness (Most Important)
 
@@ -127,15 +127,15 @@ You have:
 
 This template is **designed for interview readiness**. Each component maps to interview questions:
 
-| Output Component | Interview Question | How It Helps |
-|------------------|-------------------|------------|
-| Core Q Cold Answer | "Design a scraper for 100K URLs" | Proves you can think on your feet |
-| Follow-up Answers | "Rate limiting strategy?" | Shows deep understanding |
-| Design Scenario | "Scraper is failing 30% of time — diagnose" | Proves problem-solving, not just coding |
-| Code Artifacts | "Walk me through your code" | Concrete evidence of ability |
-| Portfolio Item | "Tell me about a project" | Narrative that impresses (metrics + learning) |
-| ADR | "How do you make design decisions?" | Shows architectural thinking |
-| Learning Insights | "What's something you learned?" | Signals growth mindset |
+| Output Component   | Interview Question                          | How It Helps                                  |
+| ------------------ | ------------------------------------------- | --------------------------------------------- |
+| Core Q Cold Answer | "Design a scraper for 100K URLs"            | Proves you can think on your feet             |
+| Follow-up Answers  | "Rate limiting strategy?"                   | Shows deep understanding                      |
+| Design Scenario    | "Scraper is failing 30% of time — diagnose" | Proves problem-solving, not just coding       |
+| Code Artifacts     | "Walk me through your code"                 | Concrete evidence of ability                  |
+| Portfolio Item     | "Tell me about a project"                   | Narrative that impresses (metrics + learning) |
+| ADR                | "How do you make design decisions?"         | Shows architectural thinking                  |
+| Learning Insights  | "What's something you learned?"             | Signals growth mindset                        |
 
 **Interviewer mindset**: "Can this person ship? Do they think about tradeoffs? Do they learn from mistakes?"
 
@@ -164,16 +164,16 @@ This template answers all 3 yes.
 
 ## Success Metrics (Track Weekly)
 
-| Metric | Target | How to Measure |
-|--------|--------|-----------------|
-| Interview Q answered cold per week | 1/phase | Record yourself answering, review later |
-| Code commits/phase | 8–15 | `git log --oneline --since='2 weeks ago'` |
-| Tests passing | 100% | `pytest tests/ -v` |
-| SQL patterns implemented | 40/40 across 10 weeks | Checkboxes in phase report |
-| Pytest fixtures demonstrated | 10/10 across 10 weeks | Checkboxes in phase report |
-| Async gotchas with examples | 5/5 across 10 weeks | Reference in phase report |
-| Portfolio items written | 1/phase | Link to docs/portfolio-phase-{N}.md |
-| ADRs completed | 1/phase | Link to docs/adr/{N}-{title}.md |
+| Metric                             | Target                | How to Measure                            |
+| ---------------------------------- | --------------------- | ----------------------------------------- |
+| Interview Q answered cold per week | 1/phase               | Record yourself answering, review later   |
+| Code commits/phase                 | 8–15                  | `git log --oneline --since='2 weeks ago'` |
+| Tests passing                      | 100%                  | `pytest tests/ -v`                        |
+| SQL patterns implemented           | 40/40 across 10 weeks | Checkboxes in phase report                |
+| Pytest fixtures demonstrated       | 10/10 across 10 weeks | Checkboxes in phase report                |
+| Async gotchas with examples        | 5/5 across 10 weeks   | Reference in phase report                 |
+| Portfolio items written            | 1/phase               | Link to docs/portfolio-phase-{N}.md       |
+| ADRs completed                     | 1/phase               | Link to docs/adr/{N}-{title}.md           |
 
 ---
 

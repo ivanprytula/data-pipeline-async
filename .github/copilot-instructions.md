@@ -3,6 +3,15 @@
 Async FastAPI + SQLAlchemy 2.0 REST API for ingesting and querying pipeline records.
 Single `records` resource, full CRUD. Learning project demonstrating production-style async patterns.
 
+## Self-Enforced Discipline
+
+**Read instruction files at task start.** Before implementing code, writing docs, or handling complex requests:
+1. Read `.github/copilot-instructions.md` (this file)
+2. Read any applicable instruction files from `.github/instructions/` (e.g., `fastapi.instructions.md` for routes, `tests.instructions.md` for test files)
+3. Read relevant skill files if a skill applies (search `.github/skills/` for matching SKILL.md)
+
+This ensures I follow **current guidance**, not stale context. Show the read in my reasoning process.
+
 ## Communication Style
 
 **Concise and direct.**
@@ -20,8 +29,9 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 - Provide code or specifics immediately.
 - Optional: Brief rationale if not obvious.
 - Avoid: Explanations, pleasantries, second statements of the same fact.
+- **Avoid "Changes Made" sections** — User reviews diffs/created files directly; don't repeat that info in chat. Token waste.
 
-**When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy).
+**When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy). No "Changes Made" section.
 
 When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
 

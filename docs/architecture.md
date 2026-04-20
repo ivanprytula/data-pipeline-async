@@ -66,17 +66,17 @@ data-pipeline-async/
 
 ## Phase Progression
 
-| Phase | Focus | Services | Components Added |
-|-------|-------|----------|------------------|
-| **0** | Docs & Planning | — | ADRs, architecture, ACTION_PLAN, monorepo structure |
-| **1** | Event Streaming | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events |
-| **2** | Data Scraping | + scrapers | HTTP/HTML/browser scrapers, MongoDB client |
-| **3** | AI + Vector DB | ai-gateway | Qdrant, sentence-transformers, embeddings |
-| **4** | Resilience Patterns | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger |
-| **5** | CQRS Read Layer | query-api | Materialized views, window functions, partitioning |
-| **6** | Dashboard | dashboard | HTMX, Jinja2, SSE, backend-rendered UI |
-| **7** | Cloud Deployment | (all services) | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache |
-| **8** | Production Hardening | (all services) | Prometheus, Grafana, backups, chaos testing |
+| Phase | Focus                | Services            | Components Added                                    |
+| ----- | -------------------- | ------------------- | --------------------------------------------------- |
+| **0** | Docs & Planning      | —                   | ADRs, architecture, ACTION_PLAN, monorepo structure |
+| **1** | Event Streaming      | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events |
+| **2** | Data Scraping        | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client          |
+| **3** | AI + Vector DB       | ai-gateway          | Qdrant, sentence-transformers, embeddings           |
+| **4** | Resilience Patterns  | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger         |
+| **5** | CQRS Read Layer      | query-api           | Materialized views, window functions, partitioning  |
+| **6** | Dashboard            | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI              |
+| **7** | Cloud Deployment     | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
+| **8** | Production Hardening | (all services)      | Prometheus, Grafana, backups, chaos testing         |
 
 ---
 
@@ -493,25 +493,25 @@ graph TB
 - Pattern: Uniform interface, 3 implementations
 - `get_scraper(source: str) -> Scraper`
 
-**📡 HTTPScraper**
+📡 HTTPScraper
 
 - Uses `httpx.AsyncClient` for REST APIs
 - Example: JSONPlaceholder (demo API)
 - Features: Exponential backoff (3 retries), timeout (10s), async concurrency
 
-**🔍 HTMLScraper**
+🔍 HTMLScraper
 
 - Uses BeautifulSoup + httpx for HTML parsing
 - Example: Hacker News front page
 - Features: CSS selector queries, lightweight
 
-**🌐 BrowserScraper**
+🌐 BrowserScraper
 
 - Uses Playwright for JS-rendered content
 - Example: Pages requiring browser automation
 - Features: Full browser automation, JavaScript execution, cookies/auth
 
-**📚 Motor Async MongoDB**
+📚 Motor Async MongoDB
 
 - Singleton pattern (app/storage/mongo.py)
 - Collection: `scraped` — immutable log of scraped documents
@@ -538,51 +538,47 @@ class ScrapeResponse(BaseModel):
 
 ### Design Principles (Phase 2)
 
-**1. Fail-Open Architecture**
+1. Fail-Open Architecture
+   - If MongoDB unavailable → endpoint returns 200 (items_stored=0, error logged)
+   - If Kafka unavailable → endpoint returns 200 (event_published=false, error logged)
+   - Rationale: Don't cascade failures; user gets feedback; data can be replayed from logs
+2. Concurrency Safety with Semaphore
+   - `Semaphore(5)` by default (configurable per source)
+   - Prevents: Bot bans, rate limiting, connection exhaustion
+   - Improves: Observability (easier to debug with 5 vs 100 concurrent)
+3. Configurable Resilience
 
-- If MongoDB unavailable → endpoint returns 200 (items_stored=0, error logged)
-- If Kafka unavailable → endpoint returns 200 (event_published=false, error logged)
-- Rationale: Don't cascade failures; user gets feedback; data can be replayed from logs
+    ```python
+    # app/config.py
+    SCRAPER_TIMEOUTS = {
+        "jsonplaceholder": 10,
+        "hn": 15,
+        "playwright": 30  # Browser slower
+    }
+    SEMAPHORE_LIMITS = {
+        "jsonplaceholder": 10,  # More aggressive safe
+        "hn": 5,                # Conservative
+        "playwright": 3         # Heavy on resources
+    }
+    ```
 
-**2. Concurrency Safety with Semaphore**
+4. Observable Failures
 
-- `Semaphore(5)` by default (configurable per source)
-- Prevents: Bot bans, rate limiting, connection exhaustion
-- Improves: Observability (easier to debug with 5 vs 100 concurrent)
-
-**3. Configurable Resilience**
-
-```python
-# app/config.py
-SCRAPER_TIMEOUTS = {
-    "jsonplaceholder": 10,
-    "hn": 15,
-    "playwright": 30  # Browser slower
-}
-SEMAPHORE_LIMITS = {
-    "jsonplaceholder": 10,  # More aggressive safe
-    "hn": 5,                # Conservative
-    "playwright": 3         # Heavy on resources
-}
-```
-
-**4. Observable Failures**
-
-```python
-logger.error("scrape_failed", extra={
-    "source": source,
-    "duration_ms": duration,
-    "error_type": type(e).__name__,
-    "count_attempted": len(items),
-    "count_stored": stored_count
-})
-```
+  ```python
+  logger.error("scrape_failed, extra={
+      "source": source,
+      "duration_ms": duration,
+      "error_type": type(e).__name__,
+      "count_attempted": len(items),
+      "count_stored": stored_count
+    })
+  ```
 
 ### Data Flows
 
 **Happy Path:**
 
-```
+```text
 POST /api/v1/scrape/hn?limit=50
   ↓
   ScraperFactory.get_scraper("hn") → HTMLScraper
@@ -598,7 +594,7 @@ POST /api/v1/scrape/hn?limit=50
 
 **Degraded (MongoDB down):**
 
-```
+```text
 POST /api/v1/scrape/hn
   ↓
   Scrape succeeds → [Item, Item, ...]
@@ -615,7 +611,7 @@ POST /api/v1/scrape/hn
 
 **Cascading Failure (both MongoDB + Kafka down):**
 
-```
+```text
 Scrape succeeds → MongoDB fails → Kafka fails
   ↓
   Both errors logged with context
@@ -662,17 +658,17 @@ This is the opposite of fail-closed (crash on error). For observability, fail-op
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-| ---------- | ----------- |
-| Async/Await | Non-blocking I/O → handle 100s concurrent requests |
-| SQLAlchemy 2.0 | Type-safe ORM with modern Python syntax |
-| Pydantic v2 | Validation + serialization in one place |
-| Environment-aware logging | Dev: readable; Prod: structured JSON |
-| In-memory aiosqlite tests | Fast, no infrastructure needed |
-| Redpanda (not Kafka) | Simpler Docker setup, no Zookeeper, Kafka-compatible API |
-| Fail-open events | Kafka unavailability doesn't block ingestor; events are observability only |
-| Processor as separate service | Enables independent scaling, deployment, and development (Phase 2+) |
-| Single topic `records.events` | Start simple; add `records.events.dlq` in Phase 4 for error handling |
+| Decision                      | Rationale                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| Async/Await                   | Non-blocking I/O → handle 100s concurrent requests                         |
+| SQLAlchemy 2.0                | Type-safe ORM with modern Python syntax                                    |
+| Pydantic v2                   | Validation + serialization in one place                                    |
+| Environment-aware logging     | Dev: readable; Prod: structured JSON                                       |
+| In-memory aiosqlite tests     | Fast, no infrastructure needed                                             |
+| Redpanda (not Kafka)          | Simpler Docker setup, no Zookeeper, Kafka-compatible API                   |
+| Fail-open events              | Kafka unavailability doesn't block ingestor; events are observability only |
+| Processor as separate service | Enables independent scaling, deployment, and development (Phase 2+)        |
+| Single topic `records.events` | Start simple; add `records.events.dlq` in Phase 4 for error handling       |
 
 ## Related Documents
 

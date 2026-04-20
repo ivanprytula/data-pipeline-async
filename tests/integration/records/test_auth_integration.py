@@ -63,11 +63,9 @@ class TestSessionAuth:
         )
         session_id = login_response.json()["session_id"]
 
-        # Now request with session cookie
-        response = await client.get(
-            f"/api/v1/records/{record.id}/secure",
-            cookies={"session_id": session_id},
-        )
+        # Set session cookie on client instance (not per-request)
+        client.cookies.set("session_id", session_id)
+        response = await client.get(f"/api/v1/records/{record.id}/secure")
         assert response.status_code == 200
         assert response.json()["id"] == record.id
 
@@ -95,11 +93,9 @@ class TestSessionAuth:
             "expires_at": datetime.now(UTC) - timedelta(hours=1),  # Expired
         }
 
-        # Request with expired session
-        response = await client.get(
-            f"/api/v1/records/{record.id}/secure",
-            cookies={"session_id": session_id},
-        )
+        # Set expired session cookie on client instance
+        client.cookies.set("session_id", session_id)
+        response = await client.get(f"/api/v1/records/{record.id}/secure")
         assert response.status_code == 401
         assert "expired" in response.json()["detail"].lower()
 

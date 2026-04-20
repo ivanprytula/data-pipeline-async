@@ -27,7 +27,7 @@ A monolithic app can only scale by adding compute to a single service. To enable
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │ HTTP Request: POST /records/                            │
 │  ↓                                                        │
@@ -66,7 +66,7 @@ A monolithic app can only scale by adding compute to a single service. To enable
 
 ### 2. Producer: app/events.py
 
-**Advanced Python Pattern: Generic Event Envelope**
+Advanced Python Pattern: Generic Event Envelope
 
 ```python
 class EventPayload[T]:
@@ -182,14 +182,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 ## Advanced Python Patterns Used
 
-| Pattern | Location | Benefit |
-|---------|----------|---------|
-| **TypeVar + Generic** | `EventPayload[T]` | Type-safe event payloads; mypy catches missing fields |
-| **Singleton** | `_producer` module var | Single connection per process; no connection leaks |
-| **Observer** | Publish on record create | Decouples API from processor; easy to add more consumers |
-| **Fail-Open** | Try/except KafkaError | Resilience; API survives broker outage |
-| **Async/Await** | Producer, consumer loops | Non-blocking I/O; thousands of concurrent requests on one thread |
-| **Context Manager** | `async with consumer` | Automatic cleanup; connection reset on error |
+| Pattern               | Location                 | Benefit                                                          |
+| --------------------- | ------------------------ | ---------------------------------------------------------------- |
+| **TypeVar + Generic** | `EventPayload[T]`        | Type-safe event payloads; mypy catches missing fields            |
+| **Singleton**         | `_producer` module var   | Single connection per process; no connection leaks               |
+| **Observer**          | Publish on record create | Decouples API from processor; easy to add more consumers         |
+| **Fail-Open**         | Try/except KafkaError    | Resilience; API survives broker outage                           |
+| **Async/Await**       | Producer, consumer loops | Non-blocking I/O; thousands of concurrent requests on one thread |
+| **Context Manager**   | `async with consumer`    | Automatic cleanup; connection reset on error                     |
 
 ---
 
@@ -235,12 +235,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 ## Metrics & Performance
 
-| Metric | Value |
-|--------|-------|
-| Redpanda startup time | ~5s (healthcheck) |
-| Processor startup time | ~5–10s (broker connection retry) |
-| Event publish latency | <10ms (local) |
-| Consumer lag @ 100 req/s | <50ms (single processor) |
+| Metric                   | Value                            |
+| ------------------------ | -------------------------------- |
+| Redpanda startup time    | ~5s (healthcheck)                |
+| Processor startup time   | ~5–10s (broker connection retry) |
+| Event publish latency    | <10ms (local)                    |
+| Consumer lag @ 100 req/s | <50ms (single processor)         |
 
 **Load test result** (`k6` at 100 concurrent users):
 
@@ -307,13 +307,13 @@ After completing Phase 1, you understand:
 
 ## Code Statistics
 
-| Metric | Count |
-|--------|-------|
-| New files | 2 (`app/events.py`, `services/processor/main.py`) |
-| Modified files | 3 (`docker-compose.yml`, `app/main.py`, `app/routers/records.py`) |
-| Lines of code (Phase 1) | ~250 |
-| Test coverage impact | 0 (no test changes; Kafka is fail-open, orthogonal) |
-| Dependencies added | 1 (`aiokafka>=0.11`) |
+| Metric                  | Count                                                             |
+| ----------------------- | ----------------------------------------------------------------- |
+| New files               | 2 (`app/events.py`, `services/processor/main.py`)                 |
+| Modified files          | 3 (`docker-compose.yml`, `app/main.py`, `app/routers/records.py`) |
+| Lines of code (Phase 1) | ~250                                                              |
+| Test coverage impact    | 0 (no test changes; Kafka is fail-open, orthogonal)               |
+| Dependencies added      | 1 (`aiokafka>=0.11`)                                              |
 
 ---
 

@@ -106,11 +106,12 @@ async def close_all_http_clients() -> None:
             else:
                 # Close on the client's loop thread-safely
                 try:
-                    fut = asyncio.run_coroutine_threadsafe(client.aclose(), loop)
+                    coro = client.aclose()
+                    fut = asyncio.run_coroutine_threadsafe(coro, loop)
                     # wait a short time for the close to complete
                     fut.result(timeout=1)
-                except Exception:
-                    pass  # Best-effort: swallow errors during cross-loop cleanup
+                except Exception as e:
+                    logger.debug("http_client_cleanup_error", extra={"error": str(e)})
         except Exception:
             # Swallow any error to ensure best-effort cleanup
             pass

@@ -31,15 +31,15 @@ The instruction provides:
 
 ## Weekly Metrics
 
-| Metric | Goal | Actual | Status |
-|--------|------|--------|--------|
-| Core Q answered cold | 1/1 | ✅ 1/1 | ✅ |
-| Follow-ups prepared | 2/2 | ✅ 2/2 | ✅ |
-| Code committed | 8–15 | ✅ 12 | ✅ |
-| Tests passing | 100% | 🟡 ~70% | ⚠️ |
-| Portfolio item written | 1 | ✅ 1 | ✅ |
-| ADR completed | 1 | ✅ 1 (ADR #004) | ✅ |
-| Architecture diagram updated | 1 | ✅ 1 | ✅ |
+| Metric                       | Goal | Actual         | Status |
+| ---------------------------- | ---- | -------------- | ------ |
+| Core Q answered cold         | 1/1  | ✅ 1/1         | ✅     |
+| Follow-ups prepared          | 2/2  | ✅ 2/2         | ✅     |
+| Code committed               | 8–15 | ✅ 12          | ✅     |
+| Tests passing                | 100% | 🟡 ~70%        | ⚠️     |
+| Portfolio item written       | 1    | ✅ 1           | ✅     |
+| ADR completed                | 1    | ✅ 1 (ADR #4)  | ✅     |
+| Architecture diagram updated | 1    | ✅ 1           | ✅     |
 
 ---
 
@@ -104,12 +104,12 @@ In my Phase 2 implementation, I focused on pacing + logging. Header rotation + p
 **Answer I practiced**:
 
 | N Workers | Time (100K) | Ban Risk | Memory |
-|-----------|------------|----------|--------|
-| 1 | 27 hours | None | ~100KB |
-| 5 | 5.5 hours | Low | ~500KB |
-| 20 | 1.5 hours | Medium | ~2MB |
-| 100 | 3 min | High | ~10MB |
-| ∞ (chaos) | Seconds | 🚫 Banned | N/A |
+| --------- | ----------- | -------- | ------ |
+| 1         | 27 hours    | None     | ~100KB |
+| 5         | 5.5 hours   | Low      | ~500KB |
+| 20        | 1.5 hours   | Medium   | ~2MB   |
+| 100       | 3 min       | High     | ~10MB  |
+| ∞ (chaos) | Seconds     | 🚫 Banned| N/A    |
 
 **My pick**: 5 concurrent, why:
 
@@ -170,7 +170,7 @@ In my Phase 2 implementation, I focused on pacing + logging. Header rotation + p
 
 ### Concept Clarity
 
-**Semaphore ≠ Rate Limiter**
+Semaphore ≠ Rate Limiter
 
 - Semaphore: Limit concurrency (max 5 requests in-flight)
 - Rate Limiter: Limit request frequency (max 1 req per second)
@@ -284,16 +284,16 @@ Patterns I encountered:
 
 ## Success Criteria Met ✅
 
-| Criterion | Status |
-|-----------|--------|
-| Core Q answered cold | ✅ |
-| 2 follow-ups solid | ✅ |
-| Design scenario worked through | ✅ |
-| Code passes lint + format | ✅ |
-| Tests >80% coverage | 🟡 ~70% (good for MVP) |
-| Portfolio item written | ✅ |
-| ADR completed | ✅ |
-| Arch diagram updated | ✅ |
+| Criterion                      | Status                |
+| ------------------------------ | --------------------- |
+| Core Q answered cold           | ✅                    |
+| 2 follow-ups solid             | ✅                    |
+| Design scenario worked through | ✅                    |
+| Code passes lint + format      | ✅                    |
+| Tests >80% coverage            | 🟡 ~70% (good for MVP)|
+| Portfolio item written         | ✅                    |
+| ADR completed                  | ✅                    |
+| Arch diagram updated           | ✅                    |
 
 ---
 
