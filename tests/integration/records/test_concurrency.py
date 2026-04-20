@@ -10,7 +10,6 @@ Upsert race tests may skip on SQLite due to session isolation limitations.
 """
 
 import asyncio
-import datetime
 
 import pytest
 from httpx import AsyncClient
@@ -20,7 +19,6 @@ from app.schemas import RecordRequest
 from tests.shared.payloads import RECORD_API
 
 
-_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
 _BASE_PAYLOAD = {
     **RECORD_API,
     "source": "concurrency-test",
@@ -40,7 +38,7 @@ class TestAsyncGather:
     """
 
     async def test_enrich_concurrent_requests_all_succeed(
-        self, client: AsyncClient, db: AsyncSession
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """Enrich N requests concurrently — all should succeed.
 
@@ -55,7 +53,7 @@ class TestAsyncGather:
                 db,
                 RecordRequest(
                     source=f"concurrent-source-{i}",
-                    timestamp=_RECORD_TIMESTAMP,
+                    timestamp=record_timestamp,
                     data={"index": i},
                 ),
             )
@@ -81,7 +79,7 @@ class TestAsyncGather:
             assert data["enriched_count"] == 1
 
     async def test_enrich_concurrent_batch_under_semaphore(
-        self, client: AsyncClient, db: AsyncSession
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """Concurrent enrich respects semaphore limit (default 10).
 
@@ -100,7 +98,7 @@ class TestAsyncGather:
                 db,
                 RecordRequest(
                     source=f"semaphore-test-{i}",
-                    timestamp=_RECORD_TIMESTAMP,
+                    timestamp=record_timestamp,
                     data={"index": i},
                 ),
             )

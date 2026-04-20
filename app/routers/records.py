@@ -41,11 +41,13 @@ from app.metrics import (
 )
 from app.rate_limiting import limiter
 from app.schemas import (
+    BatchCreateResponse,
     BatchRecordsRequest,
     PaginationMeta,
     RecordListResponse,
     RecordRequest,
     RecordResponse,
+    SessionResponse,
     UpdateRecordRequest,
 )
 
@@ -91,6 +93,7 @@ async def create_record(
 # ---------------------------------------------------------------------------
 @router.post(
     "/batch",
+    response_model=BatchCreateResponse,
     status_code=status.HTTP_201_CREATED,
     description=(
         "Bulk-create records.\n\n"
@@ -111,7 +114,7 @@ async def create_records_batch(
         pattern="^(optimized|naive)$",
         description="Batch insert implementation: 'optimized' (INSERT RETURNING) or 'naive' (add_all + N refreshes).",  # noqa: E501
     ),
-) -> dict:
+) -> BatchCreateResponse:
     """Create multiple records in batch.
 
     The `?impl=` parameter selects the internal database strategy without
@@ -127,7 +130,7 @@ async def create_records_batch(
     batch_size_histogram.observe(len(records))
     records_created_total.labels(endpoint="batch").inc(len(records))
     logger.info("batch_created", extra={"count": len(records), "impl": impl})
-    return {"created": len(records), "impl": impl}
+    return BatchCreateResponse(created=len(records), impl=impl)
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +146,7 @@ async def list_records(
     """List records with pagination and optional filtering by source."""
     records, total = await get_records(db, skip, limit, source)
     return RecordListResponse(
-        records=records,  # type: ignore[arg-type]
+        records=[RecordResponse.model_validate(r) for r in records],
         pagination=PaginationMeta(
             total=total,
             skip=skip,
@@ -211,7 +214,7 @@ async def update_record_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
-    return record  # type: ignore[return-value]
+    return RecordResponse.model_validate(record)
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +236,7 @@ async def process_record(record_id: int, db: DbDep) -> RecordResponse:
         )
     # Invalidate cache so next read gets fresh data
     await cache.invalidate_record(record_id)
-    return record  # type: ignore[return-value]
+    return RecordResponse.model_validate(record)
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +259,7 @@ async def archive_record(record_id: int, db: DbDep) -> RecordResponse:
             detail="Record not found or already archived",
         )
     logger.info("record_archived", extra={"id": record_id})
-    return record  # type: ignore[return-value]
+    return RecordResponse.model_validate(record)
 
 
 # ---------------------------------------------------------------------------
@@ -288,8 +291,8 @@ async def delete_record(record_id: int, db: DbDep) -> None:
 # ============================================================================
 
 
-@router.post("/auth/login")
-async def login_session(user_id: str) -> dict[str, str]:
+@router.post("/auth/login", response_model=SessionResponse)
+async def login_session(user_id: str) -> SessionResponse:
     """Create a session (learning example for session-based auth).
 
     In production: verify password hash, check rate limits, use HTTPS only, etc.
@@ -299,7 +302,7 @@ async def login_session(user_id: str) -> dict[str, str]:
     logger.info("login_success", extra={"user_id": user_id})
 
     # Return token explicitly (FastAPI handles Set-Cookie automatically via Response)
-    return {"session_id": session_id, "message": "Session created"}
+    return SessionResponse(session_id=session_id, message="Session created")
 
 
 @router.get("/{record_id}/secure", response_model=RecordResponse)
@@ -325,15 +328,19 @@ async def get_record_secured(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
-    return record  # type: ignore[return-value]
+    return RecordResponse.model_validate(record)
 
 
-@router.post("/batch/protected", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/batch/protected",
+    response_model=BatchCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_records_batch_protected(
     body: BatchRecordsRequest,
     db: DbDep,
     token: BearerTokenDep,
-) -> dict:
+) -> BatchCreateResponse:
     """Batch create with bearer token auth (learning example).
 
     Requires: Authorization: Bearer <token>
@@ -352,4 +359,4 @@ async def create_records_batch_protected(
     )
     records = await create_records_batch_op(db, body.records)
     logger.info("batch_protected_created", extra={"count": len(records)})
-    return {"created": len(records), "auth": "bearer_token"}
+    return BatchCreateResponse(created=len(records), impl="optimized")

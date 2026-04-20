@@ -89,7 +89,7 @@ async def create_processed_event(
                 "status": existing.status if existing else None,
             },
         )
-        return existing, False  # type: ignore[return-value]
+        return existing, False  # ty: ignore[invalid-return-type]
 
 
 async def batch_create_processed_events(

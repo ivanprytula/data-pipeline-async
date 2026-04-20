@@ -36,7 +36,7 @@ import logging
 import time
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -178,13 +178,13 @@ async def create_record_token_bucket(
             "rate_limit_token_bucket",
             extra={"ip": ip, "retry_after": retry_after},
         )
-        return JSONResponse(  # type: ignore[return-value]
+        raise HTTPException(
             status_code=429,
+            detail="Rate limit exceeded (token bucket drained)",
             headers={
                 **_rl_headers("token-bucket", _token_bucket.capacity, remaining),
                 "Retry-After": str(int(retry_after) + 1),
             },
-            content={"detail": "Rate limit exceeded (token bucket drained)"},
         )
 
     response.headers.update(
@@ -237,13 +237,13 @@ async def create_record_sliding_window(
             "rate_limit_sliding_window",
             extra={"ip": ip, "retry_after": retry_after},
         )
-        return JSONResponse(  # type: ignore[return-value]
+        raise HTTPException(
             status_code=429,
+            detail="Rate limit exceeded (sliding window full)",
             headers={
                 **_rl_headers("sliding-window", _sliding_window.limit, remaining),
                 "Retry-After": str(int(retry_after) + 1),
             },
-            content={"detail": "Rate limit exceeded (sliding window full)"},
         )
 
     response.headers.update(
@@ -586,7 +586,7 @@ async def upsert_record_endpoint(
             pattern=f"^({UPSERT_MODE_IDEMPOTENT}|{UPSERT_MODE_STRICT})$",
         ),
     ] = UPSERT_MODE_IDEMPOTENT,
-) -> UpsertResponse:
+) -> Response:
     """Insert or return existing record by (source, timestamp) key.
 
     Handles the race condition atomically: optimistic INSERT, catch IntegrityError,
@@ -642,7 +642,6 @@ async def upsert_record_endpoint(
     # Since we can't easily return dynamic status codes from response_model routes,
     # we use a JSONResponse directly to set 201 vs 200.
     from fastapi.encoders import jsonable_encoder
-    from fastapi.responses import JSONResponse
 
     response_body = UpsertResponse(
         record=RecordResponse.model_validate(record),

@@ -21,8 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import RecordRequest
 
 
-_RECORD_TIMESTAMP = datetime.fromisoformat("2024-01-01T00:00:00")
-
 pytestmark = pytest.mark.integration
 
 
@@ -94,7 +92,7 @@ class TestQueryAnalysis:
     """Query optimization tests using EXPLAIN ANALYZE (PostgreSQL)."""
 
     async def test_date_range_query_uses_index(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify date-range query uses ix_records_timestamp index.
 
@@ -109,15 +107,15 @@ class TestQueryAnalysis:
         for i in range(10):
             req = RecordRequest(
                 source="perf-test",
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"n": i},
                 tags=[],
             )
             await create_record(db, req)
 
         # EXPLAIN ANALYZE the date-range query
-        start = _RECORD_TIMESTAMP
-        end = _RECORD_TIMESTAMP + timedelta(hours=2)
+        start = record_timestamp
+        end = record_timestamp + timedelta(hours=2)
 
         query = text(
             """
@@ -141,7 +139,7 @@ class TestQueryAnalysis:
         assert plan["execution_ms"] is not None
 
     async def test_get_records_basic_query_plan(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Analyze the query plan for basic record fetching."""
         from app.crud import create_record
@@ -152,7 +150,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"sample-{i}",
-                timestamp=_RECORD_TIMESTAMP,
+                timestamp=record_timestamp,
                 data={"index": i},
             )
             await create_record(db, req)
@@ -179,7 +177,7 @@ class TestQueryAnalysis:
         assert plan["planning_ms"] < 10
 
     async def test_processed_flag_query_optimization(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify query for processed=false uses ix_records_processed index."""
         from app.crud import create_record, mark_processed
@@ -191,7 +189,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"sample-{i}",
-                timestamp=_RECORD_TIMESTAMP,
+                timestamp=record_timestamp,
                 data={"index": i},
             )
             record = await create_record(db, req)
@@ -220,7 +218,7 @@ class TestQueryAnalysis:
         assert plan["execution_ms"] is not None
 
     async def test_soft_delete_filter_is_efficient(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify soft-delete filtering via deleted_at IS NULL is efficient."""
         from app.crud import create_record, soft_delete_record
@@ -232,7 +230,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"sample-{i}",
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"index": i},
             )
             record = await create_record(db, req)
@@ -260,7 +258,7 @@ class TestQueryAnalysis:
         assert plan["execution_ms"] < 100
 
     async def test_source_filter_combined_with_timestamp(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Analyze performance of source + timestamp filter combination."""
         from app.crud import create_record
@@ -271,7 +269,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"source-{i % 2}",  # Only 2 unique sources
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"idx": i},
                 tags=[],
             )
@@ -308,7 +306,7 @@ class TestQueryAnalysis:
         assert plan["planning_ms"] < 20
 
     async def test_sequential_scan_for_array_aggregation(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify that computing tag counts requires reading data.
 
@@ -323,7 +321,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"sample-{i}",
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"index": i},
                 tags=[f"tag-{j}" for j in range(i * 2)],
             )
@@ -354,7 +352,7 @@ class TestQueryAnalysis:
         assert plan["execution_ms"] >= 0
 
     async def test_join_with_tags_performance(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify joins with tags array are properly planned."""
         from app.crud import create_record
@@ -365,7 +363,7 @@ class TestQueryAnalysis:
         for i in range(5):
             req = RecordRequest(
                 source=f"sample-{i}",
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"index": i},
                 tags=[f"tag-{j}" for j in range(i * 2)],
             )
@@ -442,7 +440,7 @@ class TestIndexEffectiveness:
         assert index_exists is True, "ix_records_processed index not found"
 
     async def test_partial_soft_delete_index_effective(
-        self, postgresql_async_session: AsyncSession
+        self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify the partial index on active records is working.
 
@@ -457,7 +455,7 @@ class TestIndexEffectiveness:
         for i in range(10):
             req = RecordRequest(
                 source=f"test-source-{i % 3}",
-                timestamp=_RECORD_TIMESTAMP + timedelta(minutes=i),
+                timestamp=record_timestamp + timedelta(minutes=i),
                 data={"index": i},
             )
             await create_record(db, req)

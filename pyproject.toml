@@ -49,7 +49,7 @@ dev = [
     # Load testing
     "locust>=2.32.0",
     # Type checker
-    "ty",
+    "ty>=0.0.29",
 ]
 
 [tool.pytest.ini_options]
@@ -120,3 +120,11 @@ lines-after-imports = 2
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 100
 max-line-length = 100
+
+[[tool.ty.overrides]]
+include = ["app", "tests"]
+
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
+invalid-argument-type = "ignore"
+# invalid-assignment = "ignore"

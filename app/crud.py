@@ -602,14 +602,18 @@ async def upsert_record(
             )
         )
         existing = result.scalar_one_or_none()
+        assert existing is not None, (
+            f"Unique constraint violation on (source, timestamp) but no active "
+            f"record found for source={request.source}, timestamp={request.timestamp}. "
+            f"This can only occur if the record was soft-deleted between INSERT and "
+            f"SELECT (extreme race condition)."
+        )
         logger.info(
             "upsert_conflict",
             extra={
                 "source": request.source,
                 "timestamp": str(request.timestamp),
-                "existing_id": existing.id if existing else None,
+                "existing_id": existing.id,
             },
         )
-        # existing can only be None in an extremely rare edge case (soft-deleted race);
-        # return it as-is — the route layer handles the None → 404 case if needed
-        return existing, False  # type: ignore[return-value]
+        return existing, False

@@ -8,6 +8,7 @@ Tests verify that:
 """
 
 import asyncio
+from datetime import datetime
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,7 @@ class TestProcessedAtTimestamp:
         """New records should have processed_at = None."""
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=["test"],
         )
@@ -38,7 +39,7 @@ class TestProcessedAtTimestamp:
         # Create record
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )
@@ -60,12 +61,13 @@ class TestProcessedAtTimestamp:
         # Create and process record
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )
         record = await create_record(db, request)
         first_processed = await mark_processed(db, record.id)
+        assert first_processed is not None
         first_at = first_processed.processed_at
 
         # Wait a bit and process again
@@ -73,13 +75,14 @@ class TestProcessedAtTimestamp:
         second_processed = await mark_processed(db, record.id)
 
         # processed_at should be unchanged
+        assert second_processed is not None
         assert second_processed.processed_at == first_at
 
     async def test_processed_at_timestamp_precision(self, db: AsyncSession) -> None:
         """processed_at should be accurate to the millisecond."""
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )
@@ -89,6 +92,8 @@ class TestProcessedAtTimestamp:
         marked = await mark_processed(db, record.id)
         after = _utcnow()
 
+        assert marked is not None
+        assert marked.processed_at is not None
         assert before <= marked.processed_at <= after
         # Verify it's a real timestamp, not just the date
         assert marked.processed_at.microsecond >= 0
@@ -102,7 +107,7 @@ class TestProcessedAtTimestamp:
         # Create and process first record
         req1 = RecordRequest(
             source="source-1",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"n": 1},
             tags=[],
         )
@@ -114,7 +119,7 @@ class TestProcessedAtTimestamp:
         await asyncio.sleep(0.01)
         req2 = RecordRequest(
             source="source-2",
-            timestamp="2024-01-15T10:01:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:01:00"),
             data={"n": 2},
             tags=[],
         )
@@ -132,7 +137,7 @@ class TestProcessedAtTimestamp:
         """Fetching a record should return accurate processed_at."""
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )
@@ -143,6 +148,7 @@ class TestProcessedAtTimestamp:
         fetched = await get_record(db, created.id)
         assert fetched is not None
         assert fetched.processed is True
+        assert fetched.processed_at is not None
         assert fetched.processed_at == marked.processed_at
 
     async def test_processed_at_null_for_unprocessed_records(
@@ -151,7 +157,7 @@ class TestProcessedAtTimestamp:
         """Records with processed=False should have processed_at=None."""
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )
@@ -171,7 +177,7 @@ class TestProcessedAtTimestamp:
 
         request = RecordRequest(
             source="test-source",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=datetime.fromisoformat("2024-01-15T10:00:00"),
             data={"test": "data"},
             tags=[],
         )

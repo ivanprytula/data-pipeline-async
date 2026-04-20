@@ -61,15 +61,27 @@ class DevelopmentFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as human-readable with IDE-clickable link."""
+        """Format log record as human-readable with IDE-clickable link,
+        using project-root-relative path.
+        """
+        from pathlib import Path
+
         # Timestamp
         timestamp = self.formatTime(record, datefmt="%Y-%m-%d %H:%M:%S")
 
         # Level (right-padded for alignment)
         level_name = record.levelname.ljust(8)
 
-        # Source location as IDE-clickable format
-        source_link = f"{record.pathname}:{record.lineno}:{record.funcName}"
+        # Compute project root (directory containing this file)
+        project_root = Path(__file__).parent.parent.parent.resolve()
+        try:
+            abs_path = Path(record.pathname).resolve()
+            rel_path = abs_path.relative_to(project_root)
+        except Exception:
+            rel_path = Path(record.pathname).name  # fallback: just filename
+
+        # Source location as IDE-clickable format (relative to project root)
+        source_link = f"{rel_path}:{record.lineno}:{record.funcName}"
 
         # Correlation ID if available
         cid = get_cid()

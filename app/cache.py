@@ -47,7 +47,7 @@ async def connect_cache(redis_url: str) -> None:
     global _client
     _client = Redis.from_url(redis_url, decode_responses=True)
     # Ping to verify connection
-    await _client.ping()
+    await _client.ping()  # ty:ignore[invalid-await]
     logger.info("cache_connected", extra={"url": redis_url})
 
 

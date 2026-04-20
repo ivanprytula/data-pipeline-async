@@ -92,7 +92,9 @@ class TestNPlusOneCRUD:
             # Both return same count at same limit
             assert len(naive) == len(optimized)
 
-    async def test_tag_count_zero_for_empty_tags(self, db: AsyncSession) -> None:
+    async def test_tag_count_zero_for_empty_tags(
+        self, db: AsyncSession, record_timestamp
+    ) -> None:
         """Records with empty tag lists return tag_count=0."""
         from app.crud import create_record
         from app.schemas import RecordRequest
@@ -100,7 +102,7 @@ class TestNPlusOneCRUD:
         # Create a record with empty tags
         request = RecordRequest(
             source="test-empty-tags",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=record_timestamp,
             data={"test": "data"},
             tags=[],
         )
@@ -118,7 +120,9 @@ class TestNPlusOneCRUD:
         assert len(opt_match) == 1
         assert opt_match[0]["tag_count"] == 0
 
-    async def test_tag_count_matches_actual_tags(self, db: AsyncSession) -> None:
+    async def test_tag_count_matches_actual_tags(
+        self, db: AsyncSession, record_timestamp
+    ) -> None:
         """Tag counts match the actual number of tags."""
         from app.crud import create_record
         from app.schemas import RecordRequest
@@ -127,7 +131,7 @@ class TestNPlusOneCRUD:
         tags = ["tag1", "tag2", "tag3", "tag4", "tag5"]
         request = RecordRequest(
             source="test-tags",
-            timestamp="2024-01-15T10:00:00",
+            timestamp=record_timestamp,
             data={"test": "data"},
             tags=tags,
         )

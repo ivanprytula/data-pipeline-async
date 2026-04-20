@@ -253,3 +253,37 @@ class CursorPaginationResponse(BaseModel):
     next_cursor: str | None = None
     has_more: bool = False
     limit: int
+
+
+# ---------------------------------------------------------------------------
+# Batch create response schema
+# ---------------------------------------------------------------------------
+
+
+class BatchCreateResponse(BaseModel):
+    """Response from POST /api/v1/records/batch.
+
+    Attributes:
+        created: Number of records successfully created.
+        impl: The batch implementation used ("optimized" or "naive").
+    """
+
+    created: int
+    impl: str
+
+
+# ---------------------------------------------------------------------------
+# Session/login response schema
+# ---------------------------------------------------------------------------
+
+
+class SessionResponse(BaseModel):
+    """Response from POST /api/v1/records/auth/login (session-based auth).
+
+    Attributes:
+        session_id: Unique session identifier for this user.
+        message: Confirmation message.
+    """
+
+    session_id: str
+    message: str

@@ -85,11 +85,24 @@ def _ensure_sessionmaker() -> None:
         )
 
 
-_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
+_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2026-01-01T00:00:00")
 
 # Export flag for use in test markers
 IS_POSTGRES = "postgresql" in _TEST_DB_URL
 IS_SQLITE = "sqlite" in _TEST_DB_URL
+
+
+# ---------------------------------------------------------------------------
+# Timestamp Fixture (DRY: centralized test timestamp constant)
+# ---------------------------------------------------------------------------
+@pytest.fixture()
+def record_timestamp() -> datetime.datetime:
+    """Canonical timestamp for records in tests.
+
+    Centralizes the timestamp value to reduce duplication across test files.
+    Tests can inject this fixture to get a consistent, documented test timestamp.
+    """
+    return _RECORD_TIMESTAMP
 
 
 # ---------------------------------------------------------------------------
@@ -150,11 +163,13 @@ async def client_with_cache(
 async def db() -> AsyncGenerator[AsyncSession]:
     """Create schema, yield session, teardown schema — all async."""
     _ensure_sessionmaker()
-    async with _engine.begin() as conn:  # type: ignore[arg-type]
+    assert _engine is not None, "_engine not initialized"
+    assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
+    async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    async with _AsyncSessionLocal() as session:  # type: ignore[call-arg]
+    async with _AsyncSessionLocal() as session:
         yield session
-    async with _engine.begin() as conn:  # type: ignore[arg-type]
+    async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
@@ -199,7 +214,7 @@ async def client_isolated(
     Each HTTP request gets independent DB connection. Skips if PostgreSQL unavailable.
     """
     # Store the sessionmaker from the isolated session so we can create fresh sessions
-    SessionLocal = postgresql_async_session_isolated._sessionmaker  # type: ignore
+    SessionLocal = postgresql_async_session_isolated._sessionmaker
 
     async def _override() -> AsyncGenerator[AsyncSession]:
         # Create a FRESH session for each HTTP request (critical for concurrent tests!)
@@ -448,7 +463,7 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
 
         async with SessionLocal() as session:
             # Store sessionmaker on the session for use by client_isolated
-            session._sessionmaker = SessionLocal  # type: ignore
+            session._sessionmaker = SessionLocal
             yield session
     finally:
         # Cleanup

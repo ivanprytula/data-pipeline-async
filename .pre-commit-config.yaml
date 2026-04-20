@@ -3,7 +3,7 @@
     hooks:
       - id: ty
         name: ty type checker
-        entry: ty
+        entry: uv run ty check
         language: system
         types: [python]
         pass_filenames: true

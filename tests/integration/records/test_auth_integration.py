@@ -5,16 +5,11 @@ Tests session-based auth, bearer token auth, protected docs, and rate limit hand
 
 from __future__ import annotations
 
-import datetime
-
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas import RecordRequest
-
-
-_RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2024-01-01T00:00:00")
 
 
 @pytest.mark.integration
@@ -35,14 +30,14 @@ class TestSessionAuth:
         assert len(data["session_id"]) > 0
 
     async def test_get_record_secured_requires_session(
-        self, client: AsyncClient, db: AsyncSession
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure requires valid session cookie."""
         from app import crud
 
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
+            RecordRequest(source="test", timestamp=record_timestamp, data={}),
         )
 
         # Without session, should get 401
@@ -50,7 +45,7 @@ class TestSessionAuth:
         assert response.status_code == 401
 
     async def test_get_record_secured_with_valid_session(
-        self, client: AsyncClient, db: AsyncSession
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure succeeds with valid session cookie."""
         from app import crud
@@ -58,7 +53,7 @@ class TestSessionAuth:
         # Create a record
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
+            RecordRequest(source="test", timestamp=record_timestamp, data={}),
         )
 
         # Login to get session
@@ -77,7 +72,7 @@ class TestSessionAuth:
         assert response.json()["id"] == record.id
 
     async def test_get_record_secured_with_expired_session(
-        self, client: AsyncClient, db: AsyncSession
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure fails with expired session."""
         import uuid
@@ -89,7 +84,7 @@ class TestSessionAuth:
         # Create a record
         record = await crud.create_record(
             db,
-            RecordRequest(source="test", timestamp=_RECORD_TIMESTAMP, data={}),
+            RecordRequest(source="test", timestamp=record_timestamp, data={}),
         )
 
         # Create an expired session directly

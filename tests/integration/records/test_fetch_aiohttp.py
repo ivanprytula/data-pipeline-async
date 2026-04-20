@@ -152,7 +152,8 @@ async def test_concurrent_fetches(cleanup_http_session) -> None:
         # Launch 5 concurrent fetches
         countries = ["France", "Spain", "Italy", "Greece", "Portugal"]
         tasks = [
-            fetch_with_retry(f"name/{country}", max_retries=3) for country in countries
+            asyncio.create_task(fetch_with_retry(f"name/{country}", max_retries=3))
+            for country in countries
         ]
         results = await asyncio.gather(*tasks)
 
