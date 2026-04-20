@@ -1,9 +1,9 @@
 ---
 name: async-patterns
 description:
-  'Production-grade async/await patterns and anti-patterns for Python. Covers concurrency models,
-  coroutines, event loops, Task vs Future, backpressure, cancellation semantics, timeouts, and
-  choosing between async, threads, and processes for FastAPI services.'
+    'Production-grade async/await patterns and anti-patterns for Python. Covers concurrency models,
+    coroutines, event loops, Task vs Future, backpressure, cancellation semantics, timeouts, and
+    choosing between async, threads, and processes for FastAPI services.'
 applyTo: 'src/**/*.py, **/*.py'
 ---
 

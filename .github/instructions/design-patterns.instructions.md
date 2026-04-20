@@ -1,9 +1,9 @@
 ---
 name: design-patterns
 description: >
-  Production-ready guide to software design patterns in Python and FastAPI. Covers creational,
-  structural, and behavioral patterns with a pain-first diagnostic decision tree, full
-  implementations, and 15 antipatterns to avoid.
+    Production-ready guide to software design patterns in Python and FastAPI. Covers creational,
+    structural, and behavioral patterns with a pain-first diagnostic decision tree, full
+    implementations, and 15 antipatterns to avoid.
 applyTo: 'src/**/*.py, **/*.py'
 ---
 

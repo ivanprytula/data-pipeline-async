@@ -128,7 +128,7 @@ make containers easily navigable in Docker CLI and VS Code Docker extension.
 <project>-<scenario>-<service>
 ```
 
-**Example (Architecture Patterns Lab):**
+**Example (data-pipeline-async):**
 
 ```yaml
 services:

@@ -57,4 +57,11 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
     - Implicit by on_exit: session rolls back if exc before yield, commits if explicit
     """
     async with AsyncSessionLocal() as session:
+        # Safety check: ensure session was created with expire_on_commit=False.
+        # Async SQLAlchemy requires this in async code to avoid lazy-loading
+        # that would perform sync DB calls after the event loop context has moved on.
+        if getattr(session, "expire_on_commit", True):
+            raise RuntimeError(
+                "AsyncSessionLocal must be configured with expire_on_commit=False"
+            )
         yield session

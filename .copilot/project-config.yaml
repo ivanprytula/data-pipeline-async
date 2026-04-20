@@ -1,0 +1,95 @@
+# data-pipeline-async — Project Copilot Configuration
+# Extends $HOME/.copilot/copilot-config.yaml with project-specific settings.
+# Global skills/instructions/hooks are inherited automatically.
+
+name: data-pipeline-async
+type: distributed-systems-teaching
+description: >
+  Teaches distributed systems design through locally-runnable Docker Compose
+  scenarios that intentionally break under load and then fix using architecture
+  patterns (caching, queuing, circuit breakers).
+
+# ──────────────────────────────────────────────────────────────
+# Skills available in this project
+# ──────────────────────────────────────────────────────────────
+skills:
+  global: # Inherited from ~/.copilot/skills/
+    - add-educational-comments # Comment scenarios for learners
+    - autoresearch # Iterative optimization experiments
+    - postgresql-code-review # DB schema + query review
+    - postgresql-optimization # Index tuning, advanced PG features
+    - aws-cdk-python-setup # If deploying scenarios to AWS
+  local: # Only in this project (.github/skills/)
+    - architecture-blueprint-generator # APL-specific architecture docs
+
+# ──────────────────────────────────────────────────────────────
+# Instructions — local copies WIN over global when same filename
+# ──────────────────────────────────────────────────────────────
+instruction_overrides:
+  # These local APL versions are more specialized than global copies:
+  - design-patterns.instructions.md # APL adds decision tree
+  - kubernetes-deployment-best-practices.instructions.md # APL adds scenarios
+
+# ──────────────────────────────────────────────────────────────
+# Project conventions (extends global defaults)
+# ──────────────────────────────────────────────────────────────
+conventions:
+  container_naming: 'scenario-{N}-{scenario_name}-{service}'
+  container_naming_example: 'scenario-1-monolith-db'
+  scenario_structure:
+    - 'src/scenario_{N}_{name}/README.md'
+    - 'src/scenario_{N}_{name}/backend/app/'
+    - 'src/scenario_{N}_{name}/infra/docker-compose.yml'
+    - 'src/scenario_{N}_{name}/scripts/load_test.js'
+  learning_phases:
+    - baseline # Unoptimized, works fine with low load
+    - breaking_point # Fails under k6 load test
+    - fix # Pattern applied; measures improvement
+
+  deployment:
+    orchestrator: docker-compose
+    monitoring: 'prometheus + grafana'
+    load_testing: k6
+    port_convention:
+      db: '${PORT_DB}'
+      app: '${PORT_APP}'
+      prometheus: '${PORT_PROMETHEUS}'
+      grafana: '${PORT_GRAFANA}'
+
+# ──────────────────────────────────────────────────────────────
+# Memory configuration
+# ──────────────────────────────────────────────────────────────
+memory:
+  repo_context: '.copilot/memories/repo-context.md' # Persistent project facts
+  session_log: '.copilot/memories/session-{date}.md' # Per-session discoveries
+  decisions: '.github/decisions/' # Architecture Decision Records
+  patterns_log: '.copilot/memories/patterns-used.json' # Track pattern usage
+
+# ──────────────────────────────────────────────────────────────
+# Hooks (project-specific; global hooks also run)
+# ──────────────────────────────────────────────────────────────
+hooks:
+  pre_session:
+    - scripts/workspace-health.sh # (to be created) environment sanity check
+  pre_commit:
+    # Global: secrets-scanner, tool-guardian
+    - .pre-commit-config.yaml # Existing full suite
+
+# ──────────────────────────────────────────────────────────────
+# Tech stack quick-reference (for AI context)
+# ──────────────────────────────────────────────────────────────
+stack:
+  language: 'Python 3.14'
+  framework: 'FastAPI + Uvicorn'
+  database: 'PostgreSQL 17 (SQLAlchemy 2.0 async + asyncpg)'
+  cache: 'Redis'
+  queue: 'Kafka / RabbitMQ (scenario-dependent)'
+  monitoring: 'Prometheus + Grafana'
+  load_testing: 'k6'
+  packaging: 'uv + pyproject.toml'
+  linting: 'ruff'
+  type_checking: 'ty'
+  testing: 'pytest + pytest-asyncio'
+  logging: 'python-json-logger (JSON to stdout)'
+  infra: 'Docker Compose (local)'
+  ci_cd: 'GitHub Actions'

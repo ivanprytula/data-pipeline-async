@@ -8,7 +8,14 @@ applyTo: "tests/**/*.py"
 ## Test Runner Setup
 
 - `asyncio_mode = "auto"` is set in `pyproject.toml` — **do NOT add `@pytest.mark.asyncio`** to any test function or fixture (it is redundant and causes warnings)
-- Tests use `aiosqlite` in-memory SQLite — no real PostgreSQL needed
+- Tests use `aiosqlite` in-memory SQLite — no real PostgreSQL needed for single-process runs
+
+### Parallel testing note
+
+- The default in-memory SQLite backend is not safe for `pytest-xdist` parallel runs (`-n auto`).
+    If you need parallel test execution, set `DATABASE_URL_TEST` to a PostgreSQL instance and
+    run the tests against that database (the test `conftest.py` will automatically use `NullPool`
+    for PostgreSQL to avoid cross-event-loop connection sharing).
 
 ## Fixtures (defined in `conftest.py`)
 

@@ -5,9 +5,22 @@ Database selection:
   - If DATABASE_URL_TEST env var set: Use PostgreSQL (for concurrent tests)
 
 To run with PostgreSQL:
-  1. Start test DB: docker compose --profile test up db-test
-  2. Set env: export DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_database
-  3. Run tests: pytest tests/integration/records/test_concurrency.py -v
+    1. Start test DB: docker compose --profile test up db-test
+    2. Set env: export DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_database
+    3. Run tests: pytest tests/integration/records/test_concurrency.py -v
+
+IMPORTANT TESTING NOTE (parallelism):
+
+- The default test configuration uses an in-memory SQLite database (`sqlite+aiosqlite:///:memory:`).
+    This works well for local and CI single-process runs, but it is NOT safe to run tests
+    in parallel with `pytest-xdist` (`-n auto`) when using the default SQLite backend because
+    the in-memory database and SQLAlchemy async internals can be tied to a single event loop.
+
+- If you need to run tests in parallel, switch to PostgreSQL for tests by setting
+    `DATABASE_URL_TEST` to a PostgreSQL instance (see steps above). PostgreSQL tests use
+    `NullPool` to avoid connection-pooling across event loop boundaries and are safe for
+    parallel execution.
+
 """
 
 import datetime

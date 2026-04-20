@@ -1,9 +1,9 @@
 ---
 name: solid-principles
 description:
-  'SOLID principles for maintainable, flexible, and testable code. Covers Single Responsibility,
-  Open-Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion with Python
-  examples for FastAPI services and distributed systems.'
+    'SOLID principles for maintainable, flexible, and testable code. Covers Single Responsibility,
+    Open-Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion with Python
+    examples for FastAPI services and distributed systems.'
 applyTo: 'src/**/*.py, **/*.py'
 ---
 
@@ -940,7 +940,7 @@ async def checkout(
 
 ---
 
-## SOLID in Architecture Patterns Lab
+## SOLID in data-pipeline-async
 
 ### Example: Applying SOLID to Scenario 1
 

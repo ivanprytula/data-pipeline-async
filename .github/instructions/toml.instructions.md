@@ -1,8 +1,8 @@
 ---
 name: toml-standards
 description:
-  'Apply to: pyproject.toml, tool configuration files (*.toml). Enforces semantic versioning, clear
-  sections, and best practices for dependency and tool configuration.'
+    'Apply to: pyproject.toml, tool configuration files (*.toml). Enforces semantic versioning, clear
+    sections, and best practices for dependency and tool configuration.'
 applyTo: 'pyproject.toml, **/pyproject.toml, **/*.toml'
 ---
 

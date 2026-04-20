@@ -280,3 +280,11 @@ When explaining workflows, dependency chains, data flows, or multi-step processe
 - [DATA_PIPELINE_6WEEK_PLAN.md](../learning_docs/DATA_PIPELINE_6WEEK_PLAN.md) — async patterns theory
 - [WEEK1_STARTER_KIT.md](../learning_docs/WEEK1_STARTER_KIT.md) — starter code reference
 - [COMMUTE_STUDY_GUIDE_WEEK1-2.md](../learning_docs/COMMUTE_STUDY_GUIDE_WEEK1-2.md) — interview Q&A
+
+## Copilot Integration
+
+- **Local Copilot config:** This repository includes a project-level Copilot configuration at [.copilot/project-config.yaml](.copilot/project-config.yaml). It extends any global `~/.copilot` defaults with project-specific skills, instruction overrides, conventions, and hook settings.
+- **Local skills & instructions:** Prefer the local copies under `.github/skills/` and `.github/instructions/` when present; they are purpose-built for `data-pipeline-async` and will override global equivalents.
+- **Hooks & safety:** Project hooks live under `.github/hooks/` and the repository also ships safe runtime hooks in `.github/hooks` (secrets-scanner, governance-audit, tool-guardian). These are already active in this workspace and should run alongside any global hooks.
+- **Memories:** Project-scoped memories (if used) should live in `.copilot/memories/` per `project-config.yaml` — keep sensitive notes out of repo history.
+- **How I use this:** When asked to perform tasks, I will consult `.copilot/project-config.yaml` and local SKILL.md files to follow your project conventions and available skills. If you prefer I do not consult local Copilot config, tell me and I'll skip it.

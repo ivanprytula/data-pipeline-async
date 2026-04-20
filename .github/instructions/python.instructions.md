@@ -1,10 +1,10 @@
 ---
 name: python-standards
 description:
-  'Apply to: backend Python code (src/scenario_*/backend/, src/config/). Enforces Python 3.14
-  typing, PEP 8, async patterns, Pydantic v2, testing conventions, and error handling for FastAPI
-  services.'
-applyTo: 'src/**/*.py'
+    'Apply to: backend Python code (src/scenario_*/backend/, src/config/). Enforces Python 3.14
+    typing, PEP 8, async patterns, Pydantic v2, testing conventions, and error handling for FastAPI
+    services.'
+applyTo: 'src/**/*.py, **/*.py'
 ---
 
 # Python Code Standards

@@ -109,10 +109,10 @@ One-liner describing the learning objective.
 - k6 (for load testing)
 
 ### Spin Up
-\`\`\`bash
-cd src/scenario_1_monolith
-./scripts/start.sh
-\`\`\`
+```bash
+cd src/scenario_1_monolith/scripts
+./start.sh
+```
 
 ### Check Health
 \`\`\`bash
@@ -184,9 +184,9 @@ Refer to [Getting Started Guide](../docs/QUICKSTART.md) for setup instructions.
 ### Code References
 Link to specific files or lines in the codebase (workspace-relative):
 ```markdown
-The database setup is in [backend/app/database.py](../../src/scenario_1_monolith/backend/app/database.py).
+The database setup is in [app/database.py](../../app/database.py).
 
-See the async session pattern in [database.py:get_db()](../../src/scenario_1_monolith/backend/app/database.py#L25-L35).
+See the async session pattern in [database.py:get_db()](../../app/database.py#L25-L35).
 ```
 
 ### External Links

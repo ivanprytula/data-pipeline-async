@@ -9,22 +9,22 @@ Compressed: 70 days (10 days/phase). Each phase = toy examples + portfolio artif
 
 ## Phase Timeline & Interview Questions
 
-| Phase | Weeks | Core Q | Follow-ups | Toy Examples |
-|-------|-------|--------|-----------|------|
-| 1: Events | 1–2 | "Design ETL for 1000+ events/sec" | "Consumer lag?", "Exactly-once?" | Celery + Redpanda + DLQ |
-| 2: Scrapers | 3–4 | "Scraper for 100K URLs?" | "Prevent ban?", "Concurrent vs sequential?" | GraphQL status + Playwright + Semaphore |
-| Docker+CI | 5–6 | "Dev → prod pipeline?" | "Image versioning?", "Rollback?" | WebSocket + GitHub Actions + ECR |
-| 3: AI+Vector | 7–8 | "Semantic search 100K docs?" | "Cache invalidation?", "Why gRPC vs REST?" | gRPC embeddings + Qdrant + LRU cache |
-| 4: Testing | 9–10 | "Test external API call?" | "Async fixture cleanup?", "Mock gRPC?" | Celery mocking + parametrized fixtures |
-| 5: Database | 11–12 | "Slow query (5s). Fix." | "Read EXPLAIN?", "Index vs rewrite?" | EXPLAIN ANALYZE + composite index + window function |
-| 6: Security | 13–14 | "JWT auth multi-service?" | "Key rotation?", "Why refresh tokens?" | JWT + refresh + rate limit + Pydantic validation |
-| 7: Terraform | 15–16 | "Code → production?" | "State lock?", "Secrets rotation?" | Terraform modules + multi-env + GitHub CD |
+| Phase        | Weeks | Core Q                            | Follow-ups                                  | Toy Examples                                        |
+| ------------ | ----- | --------------------------------- | ------------------------------------------- | --------------------------------------------------- |
+| 1: Events    | 1–2   | "Design ETL for 1000+ events/sec" | "Consumer lag?", "Exactly-once?"            | Celery + Redpanda + DLQ                             |
+| 2: Scrapers  | 3–4   | "Scraper for 100K URLs?"          | "Prevent ban?", "Concurrent vs sequential?" | GraphQL status + Playwright + Semaphore             |
+| Docker+CI    | 5–6   | "Dev → prod pipeline?"            | "Image versioning?", "Rollback?"            | WebSocket + GitHub Actions + ECR                    |
+| 3: AI+Vector | 7–8   | "Semantic search 100K docs?"      | "Cache invalidation?", "Why gRPC vs REST?"  | gRPC embeddings + Qdrant + LRU cache                |
+| 4: Testing   | 9–10  | "Test external API call?"         | "Async fixture cleanup?", "Mock gRPC?"      | Celery mocking + parametrized fixtures              |
+| 5: Database  | 11–12 | "Slow query (5s). Fix."           | "Read EXPLAIN?", "Index vs rewrite?"        | EXPLAIN ANALYZE + composite index + window function |
+| 6: Security  | 13–14 | "JWT auth multi-service?"         | "Key rotation?", "Why refresh tokens?"      | JWT + refresh + rate limit + Pydantic validation    |
+| 7: Terraform | 15–16 | "Code → production?"              | "State lock?", "Secrets rotation?"          | Terraform modules + multi-env + GitHub CD           |
 
 ---
 
 ## SQL Patterns Checklist (40 Extended)
 
-**✓ = Implemented in code; ○ = Understood; ✗ = Need review**
+✓ = Implemented in code; ○ = Understood; ✗ = Need review
 
 ### Foundations (1–5)
 
@@ -112,13 +112,13 @@ Compressed: 70 days (10 days/phase). Each phase = toy examples + portfolio artif
 
 ## Async Gotchas (5)
 
-| Gotcha | Problem | Fix | Example |
-|--------|---------|-----|---------|
-| **Greenlet without event loop** | AttributeError accessing model after commit | Set `expire_on_commit=False` on AsyncSessionLocal | `sessionmaker(..., expire_on_commit=False)` |
-| **Sync code in async** | Event loop blocks, app hangs | Use `asyncio.to_thread(sync_func)` | `await asyncio.to_thread(blocking_db_call)` |
-| **Task not awaited** | Warning, function doesn't run | Always `await` or `asyncio.create_task()` | `await coroutine()` not `coroutine()` |
-| **Cancellation not propagated** | Task keeps running after cancel | Check `current_task().cancel()`, handle CancelledError | `try: ... except asyncio.CancelledError:` |
-| **Event loop closed** | RuntimeError after test cleanup | Use `asyncio_mode = "auto"` in pytest.ini | `asyncio_mode = auto` in pyproject.toml |
+| Gotcha                          | Problem                                     | Fix                                                    | Example                                     |
+| ------------------------------- | ------------------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| **Greenlet without event loop** | AttributeError accessing model after commit | Set `expire_on_commit=False` on AsyncSessionLocal      | `sessionmaker(..., expire_on_commit=False)` |
+| **Sync code in async**          | Event loop blocks, app hangs                | Use `asyncio.to_thread(sync_func)`                     | `await asyncio.to_thread(blocking_db_call)` |
+| **Task not awaited**            | Warning, function doesn't run               | Always `await` or `asyncio.create_task()`              | `await coroutine()` not `coroutine()`       |
+| **Cancellation not propagated** | Task keeps running after cancel             | Check `current_task().cancel()`, handle CancelledError | `try: ... except asyncio.CancelledError:`   |
+| **Event loop closed**           | RuntimeError after test cleanup             | Use `asyncio_mode = "auto"` in pytest.ini              | `asyncio_mode = auto` in pyproject.toml     |
 
 ---
 
@@ -184,16 +184,16 @@ Compressed: 70 days (10 days/phase). Each phase = toy examples + portfolio artif
 
 ## Success Metrics (Track Weekly)
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Interview Q answered cold per week | 4/5 ✓ | |
-| Code commits/phase | 8–15 | |
-| Tests passing | 100% | |
-| SQL patterns implemented | 40/40 | |
-| Pytest fixtures demonstrated | 10/10 | |
-| Async gotchas with examples | 5/5 | |
-| LinkedIn posts | 1/phase | |
-| Portfolio items | 1/phase | |
+| Metric                             | Target  | Status |
+| ---------------------------------- | ------- | ------ |
+| Interview Q answered cold per week | 4/5 ✓   |        |
+| Code commits/phase                 | 8–15    |        |
+| Tests passing                      | 100%    |        |
+| SQL patterns implemented           | 40/40   |        |
+| Pytest fixtures demonstrated       | 10/10   |        |
+| Async gotchas with examples        | 5/5     |        |
+| LinkedIn posts                     | 1/phase |        |
+| Portfolio items                    | 1/phase |        |
 
 ---
 
