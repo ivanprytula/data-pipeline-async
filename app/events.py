@@ -54,6 +54,7 @@ class EventPayload[T]:
 # Constants
 # ---------------------------------------------------------------------------
 TOPIC_RECORD_CREATED = "records.events"
+TOPIC_SCRAPED = "scraped.events"
 
 
 # ---------------------------------------------------------------------------
@@ -126,4 +127,38 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
         logger.warning(
             "kafka_publish_failed",
             extra={"error": str(exc), "record_id": record_id},
+        )
+
+
+async def publish_doc_scraped(source: str, count: int) -> None:
+    """Publish a doc.scraped event to TOPIC_SCRAPED.
+
+    Fail-open: KafkaError is logged as a warning; the request is never failed.
+    No-op if the producer is not connected (kafka_enabled=False).
+
+    Args:
+        source: Scraper source identifier (e.g., 'hn', 'jsonplaceholder').
+        count: Number of documents scraped and stored.
+    """
+    if _producer is None:
+        return
+
+    event: EventPayload[dict[str, Any]] = EventPayload(
+        event_type="doc.scraped",
+        payload={"source": source, "count": count},
+    )
+
+    try:
+        await _producer.send_and_wait(
+            TOPIC_SCRAPED,
+            value=json.dumps(event.to_dict()).encode(),
+        )
+        logger.debug(
+            "event_published",
+            extra={"event_type": "doc.scraped", "source": source, "count": count},
+        )
+    except KafkaError as exc:
+        logger.warning(
+            "kafka_publish_failed",
+            extra={"error": str(exc), "source": source},
         )

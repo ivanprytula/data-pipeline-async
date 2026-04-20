@@ -21,13 +21,42 @@ RUN uv sync --no-dev --frozen --no-install-project
 FROM python:3.14-slim
 WORKDIR /app
 
-# Create non-root user for security
+# Install system deps for asyncpq/pgvector + Playwright browser execution
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    libnss3 \
+    libxss1 \
+    libx11-6 \
+    libxcb1 \
+    libxrandr2 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libglib2.0-0 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libdbus-1-3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    fonts-noto \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python environment from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install Playwright browsers as root (required for appuser to use them)
+RUN playwright install chromium && \
+    playwright install-deps chromium
+
+# Create non-root user for security (after Playwright setup)
 RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 --gid appgroup --shell /bin/false --no-create-home appuser
 
-# Copy Python environment from builder
-COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Set ownership of app directory to non-root user
+RUN chown -R appuser:appgroup /app
 
 # Copy source code and migration files
 COPY --chown=appuser:appgroup app/ ./app/

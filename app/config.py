@@ -129,6 +129,22 @@ class Settings(BaseSettings):
         description="Enable Kafka event publishing. Disabled by default (safe for tests w/o broker).",  # noqa: E501
     )
 
+    # ============ MongoDB ============
+    mongo_url: str = Field(
+        default="mongodb://localhost:27017",
+        description="MongoDB connection URL",
+    )
+
+    mongo_db_name: str = Field(
+        default="datazoo",
+        description="MongoDB database name",
+    )
+
+    mongo_enabled: bool = Field(
+        default=False,
+        description="Enable MongoDB storage. Disabled by default (safe for tests w/o MongoDB).",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",

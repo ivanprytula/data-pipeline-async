@@ -141,6 +141,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
       KAFKA_BROKER_URL: redpanda:29092
       KAFKA_ENABLED: "true"
+      MONGO_URL: mongodb://mongodb:27017
+      MONGO_ENABLED: "true"
     ports:
       - '8000:8000'
     depends_on:
@@ -178,10 +180,36 @@ services:
           cpus: '0.5'
           memory: '512M'
 
+  mongodb:
+    image: mongo:7
+    container_name: data-pipeline-mongodb
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
+
   processor:
     build:
-      context: ./services/processor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/processor/Dockerfile
     container_name: data-pipeline-processor
     environment:
       KAFKA_BROKER_URL: redpanda:29092
@@ -204,3 +232,4 @@ services:
 volumes:
   pg_data:
   pg_test_data:
+  mongo_data:

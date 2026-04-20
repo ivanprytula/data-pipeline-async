@@ -287,3 +287,22 @@ class SessionResponse(BaseModel):
 
     session_id: str
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Scraper response schema (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class ScrapeResponse(BaseModel):
+    """Response from POST /api/v1/scrape/{source}.
+
+    Attributes:
+        source: Scraper source identifier used (e.g., 'hn', 'jsonplaceholder').
+        scraped: Number of items returned by the scraper.
+        stored: Number of items successfully persisted to MongoDB.
+    """
+
+    source: str
+    scraped: int
+    stored: int

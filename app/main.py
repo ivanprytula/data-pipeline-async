@@ -32,7 +32,8 @@ from app.metrics import (  # noqa: F401 — imported to register metrics at star
     records_upsert_conflicts_total,
 )
 from app.rate_limiting import limiter
-from app.routers import records, records_v2
+from app.routers import records, records_v2, scraper
+from app.storage import mongo
 
 
 # Type alias for database dependency
@@ -102,6 +103,17 @@ async def lifespan(app: FastAPI):
             )
             # Non-fatal: events are fail-open, app continues without broker
 
+    # Startup: connect MongoDB if enabled
+    if settings.mongo_enabled:
+        try:
+            await mongo.connect_mongo(settings.mongo_url, settings.mongo_db_name)
+        except Exception as e:
+            logger.warning(
+                "mongo_startup_failed",
+                extra={"error": str(e)},
+            )
+            # Non-fatal: scraper routes degrade gracefully without MongoDB
+
     yield
 
     # Shutdown: cleanup resources (cleanup order: app-level clients first, then Redis, then engine)
@@ -111,6 +123,7 @@ async def lifespan(app: FastAPI):
         events.disconnect_producer()
     )  # Kafka producer cleanup (safe even if not connected)
     await cache.disconnect_cache()  # Redis cleanup (safe even if not connected)
+    await mongo.disconnect_mongo()  # MongoDB cleanup (safe even if not connected)
     await engine.dispose()  # Database connections cleanup
     logger.info("shutdown", extra={"event": "engine_disposed"})
 
@@ -215,6 +228,7 @@ app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(records.router)
 app.include_router(records_v2.router)
+app.include_router(scraper.router)
 
 
 # ---------------------------------------------------------------------------

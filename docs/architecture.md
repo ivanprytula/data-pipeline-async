@@ -89,6 +89,7 @@ graph TB
 
     subgraph Compute["AWS ECS Fargate"]
         Ingestor["📝 Ingestor<br/>(app/)"]
+        Scraper["🕷️ Scraper<br/>(Phase 2)"]
         Processor["⚙️ Processor<br/>(services/)"]
         AIGateway["🤖 AI Gateway<br/>(embeddings)"]
         QueryAPI["📊 Query API<br/>(analytics)"]
@@ -97,6 +98,7 @@ graph TB
 
     subgraph Data["AWS Data Layer"]
         RDS["🗄️ PostgreSQL 17<br/>(RDS)"]
+        MongoDB["📚 MongoDB<br/>(document store)"]
         Qdrant["🔍 Qdrant<br/>(vector DB)"]
         Redis["⚡ Redis<br/>(ElastiCache)"]
     end
@@ -417,6 +419,234 @@ class EventPayload(Generic[T]):
 ```python
 
 This prepares for Phase 2+ when we add scrapers with different payload types.
+
+---
+
+## Phase 2: Data Scraping with Multi-Protocol Support (Current Implementation)
+
+**Status**: ✅ Complete — Scrapers + MongoDB + Kafka event integration
+**Timeline**: Week 3–4 (April 2026)
+
+### Architecture
+
+```mermaid
+graph TB
+    Client["👤 API Client<br/>HTTP"]
+
+    subgraph Ingestor["📝 Ingestor (app/)"]
+        RecordsRouter["🔀 Records Router<br/>/api/v1/records"]
+    end
+
+    subgraph Scrapers["🕷️ Scraper Service (app/routers/scraper.py)"]
+        ScraperRouter["POST /api/v1/scrape/{source}"]
+        Factory["🏭 ScraperFactory"]
+        HTTPScraper["HTTPScraper<br/>(httpx)"]
+        HTMLScraper["HTMLScraper<br/>(BeautifulSoup)"]
+        BrowserScraper["BrowserScraper<br/>(Playwright)"]
+    end
+
+    subgraph Storage["🗄️ Storage Layer (app/storage/)"]
+        Mongo["📚 Motor Async<br/>MongoDB client"]
+        Cache["💾 Redis Optional"]
+    end
+
+    subgraph Events["📤 Event Publishing (app/events.py)"]
+        KafkaProducer["Kafka Producer<br/>publish_doc_scraped()"]
+    end
+
+    subgraph Data["Data Persistence"]
+        MongoDB_DB["🗄️ MongoDB<br/>(Document store)"]
+        RDS["🗄️ PostgreSQL<br/>(Structured data)"]
+        Kafka["📬 Redpanda<br/>(Event stream)"]
+    end
+
+    Client -->|POST /api/v1/scrape/...| ScraperRouter
+    ScraperRouter --> Factory
+    Factory -->|REST API| HTTPScraper
+    Factory -->|HTML Parse| HTMLScraper
+    Factory -->|Browser| BrowserScraper
+
+    HTTPScraper -->|Semaphore(5)<br/>Exponential backoff| Cache
+    HTMLScraper -->|Parse HTML| Cache
+    BrowserScraper -->|JS rendering| Cache
+
+    HTTPScraper -->|Fail-open| Mongo
+    HTMLScraper -->|Fail-open| Mongo
+    BrowserScraper -->|Fail-open| Mongo
+
+    Mongo -->|insert_many| MongoDB_DB
+    KafkaProducer -->|Async<br/>Fire-and-forget| Kafka
+    ScraperRouter -->|Always 200| KafkaProducer
+
+    RDS -.->|Optional analytics| ScraperRouter
+
+    style Scrapers fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Storage fill:#ffe0b2,stroke:#e65100,stroke-width:2px
+    style Data fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+```
+
+### Components
+
+**🏭 ScraperFactory** (`app/scrapers/__init__.py`)
+
+- Dispatches requests to appropriate scraper type
+- Pattern: Uniform interface, 3 implementations
+- `get_scraper(source: str) -> Scraper`
+
+**📡 HTTPScraper**
+
+- Uses `httpx.AsyncClient` for REST APIs
+- Example: JSONPlaceholder (demo API)
+- Features: Exponential backoff (3 retries), timeout (10s), async concurrency
+
+**🔍 HTMLScraper**
+
+- Uses BeautifulSoup + httpx for HTML parsing
+- Example: Hacker News front page
+- Features: CSS selector queries, lightweight
+
+**🌐 BrowserScraper**
+
+- Uses Playwright for JS-rendered content
+- Example: Pages requiring browser automation
+- Features: Full browser automation, JavaScript execution, cookies/auth
+
+**📚 Motor Async MongoDB**
+
+- Singleton pattern (app/storage/mongo.py)
+- Collection: `scraped` — immutable log of scraped documents
+- Fail-open: Errors logged, endpoint still returns 200
+- Documents: `{url, title, content, source, created_at, updated_at}`
+
+**📊 ScrapeResponse** (`app/schemas.py`)
+
+```python
+class ScrapeResponse(BaseModel):
+    source: str
+    items_scraped: int       # Documents fetched
+    items_stored: int        # Successfully persisted to MongoDB
+    duration_ms: int         # Total time (scrape + storage)
+    event_published: bool    # Kafka event published?
+```
+
+**📤 Kafka Event: `doc.scraped`**
+
+- Published after **every** scrape (success or partial failure)
+- Payload: `{source, count, timestamp}`
+- Downstream: Processor can track scrape lag, trigger indexing, etc.
+- Async fire-and-forget (errors logged, doesn't block response)
+
+### Design Principles (Phase 2)
+
+**1. Fail-Open Architecture**
+
+- If MongoDB unavailable → endpoint returns 200 (items_stored=0, error logged)
+- If Kafka unavailable → endpoint returns 200 (event_published=false, error logged)
+- Rationale: Don't cascade failures; user gets feedback; data can be replayed from logs
+
+**2. Concurrency Safety with Semaphore**
+
+- `Semaphore(5)` by default (configurable per source)
+- Prevents: Bot bans, rate limiting, connection exhaustion
+- Improves: Observability (easier to debug with 5 vs 100 concurrent)
+
+**3. Configurable Resilience**
+
+```python
+# app/config.py
+SCRAPER_TIMEOUTS = {
+    "jsonplaceholder": 10,
+    "hn": 15,
+    "playwright": 30  # Browser slower
+}
+SEMAPHORE_LIMITS = {
+    "jsonplaceholder": 10,  # More aggressive safe
+    "hn": 5,                # Conservative
+    "playwright": 3         # Heavy on resources
+}
+```
+
+**4. Observable Failures**
+
+```python
+logger.error("scrape_failed", extra={
+    "source": source,
+    "duration_ms": duration,
+    "error_type": type(e).__name__,
+    "count_attempted": len(items),
+    "count_stored": stored_count
+})
+```
+
+### Data Flows
+
+**Happy Path:**
+
+```
+POST /api/v1/scrape/hn?limit=50
+  ↓
+  ScraperFactory.get_scraper("hn") → HTMLScraper
+  ↓
+  HTTPScraper.fetch() → [Item, Item, ...]
+  ↓
+  Motor.insert_many() → MongoDB (created_at assigned)
+  ↓
+  publish_doc_scraped("hn", 50) → Kafka (async)
+  ↓
+  Return ScrapeResponse {source: "hn", items_scraped: 50, items_stored: 50, event_published: true}
+```
+
+**Degraded (MongoDB down):**
+
+```
+POST /api/v1/scrape/hn
+  ↓
+  Scrape succeeds → [Item, Item, ...]
+  ↓
+  Motor.insert_many() → ❌ ConnectionError
+  ↓
+  logger.error("mongo_error") → [logged]
+  ↓
+  Kafka event still publishes (items_stored=0)
+  ↓
+  Return ScrapeResponse {items_scraped: 50, items_stored: 0, event_published: true}
+     ⬆️ User sees what happened; can retry; on-call can replay
+```
+
+**Cascading Failure (both MongoDB + Kafka down):**
+
+```
+Scrape succeeds → MongoDB fails → Kafka fails
+  ↓
+  Both errors logged with context
+  ↓
+  Endpoint still returns 200
+  ⬆️ Data lost but logged; replay possible from error logs
+```
+
+### Configuration in docker-compose
+
+```yaml
+# docker-compose.yml
+services:
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  app:
+    environment:
+      MONGO_URL: "mongodb://mongodb:27017"
+      MONGO_DB_NAME: "datazoo"
+```
+
+### ADR
+
+See [ADR #004: Scraper Architecture](adr/004-scraper-architecture.md) for detailed decision rationale.
+
+---
 
 ### Fail-Open Principle
 
