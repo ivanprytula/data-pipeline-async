@@ -8,16 +8,16 @@ Build production-ready capabilities across all major backend domains while creat
 
 ## 8-Phase Platform Overview
 
-| Phase       | Focus            | Core Interview Q                               | Tech Stack                                       |
-| ----------- | ---------------- | ---------------------------------------------- | ------------------------------------------------ |
-| **Phase 1** | Event Streaming  | Design real-time ETL for 1000+ events/sec      | Redpanda, Celery, partitioning                   |
-| **Phase 2** | Data Scraping    | Design scraper for 100K URLs without ban       | GraphQL, Playwright, rate limiting               |
-| **Phase 3** | Docker + CI/CD   | Walk me through dev → prod pipeline            | Multi-stage Docker, GitHub Actions, ECR          |
-| **Phase 4** | AI + Vector DB   | Design semantic search over 100K docs          | OpenAI embeddings, Qdrant, LRU cache             |
-| **Phase 5** | Testing          | How do you test code that calls external APIs? | pytest (10 fixtures), async mocking, chaos tests |
-| **Phase 6** | Database Mastery | This query is slow (5s). Fix it.               | 40 SQL patterns, EXPLAIN ANALYZE, indexing       |
-| **Phase 7** | Security         | Design JWT auth for multi-service app          | JWT + refresh tokens, rate limiting, secrets     |
-| **Phase 8** | Infrastructure   | Design multi-env Terraform (dev/staging/prod)  | Terraform, AWS (RDS/Fargate), state mgmt         |
+| Phase       | Focus            | Core Interview Q                               | Tech Stack                                       | Status     |
+| ----------- | ---------------- | ---------------------------------------------- | ------------------------------------------------ | ---------- |
+| **Phase 1** | Event Streaming  | Design real-time ETL for 1000+ events/sec      | Redpanda, Celery, partitioning                   | ✅ Done    |
+| **Phase 2** | Data Scraping    | Design scraper for 100K URLs without ban       | GraphQL, Playwright, rate limiting               | ✅ Done    |
+| **Phase 3** | AI + Vector DB   | Design semantic search over 100K docs          | SentenceTransformers, Qdrant, LRU cache          | 🚀 Active  |
+| **Phase 4** | Docker + CI/CD   | Walk me through dev → prod pipeline            | Multi-stage Docker, GitHub Actions, ECR          | ⏹️ Queued  |
+| **Phase 5** | Testing          | How do you test code that calls external APIs? | pytest (10 fixtures), async mocking, chaos tests | ⏹️ Queued  |
+| **Phase 6** | Database Mastery | This query is slow (5s). Fix it.               | 40 SQL patterns, EXPLAIN ANALYZE, indexing       | ⏹️ Queued  |
+| **Phase 7** | Security         | Design JWT auth for multi-service app          | JWT + refresh tokens, rate limiting, secrets     | ⏹️ Queued  |
+| **Phase 8** | Infrastructure   | Design multi-env Terraform (dev/staging/prod)  | Terraform, AWS (RDS/Fargate), state mgmt         | ⏹️ Queued  |
 
 **Timeline**: 16 weeks / 2 weeks per phase
 **Deliverables**: 100+ commits, 8 LinkedIn posts, 8 portfolio items, 100% test coverage
@@ -74,30 +74,74 @@ See [`.github/instructions/middle-tier-grind-tracking.md`](.github/instructions/
 
 ## Phase Guides (Scaffolding Blueprint)
 
-All 8 phases have complete execution blueprints in `.github/instructions/`:
+All 8 phases have complete execution blueprints in `learning_docs/`:
 
-| File                     | Content                                        | Use When                          |
-| ------------------------ | ---------------------------------------------- | --------------------------------- |
-| **phase-1-events.md**    | Redpanda + Celery real life production example | Starting Phase 1 (week 1–2)       |
-| **phase-2-scrapers.md**  | GraphQL scraper + rate limiting                | Starting Phase 2 (week 3–4)       |
-| **docker-ci-guide.md**   | Multi-stage Docker + GitHub Actions            | Starting Phase 3 CI/CD (week 5–6) |
-| **phase-3-ai-qdrant.md** | Embeddings + vector DB + caching               | Starting Phase 4 (week 7–8)       |
-| **phase-4-testing.md**   | 10 pytest fixtures + async mocking             | Starting Phase 5 (week 9–10)      |
-| **phase-5-database.md**  | 40 SQL patterns + EXPLAIN ANALYZE              | Starting Phase 6 (week 11–12)     |
-| **phase-6-security.md**  | JWT + refresh tokens + rate limiting           | Starting Phase 7 (week 13–14)     |
-| **phase-7-terraform.md** | Terraform modules + multi-env                  | Starting Phase 8 (week 15–16)     |
+### Phase 3: AI Gateway & Semantic Search (Current) 🚀
+
+**Learning Objective**: Build a multi-service architecture for semantic search using embeddings + vector DB.
+
+**Documentation**:
+
+- [**PHASE_3_QUICK_START.md**](learning_docs/PHASE_3_QUICK_START.md) — 15-minute setup guide
+- [**PHASE_3_AI_GATEWAY.md**](learning_docs/PHASE_3_AI_GATEWAY.md) — Complete implementation guide
+- [**ADR 005: Phase 3 Architecture**](docs/adr/005-phase-3-ai-gateway.md) — Design decisions
+
+**Stack**: SentenceTransformers, Qdrant (HNSW indexes), FastAPI
+
+**Quick Start**:
+
+```bash
+# Boot all services (Qdrant + AI Gateway + app)
+docker-compose up --build
+
+# Test embeddings
+curl -X POST http://localhost:8001/embed \
+  -H "Content-Type: application/json" \
+  -d '{"text": "semantic search example"}'
+
+# Search for similar documents
+curl -X POST http://localhost:8001/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "machine learning models", "top_k": 5}'
+
+# Browse Qdrant vector DB
+open http://localhost:6334
+```
+
+**Key Concepts**:
+
+- **Lazy Loading**: Load embedding model once, reuse forever
+- **LRU Cache**: Avoid redundant embeddings in batch operations
+- **Service Separation**: API tier ↔ AI tier ↔ Qdrant
+- **Async Patterns**: Lifespan context managers, health checks
+
+**Interview Q**: "Walk me through your semantic search system. How would you handle 100K documents? Where's the bottleneck?"
+
+---
+
+### Other Phases (Roadmap)
+
+| File                     | Phase  | Focus                              | Use When                    |
+| ------------------------ | ------ | ---------------------------------- | --------------------------- |
+| **phase-1-events.md**    | Phase 1| Redpanda + Celery real-time ETL  | Already implemented (base)  |
+| **phase-2-scrapers.md**  | Phase 2| GraphQL scraper + rate limiting   | Already implemented         |
+| **docker-ci-guide.md**   | Phase 4| Multi-stage Docker + GitHub Actions| Starting next               |
+| **phase-4-testing.md**   | Phase 5| 10 pytest fixtures + async mocking | Phase 5 (see above) |
+| **phase-5-database.md**  | Phase 6| 40 SQL patterns + EXPLAIN ANALYZE | Phase 6                     |
+| **phase-6-security.md**  | Phase 7| JWT + refresh tokens + rate limiting| Phase 7                    |
+| **phase-7-terraform.md** | Phase 8| Terraform modules + multi-env     | Phase 8                     |
 
 Each guide includes:
 ✅ Core interview question + suggested answer
 ✅ 2 follow-up questions you'll face
-✅ Concrete real life production example to build
+✅ Concrete real world production example to build
 ✅ Weekly checklist (8–15 commits per phase)
 ✅ Interview prep talking points
 ✅ Success criteria + metrics
 
 ---
 
-## Project Structure (Phase 1 — Core API)
+## Project Structure (Phase 1–3)
 
 This codebase implements Phase 1's foundation: async FastAPI + SQLAlchemy 2.0 for event ingestion.
 
