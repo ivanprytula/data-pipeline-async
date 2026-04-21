@@ -25,6 +25,25 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+
+def include_object(
+    object: object, name: str | None, type_: str, reflected: bool, compare_to: object
+) -> bool:
+    """Exclude partition tables created via raw SQL from autogenerate comparison.
+
+    The records_archive_YYYYMM monthly partition tables are created by the
+    partitioning migration using raw SQL and are not SQLAlchemy ORM models.
+    Without this filter, Alembic autogenerate would emit drop_table for all
+    of them on every subsequent migration.
+    """
+    return not (
+        type_ == "table"
+        and reflected
+        and name is not None
+        and (name == "records_archive" or name.startswith("records_archive_"))
+    )
+
+
 # Convert app async URL into a SQLAlchemy sync psycopg URL
 # Example: postgresql+asyncpg://user:pass@host:port/db -> postgresql+psycopg://user:pass@host:port/db
 _sync_url = settings.database_url.replace(
@@ -40,6 +59,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -59,6 +79,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
