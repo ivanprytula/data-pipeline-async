@@ -8,17 +8,31 @@ and infrastructure as code.
 
 ## Quick Start
 
+**First-time setup:**
+
 ```bash
+# 1. Install system packages (PostgreSQL, MongoDB, Docker, mkcert, etc.)
+# See docs/setup/system-requirements.md for your platform
+
+# 2. Generate HTTPS certificates (one-time)
+bash scripts/setup-https.sh
+
+# 3. Start services and run app
 cp .env.example .env          # configure local values
-uv sync                       # install dependencies
-docker compose up -d db redis # start core services
+uv sync                       # install Python dependencies
+docker compose up -d          # start all services (with HTTPS on :443)
 uv run alembic upgrade head   # apply migrations
-uv run uvicorn app.main:app --reload
-open http://localhost:8000/docs
+
+# 4. Access the app
+open https://localhost              # Dashboard + all services via nginx
+open https://localhost/api/docs     # API documentation
 ```
 
-See [docs/setup/environment-setup.md](docs/setup/environment-setup.md) for full setup and
-[docs/dev/commands.md](docs/dev/commands.md) for all dev commands.
+📖 **Documentation:**
+
+- [System Requirements](docs/setup/system-requirements.md) — Required packages (PostgreSQL, MongoDB, Docker, etc.)
+- [Environment Setup](docs/setup/environment-setup.md) — Local `.env` config, Docker services
+- [Daily Dev Commands](docs/dev/commands.md) — All dev, test, migration, and backup commands
 
 ---
 
@@ -57,6 +71,8 @@ See [docs/setup/environment-setup.md](docs/setup/environment-setup.md) for full 
 
 | File | Purpose |
 |------|---------|
+| [docs/setup/system-requirements.md](docs/setup/system-requirements.md) | Required system packages (PostgreSQL, MongoDB, Docker, chaos testing tools) |
+| [docs/setup/local-https-setup.md](docs/setup/local-https-setup.md) | Enable HTTPS locally with mkcert (production-like from the start) |
 | [docs/setup/environment-setup.md](docs/setup/environment-setup.md) | Local setup, `.env` config, Docker services |
 | [docs/setup/pgvector-setup-guide.md](docs/setup/pgvector-setup-guide.md) | pgvector extension setup |
 | [docs/setup/references.md](docs/setup/references.md) | External docs and learning resources |

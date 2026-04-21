@@ -5,8 +5,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import crud
-from app.schemas import RecordRequest
+from ingestor import crud
+from ingestor.schemas import RecordRequest
 
 
 _BASE_TIME = datetime(2024, 1, 15, 10, 0, 0, tzinfo=UTC).replace(tzinfo=None)

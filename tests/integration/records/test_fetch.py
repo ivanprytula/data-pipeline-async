@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.fetch import (
+from ingestor.fetch import (
     close_http_client,
     fetch_with_retry,
     get_http_client,

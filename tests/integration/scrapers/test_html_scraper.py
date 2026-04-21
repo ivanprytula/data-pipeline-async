@@ -6,7 +6,7 @@ Tests CSS selector extraction, malformed HTML handling, and Hacker News scraping
 import pytest
 from bs4 import BeautifulSoup
 
-from app.scrapers.html_scraper import HtmlScraper
+from ingestor.scrapers.html_scraper import HtmlScraper
 
 
 @pytest.mark.integration

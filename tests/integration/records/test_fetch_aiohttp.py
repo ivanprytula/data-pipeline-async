@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 import pytest
 
-from app.fetch_aiohttp import (
+from ingestor.fetch_aiohttp import (
     close_http_session,
     fetch_with_retry,
     get_http_session,

@@ -6,7 +6,7 @@ Covers apply_jitter (thundering-herd prevention).
 
 import pytest
 
-from app.rate_limiting_advanced import apply_jitter
+from ingestor.rate_limiting_advanced import apply_jitter
 
 
 # ---------------------------------------------------------------------------

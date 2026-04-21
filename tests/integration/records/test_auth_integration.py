@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import RecordRequest
+from ingestor.schemas import RecordRequest
 
 
 @pytest.mark.integration
@@ -33,7 +33,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure requires valid session cookie."""
-        from app import crud
+        from ingestor import crud
 
         record = await crud.create_record(
             db,
@@ -48,7 +48,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure succeeds with valid session cookie."""
-        from app import crud
+        from ingestor import crud
 
         # Create a record
         record = await crud.create_record(
@@ -76,8 +76,8 @@ class TestSessionAuth:
         import uuid
         from datetime import UTC, datetime, timedelta
 
-        from app import crud
-        from app.auth import _session_store
+        from ingestor import crud
+        from ingestor.auth import _session_store
 
         # Create a record
         record = await crud.create_record(

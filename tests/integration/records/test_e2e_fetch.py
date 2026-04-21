@@ -31,7 +31,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from app.fetch import (
+from ingestor.fetch import (
     close_all_http_clients,
     close_http_client,
     fetch_from_external_api,

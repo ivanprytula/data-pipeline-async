@@ -139,9 +139,9 @@ services:
           cpus: '0.5'
           memory: '512M'
 
-  app:
+  ingestor:
     build: .
-    container_name: data-pipeline-app
+    container_name: data-pipeline-ingestor
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
@@ -173,17 +173,13 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./app
-          target: /app/app
-    # K8s-like resource management (overridden per environment)
+          path: ./ingestor
+          target: /app/ingestor
     deploy:
-      # Restart policy
       restart_policy:
         condition: on-failure
         delay: 5s
         max_attempts: 5
-
-      # Resource constraints (matches k8s requests/limits)
       resources:
         reservations:
           cpus: '0.25'
@@ -383,13 +379,13 @@ services:
       dockerfile: services/dashboard/Dockerfile
     container_name: data-pipeline-dashboard
     environment:
-      INGESTOR_URL: http://app:8000
+      INGESTOR_URL: http://ingestor:8000
       AI_GATEWAY_URL: http://ai-gateway:8001
       LOG_LEVEL: info
     ports:
       - '8003:8003'
     depends_on:
-      app:
+      ingestor:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8003/health']
@@ -415,8 +411,153 @@ services:
           cpus: '0.25'
           memory: '256M'
 
+  # ─── Reverse Proxy ────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: data-pipeline-nginx
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/certs:/etc/nginx/certs:ro
+    depends_on:
+      - ingestor
+      - dashboard
+      - ai-gateway
+      - query-api
+      - jaeger
+      - grafana
+      - prometheus
+      - alertmanager
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost/nginx-status']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.05'
+          memory: '32M'
+        limits:
+          cpus: '0.1'
+          memory: '64M'
+
+  # ─── Monitoring Stack ──────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: data-pipeline-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-lifecycle
+      - --web.route-prefix=/
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/-/healthy']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '256M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: data-pipeline-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/slo-dashboard.json
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '128M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: data-pipeline-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.route-prefix=/
+    ports:
+      - '9093:9093'
+    volumes:
+      - ./infra/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9093/-/healthy']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.05'
+          memory: '64M'
+        limits:
+          cpus: '0.1'
+          memory: '128M'
+
 volumes:
   pg_data:
   pg_test_data:
   mongo_data:
   qdrant_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

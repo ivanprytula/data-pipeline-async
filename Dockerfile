@@ -59,7 +59,7 @@ RUN groupadd --gid 1001 appgroup && \
 RUN chown -R appuser:appgroup /app
 
 # Copy source code and migration files
-COPY --chown=appuser:appgroup app/ ./app/
+COPY --chown=appuser:appgroup ingestor/ ./ingestor/
 COPY --chown=appuser:appgroup alembic/ ./alembic/
 COPY --chown=appuser:appgroup alembic.ini ./
 
@@ -68,8 +68,4 @@ USER appuser
 # Port for FastAPI
 EXPOSE 8000
 
-# Single worker is fine for local development—lets you test without multi-process complexity
-# Default asyncio is what you want anyway
-# --workers 4 later if you want to test multi-worker performance in production-like conditions
-# --loop uvloop (with uvloop installed) if you need extreme performance optimization
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "ingestor.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

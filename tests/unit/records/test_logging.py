@@ -2,8 +2,8 @@ import logging
 
 import pytest
 
-from app.config import settings
-from app.core.logging import get_cid, set_cid, setup_logging
+from ingestor.config import settings
+from ingestor.core.logging import get_cid, set_cid, setup_logging
 
 
 @pytest.mark.unit

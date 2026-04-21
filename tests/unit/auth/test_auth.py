@@ -15,8 +15,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPBasicCredentials
 
-import app.auth as auth_module
-from app.auth import (
+import ingestor.auth as auth_module
+from ingestor.auth import (
     create_jwt_token,
     create_session,
     verify_bearer_token,
@@ -206,7 +206,7 @@ class TestJWT:
 
         import jwt as pyjwt
 
-        from app.config import settings
+        from ingestor.config import settings
 
         expired_payload = {
             "sub": "user-4",

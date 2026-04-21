@@ -4,7 +4,7 @@ import time
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from ingestor.main import app
 from tests.shared.payloads import RECORD_E2E
 
 

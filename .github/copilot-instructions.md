@@ -49,22 +49,22 @@ docker compose up --build                          # full stack (app + Postgres 
 ## Architecture
 
 ```
-FastAPI routes (app/main.py)
-  └─ Pydantic v2 validation (app/schemas.py)
+FastAPI routes (ingestor/main.py)
+  └─ Pydantic v2 validation (ingestor/schemas.py)
   └─ DbDep = Annotated[AsyncSession, Depends(get_db)]
-       └─ CRUD layer (app/crud.py)  ← pure async functions
-            └─ AsyncSessionLocal (app/database.py)
+       └─ CRUD layer (ingestor/crud.py)  ← pure async functions
+            └─ AsyncSessionLocal (ingestor/database.py)
                  └─ asyncpg → PostgreSQL 17
 ```
 
 | File | Responsibility |
 |------|---------------|
-| `app/main.py` | Routes, lifespan hook (table creation), correlation-ID logging |
-| `app/crud.py` | All DB operations — async functions, `AsyncSession` as first arg |
-| `app/models.py` | SQLAlchemy 2.0 ORM — `Mapped[T]` / `mapped_column()` style only |
-| `app/schemas.py` | Pydantic v2 request/response schemas |
-| `app/database.py` | Engine, `async_sessionmaker`, `Base`, `get_db` dependency |
-| `app/config.py` | `pydantic-settings` `Settings`, reads `.env` |
+| `ingestor/main.py` | Routes, lifespan hook (table creation), correlation-ID logging |
+| `ingestor/crud.py` | All DB operations — async functions, `AsyncSession` as first arg |
+| `ingestor/models.py` | SQLAlchemy 2.0 ORM — `Mapped[T]` / `mapped_column()` style only |
+| `ingestor/schemas.py` | Pydantic v2 request/response schemas |
+| `ingestor/database.py` | Engine, `async_sessionmaker`, `Base`, `get_db` dependency |
+| `ingestor/config.py` | `pydantic-settings` `Settings`, reads `.env` |
 
 ## Conventions
 
@@ -203,7 +203,7 @@ logger.info("record_created", extra={"cid": str(uuid4()), "record_id": record.id
 
 ## Configuration
 
-Key environment variables (see `app/config.py`, defaults from `.env`):
+Key environment variables (see `ingestor/config.py`, defaults from `.env`):
 
 | Variable | Default | Notes |
 |----------|---------|-------|
@@ -222,30 +222,30 @@ Key environment variables (see `app/config.py`, defaults from `.env`):
 | A file has >1 conceptual responsibility | Extract the second responsibility to a new module |
 | A function exceeds ~30 lines | Break it into named sub-functions in the same or a sibling module |
 | A router file imports from >3 unrelated domains | Extract a service/use-case layer |
-| Related constants appear in >1 file | Centralise in `app/constants.py` |
+| Related constants appear in >1 file | Centralise in `ingestor/constants.py` |
 
 **Current namespace map** — where things live:
 
 | Module | Owns |
 |--------|------|
-| `app/constants.py` | All magic numbers, string literals, and limit values |
-| `app/rate_limiting.py` | slowapi `Limiter` singleton |
-| `app/rate_limiting_advanced.py` | `TokenBucketLimiter`, `SlidingWindowLimiter` |
-| `app/routers/records.py` | v1 CRUD routes |
-| `app/routers/records_v2.py` | v2 rate-limit showcase routes |
+| `ingestor/constants.py` | All magic numbers, string literals, and limit values |
+| `ingestor/rate_limiting.py` | slowapi `Limiter` singleton |
+| `ingestor/rate_limiting_advanced.py` | `TokenBucketLimiter`, `SlidingWindowLimiter` |
+| `ingestor/routers/records.py` | v1 CRUD routes |
+| `ingestor/routers/records_v2.py` | v2 rate-limit showcase routes |
 
 **Constants rule** — no magic numbers or string literals in route handlers, CRUD functions, or models:
 ```python
 # WRONG — magic number inline
 limit: Annotated[int, Query(ge=1, le=1000)] = 100
 
-# CORRECT — named constant from app/constants.py
+# CORRECT — named constant from ingestor/constants.py
 from app.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_BATCH_SIZE
 
 limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 ```
 
-**`app/constants.py` is the single source of truth** for:
+**`ingestor/constants.py` is the single source of truth** for:
 - Pagination defaults (`DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`)
 - Batch limits (`MAX_BATCH_SIZE`)
 - Rate-limit parameters (`TOKEN_BUCKET_CAPACITY`, `TOKEN_BUCKET_REFILL_PER_SEC`, `SLIDING_WINDOW_LIMIT`, `SLIDING_WINDOW_SECONDS`)

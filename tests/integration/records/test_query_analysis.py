@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import RecordRequest
+from ingestor.schemas import RecordRequest
 
 
 pytestmark = pytest.mark.integration
@@ -99,7 +99,7 @@ class TestQueryAnalysis:
         This test creates sample records and executes an EXPLAIN ANALYZE query
         to verify that the ix_records_timestamp index is being used.
         """
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 
@@ -142,7 +142,7 @@ class TestQueryAnalysis:
         self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Analyze the query plan for basic record fetching."""
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 
@@ -180,7 +180,7 @@ class TestQueryAnalysis:
         self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify query for processed=false uses ix_records_processed index."""
-        from app.crud import create_record, mark_processed
+        from ingestor.crud import create_record, mark_processed
 
         db = postgresql_async_session
 
@@ -221,7 +221,7 @@ class TestQueryAnalysis:
         self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify soft-delete filtering via deleted_at IS NULL is efficient."""
-        from app.crud import create_record, soft_delete_record
+        from ingestor.crud import create_record, soft_delete_record
 
         db = postgresql_async_session
 
@@ -261,7 +261,7 @@ class TestQueryAnalysis:
         self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Analyze performance of source + timestamp filter combination."""
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 
@@ -313,7 +313,7 @@ class TestQueryAnalysis:
         This test documents that while we use an index for filtering,
         processing array operations still requires reading the data.
         """
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 
@@ -355,7 +355,7 @@ class TestQueryAnalysis:
         self, postgresql_async_session: AsyncSession, record_timestamp
     ) -> None:
         """Verify joins with tags array are properly planned."""
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 
@@ -447,7 +447,7 @@ class TestIndexEffectiveness:
         The ix_records_active_source partial index filters WHERE deleted_at IS NULL.
         This should make queries on active records faster.
         """
-        from app.crud import create_record
+        from ingestor.crud import create_record
 
         db = postgresql_async_session
 

@@ -1,0 +1,51 @@
+global:
+  resolve_timeout: 5m
+  smtp_require_tls: false
+
+route:
+  receiver: console
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 1h
+
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: console
+      group_wait: 5s
+      repeat_interval: 15m
+
+    - matchers:
+        - severity = warning
+      receiver: console
+      group_wait: 30s
+      repeat_interval: 1h
+
+receivers:
+  - name: console
+    webhook_configs:
+      - url: http://localhost:5001/alert
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        # Replace with Slack/PagerDuty/email in production:
+        #
+        # slack_configs:
+        #   - api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
+        #     channel: '#alerts'
+        #     title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        #
+        # email_configs:
+        #   - to: 'oncall@example.com'
+        #     from: 'alertmanager@example.com'
+        #     smarthost: 'smtp.example.com:587'
+        #     auth_username: 'alertmanager'
+        #     auth_password: 'password'
+
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: ['alertname', 'service']

@@ -7,7 +7,7 @@ Note: These tests require Playwright to be installed. For CI/headless:
 
 import pytest
 
-from app.scrapers.browser_scraper import BrowserScraper
+from ingestor.scrapers.browser_scraper import BrowserScraper
 
 
 @pytest.mark.integration

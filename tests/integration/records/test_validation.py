@@ -10,7 +10,7 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.schemas import RecordRequest
+from ingestor.schemas import RecordRequest
 from tests.shared.payloads import RECORD_API
 
 

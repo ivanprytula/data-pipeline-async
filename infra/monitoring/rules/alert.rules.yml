@@ -1,0 +1,109 @@
+groups:
+  # ── Golden Signals: Latency ────────────────────────────────────────────────
+  - name: latency
+    rules:
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="ingestor"}[5m])) by (le, handler)
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: ingestor
+        annotations:
+          summary: "P95 latency > 500ms on {{ $labels.handler }}"
+          description: "P95 latency is {{ $value | humanizeDuration }} for handler {{ $labels.handler }}"
+
+      - alert: CriticalP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job="ingestor"}[5m])) by (le, handler)
+          ) > 2.0
+        for: 1m
+        labels:
+          severity: critical
+          service: ingestor
+        annotations:
+          summary: "P99 latency > 2s on {{ $labels.handler }}"
+          description: "P99 latency is {{ $value | humanizeDuration }} — investigate immediately"
+
+  # ── Golden Signals: Error Rate ─────────────────────────────────────────────
+  - name: errors
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="ingestor", status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="ingestor"}[5m])) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          service: ingestor
+        annotations:
+          summary: "Error rate > 1% on ingestor"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+
+      - alert: CriticalErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="ingestor", status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="ingestor"}[5m])) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          service: ingestor
+        annotations:
+          summary: "Error rate > 5% — SLO breach imminent"
+          description: "Error rate is {{ $value | humanizePercentage }} — check logs immediately"
+
+  # ── Golden Signals: Traffic ────────────────────────────────────────────────
+  - name: traffic
+    rules:
+      - alert: TrafficDropped
+        expr: |
+          sum(rate(http_requests_total{job="ingestor"}[5m])) < 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: ingestor
+        annotations:
+          summary: "Ingestor receiving near-zero traffic"
+          description: "Request rate is {{ $value }} req/s — service may be unreachable"
+
+  # ── Golden Signals: Saturation ─────────────────────────────────────────────
+  - name: saturation
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"ingestor|query_api|ai_gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is not reachable"
+
+  # ── Kafka Consumer Lag ─────────────────────────────────────────────────────
+  - name: kafka
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          kafka_consumer_group_lag{group="processor"} > 1000
+        for: 3m
+        labels:
+          severity: warning
+          service: processor
+        annotations:
+          summary: "Kafka consumer lag > 1000 messages"
+          description: "Consumer group {{ $labels.group }} lag is {{ $value }} on topic {{ $labels.topic }}"
+
+      - alert: KafkaConsumerLagCritical
+        expr: |
+          kafka_consumer_group_lag{group="processor"} > 5000
+        for: 1m
+        labels:
+          severity: critical
+          service: processor
+        annotations:
+          summary: "Kafka consumer lag > 5000 — processor falling behind"
+          description: "Consumer group lag is {{ $value }}. Consider scaling processor."

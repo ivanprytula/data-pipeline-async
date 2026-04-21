@@ -1,5 +1,7 @@
 # Environment Configuration Strategy
 
+> **Before you start:** See [system-requirements.md](system-requirements.md) for required system packages (PostgreSQL, MongoDB, Docker tools).
+
 This document explains how environment variables are managed across development, CI/CD, and deployed environments.
 
 ---

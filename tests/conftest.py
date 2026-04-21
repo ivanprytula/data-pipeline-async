@@ -60,9 +60,9 @@ os.environ["ENVIRONMENT"] = "testing"
 os.environ.setdefault("DOCS_USERNAME", "")
 os.environ.setdefault("DOCS_PASSWORD", "")
 
-from app.config import Settings  # noqa: E402
-from app.database import Base, get_db  # noqa: E402
-from app.main import app  # noqa: E402
+from ingestor.config import Settings  # noqa: E402
+from ingestor.database import Base, get_db  # noqa: E402
+from ingestor.main import app  # noqa: E402
 from tests.shared.payloads import RECORD_API  # noqa: E402
 
 
@@ -149,8 +149,8 @@ async def client_with_cache(
 
     Injects fakeredis into app cache module so cache operations work in tests.
     """
-    from app import cache
-    from app.main import app  # Import here to avoid circular imports
+    from ingestor import cache
+    from ingestor.main import app  # Import here to avoid circular imports
 
     _ensure_sessionmaker()
 
@@ -232,7 +232,7 @@ async def client_isolated(
     Each HTTP request gets independent DB connection. Skips if PostgreSQL unavailable.
     """
     # Store the sessionmaker from the isolated session so we can create fresh sessions
-    SessionLocal = postgresql_async_session_isolated._sessionmaker
+    SessionLocal = postgresql_async_session_isolated._sessionmaker  # type: ignore
 
     async def _override() -> AsyncGenerator[AsyncSession]:
         # Create a FRESH session for each HTTP request (critical for concurrent tests!)
@@ -321,8 +321,8 @@ async def sample_records_with_tags(db: AsyncSession) -> list:
     Useful for N+1 demo and other query optimization tests.
     Creates records with 0, 2, 4, 6, 8 tags respectively.
     """
-    from app.crud import create_record
-    from app.schemas import RecordRequest
+    from ingestor.crud import create_record
+    from ingestor.schemas import RecordRequest
 
     records = []
     for i in range(5):
@@ -481,7 +481,7 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
 
         async with SessionLocal() as session:
             # Store sessionmaker on the session for use by client_isolated
-            session._sessionmaker = SessionLocal
+            session._sessionmaker = SessionLocal  # type: ignore[attr-defined]
             yield session
     finally:
         # Cleanup

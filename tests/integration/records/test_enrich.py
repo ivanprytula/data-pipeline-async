@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 
-from app.constants import ENRICH_MAX_IDS, ENRICH_SEMAPHORE_LIMIT
+from ingestor.constants import ENRICH_MAX_IDS, ENRICH_SEMAPHORE_LIMIT
 from tests.shared.payloads import RECORD_API
 
 

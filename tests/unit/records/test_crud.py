@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.crud import create_records_batch, create_records_batch_naive
+from ingestor.crud import create_records_batch, create_records_batch_naive
 
 
 # ---------------------------------------------------------------------------
