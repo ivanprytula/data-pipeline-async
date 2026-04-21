@@ -103,15 +103,22 @@ async def close_all_http_clients() -> None:
                 # Close directly on the same loop
                 with contextlib.suppress(Exception):
                     await client.aclose()
-            else:
+            elif loop.is_running():
                 # Close on the client's loop thread-safely
                 try:
-                    coro = client.aclose()
-                    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+                    fut = asyncio.run_coroutine_threadsafe(client.aclose(), loop)
                     # wait a short time for the close to complete
                     fut.result(timeout=1)
                 except Exception as e:
                     logger.debug("http_client_cleanup_error", extra={"error": str(e)})
+            else:
+                # Loop not running; close client directly to avoid resource warning
+                try:
+                    with contextlib.suppress(Exception):
+                        await client.aclose()
+                except RuntimeError:
+                    # If we can't close it, at least try to prevent resource leak
+                    logger.debug("http_client_loop_stopped", extra={"loop": loop})
         except Exception:
             # Swallow any error to ensure best-effort cleanup
             pass

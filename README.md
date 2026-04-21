@@ -39,25 +39,50 @@ cp .env.example .env
 
 ### Quick Start
 
+**Option 1: Full Development Setup (Recommended)**
+
+Run all services needed for development and testing:
+
 ```bash
-# Start containers (db + redis)
-docker compose up -d db redis
+# Start ALL services (db, test db, redis, kafka, mongodb, jaeger)
+bash scripts/dev-services.sh
 
 # Sync dependencies
 uv sync
 
-# Run tests (no Docker needed for tests — aiosqlite in-memory)
+# Run all tests (including PostgreSQL concurrent tests)
 uv run pytest tests/ -v
 
 # Apply database migrations
 uv run alembic upgrade head
 
 # Start the app (auto-reloads on code changes)
-uv run uvicorn app.main:app
+uv run uvicorn app.main:app --reload
 
 # Open API docs
 open http://localhost:8000/docs
 ```
+
+**Option 2: Minimal Setup (Basic testing only)**
+
+```bash
+# Start only core containers (db + redis)
+docker compose up -d db redis
+
+# Sync dependencies
+uv sync
+
+# Run tests with aiosqlite (PostgreSQL tests skipped)
+uv run pytest tests/ -v
+
+# Apply database migrations
+uv run alembic upgrade head
+
+# Start the app (auto-reloads on code changes)
+uv run uvicorn app.main:app --reload
+```
+
+> **Tip:** Use Option 1 during active development to run the full test suite without manual service management. See [docs/commands.md](docs/commands.md) for details.
 
 ### Tracking Your Progress
 

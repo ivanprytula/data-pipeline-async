@@ -18,6 +18,7 @@ dependencies = [
     # Validation & config
     "pydantic>=2.11.1",
     "pydantic-settings>=2.8.1",
+    "python-dotenv>=1.0.0",  # Load environment from .env files
     # Logging
     "python-json-logger>=3.3.0",
     # Authentication
@@ -68,6 +69,7 @@ asyncio_mode = "auto"
 addopts = "--cov=app --cov-report=term-missing --cov-report=html -v -m 'not e2e'"
 filterwarnings = [
     "ignore::DeprecationWarning:slowapi",
+    "ignore::DeprecationWarning:fastapi.routing",
 ]
 markers = [
     "unit: Fast, isolated unit tests (no I/O, no DB)",

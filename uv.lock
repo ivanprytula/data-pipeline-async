@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-04-14T11:46:53.013344343Z"
+exclude-newer = "2026-04-14T15:11:31.035780464Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -498,6 +498,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
+    { name = "python-dotenv" },
     { name = "python-json-logger" },
     { name = "qdrant-client" },
     { name = "redis" },
@@ -541,6 +542,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.1" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pyjwt", specifier = ">=2.10.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-json-logger", specifier = ">=3.3.0" },
     { name = "qdrant-client", specifier = ">=1.12.0" },
     { name = "redis", specifier = ">=5.2.0" },

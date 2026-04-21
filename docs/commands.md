@@ -7,6 +7,33 @@ Use Ctrl+F to jump to any section.
 
 ## Daily Development
 
+### Start All Services (Development + Testing)
+
+**Recommended for active development** — starts all services including test databases:
+
+```bash
+# One command to start everything
+bash scripts/dev-services.sh
+
+# What it starts:
+#   - PostgreSQL (main):   localhost:5432  (for app)
+#   - PostgreSQL (test):   localhost:5433  (for concurrent tests)
+#   - Redis:               localhost:6379
+#   - Kafka (Redpanda):    localhost:9092
+#   - MongoDB:             localhost:27017
+#   - Jaeger (tracing):    localhost:16686
+
+# Keep services running during development, run any test suite without setup:
+uv run pytest tests/ -v                    # All tests work
+uv run pytest tests/integration/ -v        # PostgreSQL tests work
+uv run pytest -m browser                   # Browser tests work (if Playwright installed)
+
+# Stop all services when done:
+docker compose --profile test down
+```
+
+**Why use this?** Eliminates the need to manually start services before running tests. All 19 previously-skipped PostgreSQL concurrent tests and browser tests will run automatically.
+
 ### Start Full Stack
 
 ```bash

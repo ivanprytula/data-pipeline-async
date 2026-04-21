@@ -5,8 +5,8 @@ Database selection:
   - If DATABASE_URL_TEST env var set: Use PostgreSQL (for concurrent tests)
 
 To run with PostgreSQL:
-    1. Start test DB: docker compose --profile test up db-test
-    2. Set env: export DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_database
+    1. Start test DB: bash scripts/dev-services.sh
+    2. Env vars are auto-loaded from .env (DATABASE_URL_TEST set automatically)
     3. Run tests: pytest tests/integration/records/test_concurrency.py -v
 
 IMPORTANT TESTING NOTE (parallelism):
@@ -26,8 +26,33 @@ IMPORTANT TESTING NOTE (parallelism):
 import datetime
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
+import pytest_asyncio
+from dotenv import load_dotenv
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
+
+# Load .env file for local development (BEFORE app imports)
+#
+# Strategy (production-safe):
+# - Local dev: .env file exists → python-dotenv loads it
+# - CI/CD: .env file missing (not in repo) → load_dotenv is no-op
+#         Environment variables are injected by CI system (GitHub Actions, etc.)
+# - Deployed: .env file missing → load_dotenv is no-op
+#            Secrets injected by secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
+#
+# Key: load_dotenv(..., override=False) means environment variables set by CI/deployment
+# take precedence over .env — this is the correct priority for secrets.
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    # Only load .env in development (when file exists locally)
+    load_dotenv(_env_file, override=False)
 
 # Set testing environment BEFORE any app imports
 # This ensures the app loads with testing configuration.
@@ -35,17 +60,10 @@ os.environ["ENVIRONMENT"] = "testing"
 os.environ.setdefault("DOCS_USERNAME", "")
 os.environ.setdefault("DOCS_PASSWORD", "")
 
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
-
-from app.config import Settings
-from app.database import Base, get_db
-from app.main import app
-from tests.shared.payloads import RECORD_API
+from app.config import Settings  # noqa: E402
+from app.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from tests.shared.payloads import RECORD_API  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
