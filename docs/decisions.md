@@ -175,7 +175,7 @@ Already have Redis, low volume?           → Redis Streams
 Local dev simplicity + Kafka compat?     → Redpanda
 ```
 
-**Interview answer:** "I chose Redpanda because it's Kafka API-compatible — same `aiokafka` producer/consumer code works unchanged — but runs as a single binary without Zookeeper. That cuts local setup from 3 containers to 1. For production on AWS, I'd switch to MSK Serverless which is also Kafka-compatible, so the application code never changes. The key architectural reason for Kafka over RabbitMQ here is the event log — consumers can replay events from any offset, which is essential for the CQRS read model in query-api."
+**Interview answer:** "I chose Redpanda because it's Kafka API-compatible — same `aiokafka` producer/consumer code works unchanged — but runs as a single binary without Zookeeper. That cuts local setup from 3 containers to 1. For production on AWS, I'd switch to MSK Serverless which is also Kafka-compatible, so the application code never changes. The key architectural reason for Kafka over RabbitMQ here is the event log — consumers can replay events from any offset, which is essential for the CQRS read model in query_api."
 
 ---
 

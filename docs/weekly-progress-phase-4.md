@@ -370,14 +370,14 @@ async def insert_scraped_doc(doc: dict):
 
 **Phase 5: Advanced SQL + CQRS Read Side** (Weeks 9–10)
 
-**Goal**: Materialized views, window functions, table partitioning, CTEs. CQRS: query-api as decoupled read service.
+**Goal**: Materialized views, window functions, table partitioning, CTEs. CQRS: query_api as decoupled read service.
 
 **Deliverables**:
 
-- `services/query-api/` FastAPI service (read-only)
+- `services/query_api/` FastAPI service (read-only)
 - Alembic migration: `records_hourly_stats` materialized view
 - Analytics endpoints with CTEs, `PERCENT_RANK()`, `RANK() OVER (PARTITION BY ...)`
-- CQRS: query-api subscribes to `records.events` Kafka topic for read-optimized projections
+- CQRS: query_api subscribes to `records.events` Kafka topic for read-optimized projections
 
 **Interview prep**: "Design a CQRS read model for real-time analytics"
 

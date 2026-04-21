@@ -26,8 +26,8 @@ data-pipeline-async/
 │
 ├── services/                      (← Phase 1+: New microservices)
 │   ├── processor/                 (Phase 1: Kafka consumer)
-│   ├── ai-gateway/               (Phase 3: Embeddings + Qdrant)
-│   ├── query-api/                (Phase 5: Analytics + CQRS)
+│   ├── ai_gateway/               (Phase 3: Embeddings + Qdrant)
+│   ├── query_api/                (Phase 5: Analytics + CQRS)
 │   └── dashboard/                (Phase 6: HTMX + SSE frontend)
 │
 ├── infra/
@@ -71,9 +71,9 @@ data-pipeline-async/
 | **0** | Docs & Planning      | —                   | ADRs, architecture, ACTION_PLAN, monorepo structure |
 | **1** | Event Streaming      | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events |
 | **2** | Data Scraping        | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client          |
-| **3** | AI + Vector DB       | ai-gateway          | Qdrant, sentence-transformers, embeddings           |
+| **3** | AI + Vector DB       | ai_gateway          | Qdrant, sentence-transformers, embeddings           |
 | **4** | Resilience Patterns  | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger         |
-| **5** | CQRS Read Layer      | query-api           | Materialized views, window functions, partitioning  |
+| **5** | CQRS Read Layer      | query_api           | Materialized views, window functions, partitioning  |
 | **6** | Dashboard            | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI              |
 | **7** | Cloud Deployment     | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
 | **8** | Production Hardening | (all services)      | Prometheus, Grafana, backups, chaos testing         |

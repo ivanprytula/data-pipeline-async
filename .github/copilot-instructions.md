@@ -107,6 +107,62 @@ class RecordResponse(BaseModel):
     model_config = {"from_attributes": True}
 ```
 
+**TypedDict for test data and unstructured dicts** — use `TypedDict` to define the shape of test fixtures, JSON payloads, and dictionary return types. Eliminates `# ty:ignore` suppressions and improves type-checking accuracy:
+```python
+from typing import TypedDict
+
+# Test data fixtures
+class RecordData(TypedDict):
+    """Test record fixture shape."""
+    source: str
+    timestamp: str
+    data: dict[str, float]
+    tags: list[str]
+
+_RECORD: RecordData = {
+    "source": "api.example.com",
+    "timestamp": "2024-01-15T10:00:00",
+    "data": {"price": 123.45},
+    "tags": ["Stock", "NASDAQ"],
+}
+
+# Function return types for dict results
+class QueryResult(TypedDict):
+    """API query result shape."""
+    records: list[dict[str, Any]]
+    total: int
+    has_more: bool
+
+async def query_records(...) -> QueryResult:
+    """Fetch records with pagination."""
+    return {
+        "records": [...],
+        "total": 100,
+        "has_more": True,
+    }
+
+# When TypedDict fields are optional, use Required[] or mark fields separately:
+class OptionalResult(TypedDict, total=False):
+    """Optional fields: all fields are optional."""
+    error: str
+    suggestion: str
+
+class MixedResult(TypedDict):
+    """Mixed required/optional fields."""
+    id: int
+    name: str
+    email: NotRequired[str]  # Python 3.11+ syntax
+
+# In tests, use type aliases for HTTP response shapes:
+type ResponseShape = dict[str, Any]  # Fallback if exact shape varies
+type CreateResponse = TypedDict("CreateResponse", {"id": int, "status": str})
+```
+
+**Why TypedDict**: Provides static type checking for dictionaries without runtime overhead (unlike Pydantic models for simple cases). Essential for:
+- Test fixtures (eliminates `# ty:ignore[not-iterable]`, `# ty:ignore[call-overload]`)
+- JSON response payloads (documents API contract)
+- Function return types (improves IDE autocomplete)
+
 **Docstring style** — use [Google Python docstring style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings) for all functions, classes, and modules:
 ```python
 def get_record(db: AsyncSession, record_id: int) -> Record | None:

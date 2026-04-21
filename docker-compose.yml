@@ -1,7 +1,9 @@
 # Base configuration shared across all environments
 services:
   db:
-    image: postgres:17
+    build:
+      context: ./infra/database
+      dockerfile: Dockerfile
     container_name: data-pipeline-db
     environment:
       POSTGRES_USER: postgres
@@ -13,6 +15,7 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ./infra/database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./infra/database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./infra/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
@@ -41,7 +44,9 @@ services:
           memory: '1G'
 
   db-test:
-    image: postgres:17
+    build:
+      context: ./infra/database
+      dockerfile: Dockerfile
     container_name: data-pipeline-db-test
     environment:
       POSTGRES_USER: postgres
@@ -51,6 +56,7 @@ services:
       - '5433:5432'
     volumes:
       - pg_test_data:/var/lib/postgresql/data
+      - ./infra/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     command: ["postgres"]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
@@ -333,6 +339,43 @@ services:
         limits:
           cpus: '0.25'
           memory: '256M'
+
+  query-api:
+    build:
+      context: .
+      dockerfile: services/query-api/Dockerfile
+    container_name: data-pipeline-query-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
+      LOG_LEVEL: info
+    ports:
+      - '8005:8005'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8005/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/query-api
+          target: /app/services/query-api
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+        limits:
+          cpus: '0.5'
+          memory: '512M'
 
 volumes:
   pg_data:

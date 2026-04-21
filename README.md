@@ -37,6 +37,8 @@ cp .env.example .env
 # Edit .env with your local values (PostgreSQL running in Docker, etc.)
 ```
 
+> **Phase 5+**: This project uses PostgreSQL with pgvector extension for vector embeddings. See [pgvector Setup Guide](docs/pgvector-setup-guide.md) for details (automated setup, no manual steps required).
+
 ### Quick Start
 
 **Option 1: Full Development Setup (Recommended)**

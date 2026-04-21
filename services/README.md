@@ -4,11 +4,11 @@ Multi-service directory for Data Zoo Platform microservices.
 
 ## Directory Structure
 
-```
+```text
 services/
 ├── processor/       (Phase 1: Kafka consumer, processes events)
-├── ai-gateway/      (Phase 3: Embeddings + vector search)
-├── query-api/       (Phase 5: Analytics + CQRS read model)
+├── ai_gateway/      (Phase 3: Embeddings + vector search)
+├── query_api/       (Phase 5: Analytics + CQRS read model)
 └── dashboard/       (Phase 6: HTMX + SSE frontend)
 ```
 
@@ -16,12 +16,12 @@ services/
 
 Each service is added in a specific phase of the 8-phase roadmap:
 
-| Service | Phase | Purpose | Status |
-|---------|-------|---------|--------|
-| **processor** | 1 | Consumes events from Kafka topic; transforms/validates; writes to PostgreSQL | ⏳ Queued |
-| **ai-gateway** | 3 | Embeddings service; calls OpenAI/Ollama; stores vectors in Qdrant; semantic search API | ⏳ Queued |
-| **query-api** | 5 | Read-only analytics service; materialized views; window functions; CQRS pattern | ⏳ Queued |
-| **dashboard** | 6 | Backend-rendered HTML (HTMX + Jinja2); data explorer; semantic search UI; live metrics | ⏳ Queued |
+| Service        | Phase | Purpose                                                                                | Status   |
+| -------------- | ----- | -------------------------------------------------------------------------------------- | -------- |
+| **processor**  | 1     | Consumes events from Kafka topic; transforms/validates; writes to PostgreSQL           | ⏳ Queued |
+| **ai_gateway** | 3     | Embeddings service; calls OpenAI/Ollama; stores vectors in Qdrant; semantic search API | ⏳ Queued |
+| **query_api**  | 5     | Read-only analytics service; materialized views; window functions; CQRS pattern        | ⏳ Queued |
+| **dashboard**  | 6     | Backend-rendered HTML (HTMX + Jinja2); data explorer; semantic search UI; live metrics | ⏳ Queued |
 
 ## Development
 

@@ -4,7 +4,7 @@
 **Date**: April 18, 2026
 **Part of**: [Architecture — Data Zoo Platform](../architecture.md)
 **Related ADRs**: [ADR 002: Qdrant vs pgvector](002-qdrant-vs-pgvector.md) | [ADR 003: HTMX vs React](003-htmx-vs-react.md)
-**Context**: Data Zoo platform needs reliable event streaming across multiple services (ingestor → processor → ai-gateway → query-api).
+**Context**: Data Zoo platform needs reliable event streaming across multiple services (ingestor → processor → ai_gateway → query_api).
 
 ---
 

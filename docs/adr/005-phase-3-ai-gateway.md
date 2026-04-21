@@ -193,7 +193,7 @@ services:
     healthcheck: [curl http://localhost:6333/health]
 
   ai-gateway:
-    build: services/ai-gateway/Dockerfile
+    build: services/ai_gateway/Dockerfile
     environment:
       - QDRANT_URL=http://qdrant:6333
     ports:

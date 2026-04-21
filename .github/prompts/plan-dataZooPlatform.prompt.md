@@ -29,7 +29,7 @@ Expand `data-pipeline-async` from a single-service FastAPI CRUD app into a full-
 
 **Goal:** Current `app/` = ingestor service. Add `services/` top-level directory to house new services.
 
-**Decision:** Keep `app/` in-place as-is (no rename). New services go to `services/processor/`, `services/query-api/`, `services/ai-gateway/`, `services/dashboard/`. Rename is deferred until Phase 7 (cloud deploy makes it necessary).
+**Decision:** Keep `app/` in-place as-is (no rename). New services go to `services/processor/`, `services/query_api/`, `services/ai_gateway/`, `services/dashboard/`. Rename is deferred until Phase 7 (cloud deploy makes it necessary).
 
 **Steps:**
 
@@ -128,24 +128,24 @@ Expand `data-pipeline-async` from a single-service FastAPI CRUD app into a full-
 
 **Steps:**
 
-1. Add `qdrant-client[fastembed]>=1.9`, `sentence-transformers>=3.0` to ai-gateway service deps
+1. Add `qdrant-client[fastembed]>=1.9`, `sentence-transformers>=3.0` to ai_gateway service deps
 2. Add `qdrant` service to `docker-compose.yml` (port 6333)
-3. Create `services/ai-gateway/` service:
+3. Create `services/ai_gateway/` service:
    - `embeddings.py` — lazy-loaded `all-MiniLM-L6-v2` singleton (LRU cache over embeddings)
    - `vector_store.py` — Qdrant async client, `upsert_collection()`, `search()`
    - `main.py` — FastAPI: `POST /embed`, `GET /search?q=...`
    - `Dockerfile`
-4. Wire: processor consumer calls ai-gateway `/embed` → Qdrant upsert *(depends on Phase 1 processor)*
+4. Wire: processor consumer calls ai_gateway `/embed` → Qdrant upsert *(depends on Phase 1 processor)*
 5. Finalize `docs/adr/002-qdrant-vs-pgvector.md`
 
 **Files:**
 
-- `docker-compose.yml` — add `qdrant`, `ai-gateway` services
-- `services/ai-gateway/main.py` — NEW
-- `services/ai-gateway/embeddings.py` — NEW
-- `services/ai-gateway/vector_store.py` — NEW
-- `services/ai-gateway/Dockerfile` — NEW
-- `services/processor/main.py` — update to call ai-gateway `/embed`
+- `docker-compose.yml` — add `qdrant`, `ai_gateway` services
+- `services/ai_gateway/main.py` — NEW
+- `services/ai_gateway/embeddings.py` — NEW
+- `services/ai_gateway/vector_store.py` — NEW
+- `services/ai_gateway/Dockerfile` — NEW
+- `services/processor/main.py` — update to call ai_gateway `/embed`
 - `docs/adr/002-qdrant-vs-pgvector.md` — finalize
 
 **Verification:**
@@ -195,38 +195,38 @@ Expand `data-pipeline-async` from a single-service FastAPI CRUD app into a full-
 
 ## Phase 5: Advanced SQL + CQRS Read Side (Weeks 9–10)
 
-**Goal:** Materialized views, window functions, table partitioning, CTEs. CQRS: query-api as decoupled read service.
+**Goal:** Materialized views, window functions, table partitioning, CTEs. CQRS: query_api as decoupled read service.
 
 **Steps:**
 
-1. Create `services/query-api/` FastAPI service (read-only SQLAlchemy, same PostgreSQL)
+1. Create `services/query_api/` FastAPI service (read-only SQLAlchemy, same PostgreSQL)
 2. Write Alembic migration:
    - `records_hourly_stats` materialized view (count, avg, min, max per hour)
    - `records_archive` table partitioned by month (range partitioning)
-3. Implement analytics endpoints in `services/query-api/routers/analytics.py`:
+3. Implement analytics endpoints in `services/query_api/routers/analytics.py`:
    - `GET /analytics/summary` — CTE-based multi-step aggregation
    - `GET /analytics/percentile` — `PERCENT_RANK()` window function
    - `GET /analytics/top-pipeline` — `RANK() OVER (PARTITION BY pipeline_id)`
-4. CQRS: query-api subscribes to `records.events` Kafka topic → maintains own read-optimized projections *(depends on Phase 1)*
+4. CQRS: query_api subscribes to `records.events` Kafka topic → maintains own read-optimized projections *(depends on Phase 1)*
 5. `REFRESH MATERIALIZED VIEW` background task (APScheduler or FastAPI `BackgroundTasks`)
 6. Add `pgvector` extension for comparison alongside Qdrant; update `docs/adr/002-qdrant-vs-pgvector.md`
 
 **Files:**
 
 - `alembic/versions/` — new migration (materialized view + partitioned table)
-- `services/query-api/main.py` — NEW
-- `services/query-api/routers/analytics.py` — NEW
-- `services/query-api/Dockerfile` — NEW
-- `docker-compose.yml` — add `query-api` service
+- `services/query_api/main.py` — NEW
+- `services/query_api/routers/analytics.py` — NEW
+- `services/query_api/Dockerfile` — NEW
+- `docker-compose.yml` — add `query_api` service
 
 **Verification:**
 
 1. `GET /analytics/summary` → correct CTE-computed aggregates
 2. `EXPLAIN ANALYZE` on view query → Index Scan (not Sequential Scan)
 3. `GET /analytics/percentile` → correct `PERCENT_RANK` values
-4. Pause ingestor; query-api projection stays consistent (eventual consistency)
+4. Pause ingestor; query_api projection stays consistent (eventual consistency)
 
-**Advanced Python here:** Min-heap for top-N analytics; consistent hashing for Kafka partition key selection; Repository pattern for query-api read model abstraction
+**Advanced Python here:** Min-heap for top-N analytics; consistent hashing for Kafka partition key selection; Repository pattern for query_api read model abstraction
 
 ---
 
@@ -244,7 +244,7 @@ Expand `data-pipeline-async` from a single-service FastAPI CRUD app into a full-
    - `main.py`, `Dockerfile`
 3. Implement 3 pages:
    - **Records Explorer** (`/`) — HTMX infinite scroll via `hx-get` + `hx-trigger="revealed"`
-   - **Semantic Search** (`/search`) — HTMX form → calls ai-gateway `/search` → renders partial *(depends on Phase 3)*
+   - **Semantic Search** (`/search`) — HTMX form → calls ai_gateway `/search` → renders partial *(depends on Phase 3)*
    - **Metrics View** (`/metrics`) — `<div hx-ext="sse" sse-connect="/sse/metrics">` streaming Prometheus counters *(depends on Phase 4)*
 4. SSE endpoint in `routers/sse.py` — streams Prometheus counters or Kafka consumer group lag
 5. Finalize `docs/adr/003-htmx-vs-react.md`
@@ -366,7 +366,7 @@ Not standalone phases — each implemented as the natural solution to a real pro
 | Strategy Pattern | 2 | Pluggable scraper backends |
 | Observer Pattern | 1 | Event publish on record creation |
 | Circuit Breaker | 4 | `app/core/circuit_breaker.py` |
-| Repository Pattern | 5 | query-api read model abstraction |
+| Repository Pattern | 5 | query_api read model abstraction |
 | Saga Pattern | 4 | Distributed transaction: scrape → embed → store |
 
 ---
@@ -387,8 +387,8 @@ Not standalone phases — each implemented as the natural solution to a real pro
 | `app/storage/mongo.py` | 2 | NEW |
 | `app/routers/scraper.py` | 2 | NEW |
 | `services/processor/` | 1 | NEW, updated in 2, 3, 4 |
-| `services/ai-gateway/` | 3 | NEW — 4 files |
-| `services/query-api/` | 5 | NEW — 3 files |
+| `services/ai_gateway/` | 3 | NEW — 4 files |
+| `services/query_api/` | 5 | NEW — 3 files |
 | `services/dashboard/` | 6 | NEW — 10+ files |
 | `infra/terraform/` | 7 | NEW — 15+ files |
 | `infra/monitoring/` | 8 | NEW — prometheus, grafana |
