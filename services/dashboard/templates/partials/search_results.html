@@ -1,0 +1,14 @@
+{% if results %}
+<ul class="search-results">
+  {% for item in results %}
+  <li class="search-result">
+    <div class="result-score">Score: {{ "%.3f"|format(item.score) }}</div>
+    <div class="result-source">{{ item.source }}</div>
+    <div class="result-id">ID: {{ item.id }}</div>
+    <div class="result-timestamp">{{ item.timestamp }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No matching records found.</p>
+{% endif %}

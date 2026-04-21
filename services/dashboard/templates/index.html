@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Records — Data Zoo{% endblock %}
+{% block content %}
+<h1>Records Explorer</h1>
+
+<form hx-get="/partials/records" hx-target="#records-table" hx-trigger="submit, change delay:400ms" hx-replace-url="false">
+  <input type="search" name="source" placeholder="Filter by source…" value="{{ source or '' }}">
+  <label>
+    <input type="checkbox" name="processed" {% if processed %}checked{% endif %}> Processed only
+  </label>
+</form>
+
+<div id="records-table">
+  {% include "partials/records_rows.html" %}
+</div>
+{% endblock %}

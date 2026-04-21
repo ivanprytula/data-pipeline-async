@@ -214,6 +214,8 @@ Fully managed, cloud-first?               → Pinecone
 
 **Interview answer:** "HTMX lets backend developers build interactive UIs without a JavaScript framework. Each user interaction is an HTTP request that returns an HTML fragment — the server stays the source of truth. For a data explorer dashboard with pagination, search, and SSE metrics, HTMX + Jinja2 covers the requirements without a build system. React would be the right call if the UI needed complex client-side state — say, a realtime collaborative editor — but for this dashboard it'd be premature."
 
+**Phase 6 shape:** `services/dashboard/` serves the three browser views (`/`, `/search`, `/metrics`); HTMX handles partial swaps and infinite scroll, while SSE streams live metrics from Prometheus.
+
 ---
 
 ### Cloud Compute: ECS Fargate vs EKS vs Lambda
@@ -361,17 +363,17 @@ Long-running service, want managed?       → ECS Fargate
 
 ## Quick Reference Decision Matrix
 
-| Question | Answer |
-|----------|--------|
-| I/O-bound or CPU-bound? | I/O → async; CPU → processes |
-| API framework? | FastAPI (async JSON) / Django (full-stack) / Flask (simple) |
-| Primary DB? | PostgreSQL almost always; MongoDB for genuinely varied document shapes |
-| ORM vs raw SQL? | ORM for CRUD; raw SQL for analytics |
-| Cache or not? | Only after measuring; fail-open pattern |
-| Message broker? | Redpanda (learning/dev); Kafka/MSK (prod) |
-| Vector store? | pgvector (existing Postgres, < 10M); Qdrant (scale + dedicated) |
-| Frontend? | HTMX (backend devs, server-rendered); React (complex SPA) |
-| Cloud compute? | ECS Fargate (managed); EKS (K8s expertise required) |
-| Auth? | JWT (stateless, multi-service); Sessions (need immediate revocation) |
-| Distributed txn? | Saga pattern (event choreography) |
-| Schema migrations? | Alembic (production); `create_all()` (tests only) |
+| Question                | Answer                                                                 |
+| ----------------------- | ---------------------------------------------------------------------- |
+| I/O-bound or CPU-bound? | I/O → async; CPU → processes                                           |
+| API framework?          | FastAPI (async JSON) / Django (full-stack) / Flask (simple)            |
+| Primary DB?             | PostgreSQL almost always; MongoDB for genuinely varied document shapes |
+| ORM vs raw SQL?         | ORM for CRUD; raw SQL for analytics                                    |
+| Cache or not?           | Only after measuring; fail-open pattern                                |
+| Message broker?         | Redpanda (learning/dev); Kafka/MSK (prod)                              |
+| Vector store?           | pgvector (existing Postgres, < 10M); Qdrant (scale + dedicated)        |
+| Frontend?               | HTMX (backend devs, server-rendered); React (complex SPA)              |
+| Cloud compute?          | ECS Fargate (managed); EKS (K8s expertise required)                    |
+| Auth?                   | JWT (stateless, multi-service); Sessions (need immediate revocation)   |
+| Distributed txn?        | Saga pattern (event choreography)                                      |
+| Schema migrations?      | Alembic (production); `create_all()` (tests only)                      |

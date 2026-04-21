@@ -79,6 +79,7 @@
 - Fast iteration (no build pipeline)
 - Server-side rendering scales better for many concurrent users
 - Learning focus stays on backend, not frontend framework philosophy
+- Dashboard pages split cleanly into `services/dashboard/routers/pages.py` and `services/dashboard/routers/sse.py`, keeping the three browser views small and explicit.
 
 ### Negative
 

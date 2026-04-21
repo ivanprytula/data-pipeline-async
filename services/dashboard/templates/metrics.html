@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Live Metrics — Data Zoo{% endblock %}
+{% block content %}
+<h1>Live Metrics</h1>
+
+<div hx-ext="sse" sse-connect="/sse/metrics" sse-swap="message">
+  <div id="metrics-grid">
+    <div class="metric-card" id="metric-records-total">
+      <span class="metric-label">Records Ingested</span>
+      <span class="metric-value">—</span>
+    </div>
+    <div class="metric-card" id="metric-requests-total">
+      <span class="metric-label">HTTP Requests</span>
+      <span class="metric-value">—</span>
+    </div>
+    <div class="metric-card" id="metric-errors-total">
+      <span class="metric-label">Errors</span>
+      <span class="metric-value">—</span>
+    </div>
+  </div>
+  <p class="stream-status">
+    <span class="dot"></span> Live stream connected
+  </p>
+</div>
+{% endblock %}

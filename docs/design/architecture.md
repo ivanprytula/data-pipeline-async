@@ -28,7 +28,7 @@ data-pipeline-async/
 │   ├── processor/                 (Phase 1: Kafka consumer)
 │   ├── ai_gateway/               (Phase 3: Embeddings + Qdrant)
 │   ├── query_api/                (Phase 5: Analytics + CQRS)
-│   └── dashboard/                (Phase 6: HTMX + SSE frontend)
+│   └── dashboard/                (Phase 6: HTMX + Jinja2 + SSE dashboard)
 │
 ├── infra/
 │   ├── terraform/                (← Phase 7: IaC for AWS)
@@ -93,7 +93,7 @@ graph TB
         Processor["⚙️ Processor<br/>(services/)"]
         AIGateway["🤖 AI Gateway<br/>(embeddings)"]
         QueryAPI["📊 Query API<br/>(analytics)"]
-        Dashboard["🎨 Dashboard<br/>(HTMX)"]
+        Dashboard["🎨 Dashboard<br/>(HTMX + Jinja2)"]
     end
 
     subgraph Data["AWS Data Layer"]
@@ -947,6 +947,97 @@ See [ADR #005: Circuit Breaker Pattern](adr/005-circuit-breaker-pattern.md) for 
 
 ---
 
+## Phase 6: Dashboard Service — HTMX + Jinja2 + SSE (Target Architecture)
+
+**Status**: Designed in ADR 003
+**Timeline**: Week 11–12 (roadmap target)
+
+### Architecture
+
+```mermaid
+graph TB
+  Browser["👤 Browser"]
+
+  subgraph Dashboard["🎨 Dashboard Service\nservices/dashboard/"]
+    App["FastAPI app\nmain.py"]
+    Pages["routers/pages.py\nfull-page routes + HTMX partials"]
+    SSE["routers/sse.py\nSSE stream"]
+    Templates["Jinja2 templates\nbase/index/search/metrics"]
+  end
+
+  subgraph ReadSide["Read Services"]
+    QueryAPI["📊 Query API\nservices/query_api/"]
+    AIGateway["🤖 AI Gateway\nservices/ai_gateway/"]
+    Prometheus["📈 Prometheus\nmetrics"]
+  end
+
+  Browser -->|GET /, /search, /metrics| App
+  App --> Pages
+  App --> SSE
+  Pages --> Templates
+  Pages -->|records + analytics| QueryAPI
+  Pages -->|semantic search| AIGateway
+  SSE -->|live counters / lag| Prometheus
+
+  style Dashboard fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+  style ReadSide fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+```
+
+### Components
+
+**FastAPI dashboard app** (`services/dashboard/main.py`)
+
+- Serves backend-rendered HTML only; no JavaScript framework or build pipeline
+- Mounts static assets and Jinja2 templates
+- Keeps browser-facing interaction in the same Python stack as the rest of the platform
+
+**Page routes** (`services/dashboard/routers/pages.py`)
+
+- `GET /` renders the Records Explorer
+- `GET /search` renders the Semantic Search page and partials
+- `GET /metrics` renders the Live Metrics page
+- HTMX handles infinite scroll (`hx-trigger="revealed"`) and partial swaps
+
+**SSE route** (`services/dashboard/routers/sse.py`)
+
+- Streams Prometheus counters or Kafka consumer lag to the browser
+- Backed by the HTMX SSE extension (`hx-ext="sse"`)
+- Keeps live updates server-driven instead of client-state-driven
+
+**Templates** (`services/dashboard/templates/`)
+
+- `base.html` for navigation and shared assets
+- `index.html` for the Records Explorer
+- `search.html` for semantic search results
+- `metrics.html` for live counters
+- Partial templates keep each HTMX swap focused and small
+
+### Browser Flows
+
+```text
+Browser -> Dashboard -> Query API -> PostgreSQL read model
+Browser -> Dashboard -> AI Gateway -> Qdrant search
+Browser -> Dashboard -> SSE -> Prometheus metrics stream
+```
+
+### Design Principles
+
+1. **Server-rendered by default**
+   - HTML is produced on the server, so the browser stays thin
+   - Template bugs are debugged with the same tools as API bugs
+2. **Minimal frontend surface area**
+   - HTMX adds interactivity without introducing a JS framework
+   - No npm install, bundler, or SPA state management layer
+3. **Separate read concerns**
+   - Dashboard reads from the query API and AI gateway instead of the ingestor
+   - Live metrics come from Prometheus, not from client-side polling state
+
+### ADR
+
+See [ADR 003: HTMX vs React](../adr/003-htmx-vs-react.md) for the dashboard UI decision rationale.
+
+---
+
 ## Key Design Decisions
 
 | Decision                      | Rationale                                                                  |
@@ -963,6 +1054,7 @@ See [ADR #005: Circuit Breaker Pattern](adr/005-circuit-breaker-pattern.md) for 
 | Circuit breaker pattern       | Protect downstream services from cascading failures (Phase 4)              |
 | DLQ routing                   | Prevent poison pill messages from blocking queue (Phase 4)                 |
 | OpenTelemetry tracing         | End-to-end observability across microservices (Phase 4)                    |
+| Dashboard UI                  | Server-rendered dashboard with SSE metrics and partial HTML                |
 
 ## Related Documents
 
@@ -970,5 +1062,4 @@ See [ADR #005: Circuit Breaker Pattern](adr/005-circuit-breaker-pattern.md) for 
 - [Database Models](../app/models.py)
 - [Performance Benchmarks](../tests/integration/records/test_performance.py)
 - [6-Week Action Plan](../learning_docs/ACTION_PLAN.md)
-
-**Questions?** Open a GitHub issue or PR against this document.
+- [Frontend Strategy ADR](../adr/003-htmx-vs-react.md)

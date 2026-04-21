@@ -377,6 +377,44 @@ services:
           cpus: '0.5'
           memory: '512M'
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+    container_name: data-pipeline-dashboard
+    environment:
+      INGESTOR_URL: http://app:8000
+      AI_GATEWAY_URL: http://ai-gateway:8001
+      LOG_LEVEL: info
+    ports:
+      - '8003:8003'
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8003/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/dashboard
+          target: /app/services/dashboard
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '128M'
+        limits:
+          cpus: '0.25'
+          memory: '256M'
+
 volumes:
   pg_data:
   pg_test_data:

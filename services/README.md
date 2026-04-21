@@ -16,8 +16,8 @@ services/
 
 Each service is added in a specific phase of the 8-phase roadmap:
 
-| Service        | Phase | Purpose                                                                                | Status   |
-| -------------- | ----- | -------------------------------------------------------------------------------------- | -------- |
+| Service        | Phase | Purpose                                                                                | Status    |
+| -------------- | ----- | -------------------------------------------------------------------------------------- | --------- |
 | **processor**  | 1     | Consumes events from Kafka topic; transforms/validates; writes to PostgreSQL           | ⏳ Queued |
 | **ai_gateway** | 3     | Embeddings service; calls OpenAI/Ollama; stores vectors in Qdrant; semantic search API | ⏳ Queued |
 | **query_api**  | 5     | Read-only analytics service; materialized views; window functions; CQRS pattern        | ⏳ Queued |
@@ -30,17 +30,17 @@ Each service:
 - Has its own `main.py` (FastAPI or similar)
 - Has its own `Dockerfile` (multi-stage build)
 - Shares `pyproject.toml` dependencies (deps added to root `pyproject.toml`, services optionally override)
-- Can be run locally via `docker-compose` or standalone
+- Can be run locally via `docker compose` or standalone
 - Has integration tests in `tests/` at the root level
 
 ### Running Locally
 
 ```bash
 # All services + local dependencies
-docker-compose up --build
+docker compose up --build
 
 # Specific service
-docker-compose up processor
+docker compose up processor
 ```
 
 ## Testing

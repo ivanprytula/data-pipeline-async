@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Semantic Search — Data Zoo{% endblock %}
+{% block content %}
+<h1>Semantic Search</h1>
+
+<form hx-post="/partials/search" hx-target="#search-results" hx-indicator="#search-spinner">
+  <input type="text" name="query" placeholder="e.g. high-value financial records…" required>
+  <button type="submit">Search</button>
+  <span id="search-spinner" class="htmx-indicator">Searching…</span>
+</form>
+
+<div id="search-results">
+  {% if results is defined %}
+    {% include "partials/search_results.html" %}
+  {% else %}
+    <p class="muted">Enter a query above to find semantically similar records.</p>
+  {% endif %}
+</div>
+{% endblock %}

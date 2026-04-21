@@ -1,0 +1,29 @@
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Source</th>
+      <th>Timestamp</th>
+      <th>Processed</th>
+      <th>Tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for record in records %}
+    <tr {% if loop.last and has_more %}
+        hx-get="/partials/records?skip={{ next_skip }}&source={{ source or '' }}&processed={{ processed or '' }}"
+        hx-trigger="revealed"
+        hx-target="closest table tbody"
+        hx-swap="beforeend"
+        {% endif %}>
+      <td>{{ record.id }}</td>
+      <td>{{ record.source }}</td>
+      <td>{{ record.timestamp }}</td>
+      <td>{% if record.processed_at %}<span class="badge badge-ok">✓</span>{% else %}<span class="badge badge-pending">—</span>{% endif %}</td>
+      <td>{{ record.tags | join(', ') if record.tags else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">No records found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
