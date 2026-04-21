@@ -1,85 +1,141 @@
-name: Docker Build
+name: Docker Build & Push
 
-# When you're ready to enable it later, uncomment workflow_run or push below.
-# For now, manually trigger via GitHub UI or API.
+# Triggers:
+#   push to main     → build + push → tagged 'latest'  (future: deploy to prod)
+#   push to develop  → build + push → tagged 'develop' (future: deploy to dev)
+#   PR to main/develop → build only (validates Dockerfile, no ECR push)
 on:
-  workflow_dispatch: {}
-  # workflow_run:
-  #   workflows: ["CI"]
-  #   branches: [main]
-  #   types: [completed]
-  # push:
-  #   tags:
-  #     - "v*"
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  # One run per branch at a time; cancel in-flight on new push
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
-  build:
-    name: Build & Push Image
+  # ── Build & Push — Ingestor ─────────────────────────────────────────────────
+  # Reference pattern for all Data Zoo services.
+  # To add a new service: duplicate this job, change ECR_REPOSITORY and the
+  # docker build context/Dockerfile path.
+  ingestor:
+    name: Ingestor — build${{ github.event_name == 'push' && ' & push' || '' }}
     runs-on: ubuntu-latest
-    # Skip if the triggering CI workflow failed
-    if: github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
-      # Uncomment when pushing to container registry
-      # packages: write
+      id-token: write  # Required for OIDC-based AWS auth
+
+    env:
+      ECR_REPOSITORY: data-zoo/ingestor
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # --- IMAGE BUILD & LOCAL TEST ---
-      - name: Build Docker image
+      # ── Resolve image tags ──────────────────────────────────────────────────
+      - name: Resolve image tags
+        id: tags
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "env_tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "env_tag=develop" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── AWS Auth via OIDC (push events only) ──────────────────────────────
+      # No long-lived access keys. Uses the IAM role created in modules/iam/.
+      # On PRs: this step is skipped — only the build step below runs.
+      - name: Configure AWS credentials (OIDC)
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          # Session tagged with branch + SHA for CloudTrail auditability
+          role-session-name: github-actions-${{ steps.tags.outputs.env_tag }}-${{ steps.tags.outputs.short_sha }}
+
+      - name: Login to Amazon ECR
+        if: github.event_name == 'push'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Docker Build ───────────────────────────────────────────────────────
+      - name: Build image
         run: |
           docker build \
-            --tag data-pipeline-async:latest \
-            --tag data-pipeline-async:${{ github.sha }} \
+            --tag "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}" \
+            --tag "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             .
 
-      # Optional: Run smoke test inside the image
-      - name: Verify image health endpoint
+      # ── Push to ECR (push events only, not PRs) ────────────────────────────
+      - name: Push to ECR
+        if: github.event_name == 'push'
         run: |
-          docker run --rm \
-            --detach \
-            --name smoke-test \
-            data-pipeline-async:latest
-          sleep 2
-          # Note: This will fail without DB, expected behavior
-          # curl http://localhost:8000/health || echo "Health check blocked (no DB, expected)"
-          docker stop smoke-test || true
+          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}"
+          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}"
 
-      # --- REGISTRY PUSH (FUTURE) ---
-      # Uncomment and configure when deploying to a container registry
-      # - name: Log in to Container Registry
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image summary
+        if: github.event_name == 'push'
+        run: |
+          echo "### Pushed images" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
 
-      # - name: Push image to registry
-      #   run: |
-      #     docker tag data-pipeline-async:latest ghcr.io/${{ github.repository }}:latest
-      #     docker tag data-pipeline-async:${{ github.sha }} ghcr.io/${{ github.repository }}:${{ github.sha }}
-      #     docker push ghcr.io/${{ github.repository }}:latest
-      #     docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
-
-      # --- DEPLOYMENT (FUTURE) ---
-      # Uncomment when ready to deploy to Kubernetes or other orchestrator
-      # - name: Deploy to Kubernetes
-      #   run: |
-      #     # Set up kubeconfig
-      #     mkdir -p $HOME/.kube
-      #     echo "${{ secrets.KUBE_CONFIG_BASE64 }}" | base64 -d > $HOME/.kube/config
+      # ══════════════════════════════════════════════════════════════════════════
+      # CD STEPS — Uncomment when Terraform has been applied and ECS is live.
       #
-      #     # Update deployment with new image
-      #     kubectl set image deployment/data-pipeline-async \
-      #       data-pipeline-async=ghcr.io/${{ github.repository }}:${{ github.sha }} \
-      #       -n production
+      # Prerequisites before enabling:
+      #   1. Run: cd infra/terraform/environments/dev && terraform apply
+      #   2. Confirm ECS cluster and ingestor service exist:
+      #      aws ecs describe-services --cluster data-zoo-dev --services ingestor
+      #   3. Uncomment the ECS deploy policy in modules/iam/main.tf and re-apply
+      # ══════════════════════════════════════════════════════════════════════════
 
-      # --- NOTIFICATION (FUTURE) ---
-      # Uncomment to notify on failure
-      # - name: Notify Slack on failure
-      #   if: failure()
+      # ── Deploy to dev (develop branch) ───────────────────────────────────
+      # - name: Deploy to ECS — dev
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
       #   run: |
-      #     curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-      #       -H 'Content-Type: application/json' \
-      #       -d '{"text":"Docker build failed on main: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'
+      #     aws ecs update-service \
+      #       --cluster data-zoo-dev \
+      #       --service ingestor \
+      #       --force-new-deployment \
+      #       --region ${{ env.AWS_REGION }}
+
+      # ── Deploy to prod (main branch) ──────────────────────────────────────
+      # - name: Deploy to ECS — prod
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster data-zoo-prod \
+      #       --service ingestor \
+      #       --force-new-deployment \
+      #       --region ${{ env.AWS_REGION }}
+
+      # ── Wait for rollout to stabilise ────────────────────────────────────
+      # - name: Wait for ECS service stability
+      #   if: github.event_name == 'push'
+      #   run: |
+      #     CLUSTER="data-zoo-${{ steps.tags.outputs.env_tag == 'latest' && 'prod' || 'dev' }}"
+      #     aws ecs wait services-stable \
+      #       --cluster "${CLUSTER}" \
+      #       --services ingestor \
+      #       --region ${{ env.AWS_REGION }}
+
+      # ── Health check after deploy ─────────────────────────────────────────
+      # - name: Smoke test deployed service
+      #   if: github.event_name == 'push'
+      #   run: |
+      #     ALB_URL="${{ secrets.DEV_ALB_URL }}"  # or PROD_ALB_URL for main
+      #     curl --fail --retry 3 --retry-delay 5 "${ALB_URL}/health"

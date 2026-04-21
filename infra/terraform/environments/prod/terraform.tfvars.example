@@ -1,0 +1,9 @@
+aws_region         = "us-east-1"
+aws_profile        = "data-zoo-prod"
+vpc_cidr           = "10.1.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+github_repository  = "ivanp/data-pipeline-async"
+image_tag          = "latest"
+
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+# redis_auth_token    → TF_VAR_redis_auth_token only
