@@ -75,7 +75,7 @@ data-pipeline-async/
 | **4** | Resilience Patterns  | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger         |
 | **5** | CQRS Read Layer      | query_api           | Materialized views, window functions, partitioning  |
 | **6** | Dashboard            | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI              |
-| **7** | Cloud Deployment     | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
+| **7** | Cloud Deployment ✅   | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
 | **8** | Production Hardening | (all services)      | Prometheus, Grafana, backups, chaos testing         |
 
 ---
@@ -1038,6 +1038,225 @@ See [ADR 003: HTMX vs React](../adr/003-htmx-vs-react.md) for the dashboard UI d
 
 ---
 
+## Phase 7: Infrastructure as Code — AWS ECS Fargate Deployment ✅
+
+**Status**: ✅ Complete — Terraform modules, CI/CD workflows, cloud deployment guide
+**Timeline**: Week 13–14 (April 2026)
+**Decision**: ECS Fargate (not EKS) — see [cloud-deployment.md](../cloud-deployment.md) for trade-off analysis
+
+### Architecture: Local → AWS
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Local Development (docker-compose.yml)                │
+│  ┌─ ingestor:8000                                      │
+│  ├─ processor (Kafka consumer)                         │
+│  ├─ ai_gateway:8001                                    │
+│  ├─ query_api:8002                                     │
+│  ├─ dashboard:8003                                     │
+│  ├─ redpanda:9092 (Kafka-compatible)                   │
+│  ├─ postgres:5432                                      │
+│  ├─ mongodb:27017                                      │
+│  ├─ redis:6379                                         │
+│  ├─ qdrant:6333                                        │
+│  └─ jaeger:16686 (tracing UI)                          │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│  AWS Production (Terraform)                            │
+│                                                         │
+│  Route 53 (DNS) → ACM (TLS cert)                       │
+│         ↓                                               │
+│  Application Load Balancer (ALB)                       │
+│         │ Listeners: HTTP→HTTPS, HTTPS:443             │
+│         ↓ Target Group: /health (ECS tasks)            │
+│  ┌─────────────────────────────────────────┐           │
+│  │  ECS Cluster (Container Orchestration)  │           │
+│  │  ├─ ingestor task (1–2 replicas)        │           │
+│  │  ├─ processor task (1–2 replicas)       │           │
+│  │  ├─ ai_gateway task (1–2 replicas)      │           │
+│  │  ├─ query_api task (1–2 replicas)       │           │
+│  │  └─ dashboard task (1–2 replicas)       │           │
+│  │     (All: Fargate Spot for dev,         │           │
+│  │      Fargate for prod; rolling update)  │           │
+│  └─────────────────────────────────────────┘           │
+│  ├─ RDS PostgreSQL 17 (Multi-AZ in prod)  │           │
+│  ├─ ElastiCache Redis 7.1 (TLS + AUTH)    │           │
+│  ├─ MSK Serverless (Kafka, IAM auth)      │           │
+│  └─ CloudWatch (logging, metrics)         │           │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Terraform Module Structure
+
+Location: `infra/terraform/`
+
+**Root modules** (`infra/terraform/`):
+
+- `main.tf` — Provider config (AWS), backend template (S3 + DynamoDB)
+- `variables.tf` — Shared variables (AWS region, VPC CIDR, instance types)
+- `outputs.tf` — Exports (ALB DNS, ECR URLs, IAM role ARN)
+
+**Service modules** (`infra/terraform/modules/`):
+
+| Module | Responsibility | Key Resources |
+|--------|----------------|----------------|
+| `network/` | VPC, subnets, IGW, NAT, security groups | 2 public + 2 private subnets (2 AZs), 5 security groups |
+| `ecr/` | Container image registry | ECR repos for all 5 services |
+| `iam/` | GitHub Actions OIDC provider, roles | `github-actions-role` (OIDC trust), ECR push policy |
+| `database/` | RDS PostgreSQL 17 | Encrypted gp3, managed password (Secrets Manager), Multi-AZ toggle |
+| `cache/` | ElastiCache Redis 7.1 | TLS + AUTH token, automatic failover (prod), snapshots |
+| `messaging/` | MSK Serverless (Kafka) | IAM auth (no passwords), private subnets |
+| `compute/` | ECS cluster, ALB, task definitions, services | ALB, target group, ingestor + 4 service task defs, ECS service with circuit breaker |
+
+**Environment configurations** (`infra/terraform/environments/`):
+
+| Config | Dev | Prod |
+|--------|-----|------|
+| Fargate capacity | Spot (cost $10–20/mo) | Reserved (reliability $30–50/mo) |
+| DB instance | `db.t3.micro` | `db.t3.medium` Multi-AZ |
+| Cache instance | `cache.t3.micro` | `cache.t3.small` + replica |
+| NAT Gateways | 1 (shared, cost-optimized) | 3 (one per AZ, HA) |
+| ECS replicas | 1 task per service | 2 tasks per service |
+| Log retention | 14 days | 90 days |
+
+### CI/CD: GitHub Actions → ECR → ECS
+
+**Workflow**: `.github/workflows/docker-build.yml`
+
+```text
+Push to main/develop
+        ↓
+Trigger docker-build.yml
+        ↓
+┌───────────────────────────────────────┐
+│ 1. Build Docker image (uv sync, test) │
+│    Tag: <sha> + env tag (latest/dev)  │
+└───────────────────────────────────────┘
+        ↓
+┌───────────────────────────────────────┐
+│ 2. Assume AWS role (OIDC, no keys)    │
+│    Role trust policy: only main/dev   │
+└───────────────────────────────────────┘
+        ↓
+┌───────────────────────────────────────┐
+│ 3. Push to ECR (multi-tag)            │
+│    Tags: short-sha + env_tag          │
+│    Only on push (not on PR)           │
+└───────────────────────────────────────┘
+        ↓
+┌───────────────────────────────────────┐
+│ 4. Update ECS service (COMMENTED OUT) │
+│    → Uncomment when CD ready          │
+│    Prerequisites:                     │
+│    - ECS deploy policy enabled        │
+│    - ALB_URL secret configured        │
+└───────────────────────────────────────┘
+        ↓
+┌───────────────────────────────────────┐
+│ 5. Verify rollout (COMMENTED OUT)     │
+│    → wait services-stable             │
+│    → health check ALB                 │
+│    → smoke tests (COMMENTED OUT)      │
+└───────────────────────────────────────┘
+```
+
+**Authentication**: GitHub OIDC provider (no AWS access keys in GitHub Secrets)
+
+- Reduces credential rotation burden
+- Provides audit trail (role assumption logged in CloudTrail)
+- Role trust policy restricted to `main` and `develop` branches
+
+**CD Enablement** (when ready for auto-deployment):
+
+1. Uncomment the ECS deploy policy in `modules/iam/main.tf`
+2. Re-run `terraform apply` to update role permissions
+3. Uncomment the deployment steps in `.github/workflows/docker-build.yml`
+4. Next push to `develop` will auto-deploy to AWS
+
+### Local Development → AWS: First Deploy
+
+**Prerequisites**:
+
+1. AWS named profile (`data-zoo-dev` / `data-zoo-prod`) or aws-vault
+2. S3 backend bucket + DynamoDB lock table (created once per AWS account)
+3. GitHub Actions secrets: `AWS_ACCOUNT_ID`, `AWS_ROLE_ARN`, `DEV_ALB_URL` (post-apply)
+4. ACM certificate ARN (if using custom domain)
+
+**Manual deployment (while CD is commented out)**:
+
+```bash
+cd infra/terraform/environments/dev
+
+# Initialize backend
+terraform init \
+  -backend-config="bucket=data-zoo-terraform-state-dev" \
+  -backend-config="key=data-zoo/dev/terraform.tfstate" \
+  -backend-config="region=us-east-1" \
+  -backend-config="dynamodb_table=data-zoo-terraform-locks"
+
+# Plan
+cp terraform.tfvars.example terraform.tfvars
+# Edit: fill in acm_certificate_arn, etc.
+terraform plan
+
+# Apply (using aws-vault for secure credential injection)
+aws-vault exec data-zoo-dev -- terraform apply
+
+# Outputs: ALB DNS, ECR URLs, role ARN
+terraform output
+
+# Test the ALB
+curl https://<alb-dns>/api/v1/records  # 401 (unauthenticated for now)
+```
+
+### Phase 7 Design Patterns
+
+**Infrastructure as Code (IaC)**
+
+- Modules are reusable, parameterized
+- No hardcoded values; all via `variables.tf` and `terraform.tfvars`
+- State stored in S3 with DynamoDB locking (team-safe)
+
+**Secrets Management**
+
+- Sensitive values (`acm_certificate_arn`, `redis_auth_token`) via environment variables, never in code or state
+- RDS password managed by AWS Secrets Manager (auto-rotated)
+- ElastiCache AUTH token stored in SSM Parameter Store
+
+**Resilience**
+
+- ALB health check: `/health` endpoint (5s interval, 3 failures to mark unhealthy)
+- ECS circuit breaker: stops deployments if too many tasks fail to reach running state
+- Rolling update: 100% minimum healthy, 200% maximum → zero-downtime deploys
+- DLQ for Kafka failures: processor routes bad messages instead of crashing
+
+**Cost Optimization** (dev vs prod)
+
+| Resource | Dev | Prod | Savings |
+|----------|-----|------|----------|
+| Fargate | Spot ($0.009/hr) | On-Demand ($0.045/hr) | 80% cheaper on-demand |
+| RDS | db.t3.micro | db.t3.medium Multi-AZ | Less compute, HA tradeoff |
+| NAT GW | 1 (shared) | 3 (HA) | 1/3 of prod cost |
+| **Monthly** | ~$85 | ~$280 | 70% savings in dev |
+
+**Security by Default**
+
+- VPC: all resources in private subnets (ALB in public, NAT for outbound)
+- Security groups: least-privilege (app ← ALB only, DB ← app only)
+- RDS: encryption at rest (gp3), encrypted backups (7–14 day retention)
+- ElastiCache: TLS in-transit + AUTH token (password)
+- Tasks: readonly root filesystem, non-root user (1000:1000), no hardcoded secrets
+
+### Related ADRs & Documentation
+
+- **Why Fargate?** See [cloud-deployment.md](../cloud-deployment.md) for ECS Fargate vs EKS trade-off analysis
+- **Terraform modules**: Each module has inline comments explaining purpose and parameters
+- **First-time setup**: Complete walkthrough in [cloud-deployment.md](../cloud-deployment.md) (AWS profiles, S3 backend, GitHub secrets)
+- **CD enablement**: Instructions in [cloud-deployment.md](../cloud-deployment.md) section "Enabling CD"
+
+---
+
 ## Key Design Decisions
 
 | Decision                      | Rationale                                                                  |
@@ -1055,6 +1274,12 @@ See [ADR 003: HTMX vs React](../adr/003-htmx-vs-react.md) for the dashboard UI d
 | DLQ routing                   | Prevent poison pill messages from blocking queue (Phase 4)                 |
 | OpenTelemetry tracing         | End-to-end observability across microservices (Phase 4)                    |
 | Dashboard UI                  | Server-rendered dashboard with SSE metrics and partial HTML                |
+| ECS Fargate (not EKS)         | Simpler ops (no nodes), lower cost, still production-grade (Phase 7)       |
+| Terraform modules             | Reusable, parameterized IaC for repeatability and team collaboration       |
+| S3 backend + DynamoDB locks   | Team-safe Terraform state management (no local state conflicts)            |
+| GitHub OIDC (no access keys)  | Eliminates credential rotation burden, provides CloudTrail audit trail      |
+| dev/prod environment split    | Different sizing (Spot vs Reserved, 1 vs 3 NAT GWs) to optimize costs      |
+| Rolling updates (0% downtime) | ALB health checks + circuit breaker ensure smooth deployments             |
 
 ## Related Documents
 

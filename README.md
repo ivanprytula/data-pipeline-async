@@ -42,12 +42,12 @@ See [docs/setup/environment-setup.md](docs/setup/environment-setup.md) for full 
 |-------|-------|-----------------|--------|
 | **1** | Event Streaming | Design real-time ETL for 1000+ events/sec | ✅ Done |
 | **2** | Data Scraping | Design scraper for 100K URLs without ban | ✅ Done |
-| **3** | AI + Vector DB | Design semantic search over 100K docs | 🚀 Active |
-| **4** | Docker + CI/CD | Walk me through dev → prod pipeline | ⏹️ Queued |
-| **5** | Testing | How do you test code that calls external APIs? | ⏹️ Queued |
-| **6** | Database Mastery | This query is slow (5s). Fix it. | ⏹️ Queued |
-| **7** | Security | Design JWT auth for multi-service app | ⏹️ Queued |
-| **8** | Infrastructure | Design multi-env Terraform (dev/staging/prod) | ⏹️ Queued |
+| **3** | AI + Vector DB | Design semantic search over 100K docs | ✅ Done |
+| **4** | Resilience Patterns | Design circuit breaker + DLQ for failures | ✅ Done |
+| **5** | CQRS + Analytics | Design read-optimized DB for 10M queries/day | 🚀 Active |
+| **6** | Dashboard | Design server-rendered dashboard with SSE | ⏹️ Queued |
+| **7** | Cloud IaC | Design multi-env Terraform (dev/staging/prod) | ✅ Done |
+| **8** | Production Hardening | Design backup/chaos/observability strategy | ⏹️ Queued |
 
 ---
 
@@ -72,10 +72,11 @@ See [docs/setup/environment-setup.md](docs/setup/environment-setup.md) for full 
 
 | File | Purpose |
 |------|---------|
-| [docs/design/architecture.md](docs/design/architecture.md) | System overview and component diagram |
-| [docs/design/decisions.md](docs/design/decisions.md) | Key design decisions with rationale |
+| [docs/cloud-deployment.md](docs/cloud-deployment.md) | Phase 7: AWS Fargate deployment, Terraform setup, secrets management |
+| [docs/design/architecture.md](docs/design/architecture.md) | System overview and component diagram (Phases 0–7) |
+| [docs/design/decisions.md](docs/design/decisions.md) | Key design decisions with rationale (infrastructure, databases, CI/CD) |
 | [docs/design/be-learning-knowledge-base.md](docs/design/be-learning-knowledge-base.md) | Backend patterns knowledge base |
-| [docs/design/adr/](docs/design/adr/) | Architecture Decision Records (ADR 001–005) |
+| [docs/design/adr/](docs/design/adr/) | Architecture Decision Records (ADR 001–003) |
 
 ### Pillars, Portfolio & Weekly Progress
 
@@ -94,6 +95,7 @@ See [docs/setup/environment-setup.md](docs/setup/environment-setup.md) for full 
 | [docs/progress/portfolio-phase-2-scrapers.md](docs/progress/portfolio-phase-2-scrapers.md) | Phase 2 portfolio item |
 | [docs/progress/portfolio-phase-3-ai-gateway.md](docs/progress/portfolio-phase-3-ai-gateway.md) | Phase 3 portfolio item |
 | [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md) | Phase 4 portfolio item |
+| [docs/progress/portfolio-phase-7-cloud-iac.md](docs/progress/portfolio-phase-7-cloud-iac.md) | Phase 7 portfolio item — Infrastructure as Code, Terraform, ECS Fargate |
 | [docs/progress/weekly-progress-phase-2.md](docs/progress/weekly-progress-phase-2.md) | Weekly progress — Phase 2 |
 | [docs/progress/weekly-progress-phase-3.md](docs/progress/weekly-progress-phase-3.md) | Weekly progress — Phase 3 |
 | [docs/progress/weekly-progress-phase-4.md](docs/progress/weekly-progress-phase-4.md) | Weekly progress — Phase 4 |

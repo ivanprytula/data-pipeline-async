@@ -361,6 +361,166 @@ Long-running service, want managed?       → ECS Fargate
 
 ---
 
+## Phase 7: Cloud Deployment — Infrastructure Decisions
+
+### ECS Fargate vs EKS (Kubernetes)
+
+**Choose ECS Fargate when:**
+
+- 1–10 microservices (not a platform team running 100+ services)
+- Learning distributed patterns (not learning Kubernetes operations)
+- Budget matters (ops labor is expensive; managed is cheaper)
+- CI/CD is simple (`aws ecs update-service` vs `kubectl set image` + GitOps)
+
+**Choose EKS when:**
+
+- 20+ microservices (Kubernetes pays for itself in automation)
+- You have a platform team to own upgrades, CRDs, CNI
+- You need service mesh (Istio) or advanced networking
+- You're already all-in on Kubernetes elsewhere
+
+**Trade-off Fargate:** less power/flexibility than Kubernetes; can't customize CNI, no node access.
+
+**Cost comparison** (monthly, dev + prod):
+
+| Option | Dev | Prod | Total | Labor |\n| ------ | --- | ---- | ----- | ------ |
+| Fargate | $85 | $280 | $365 | ~2 hrs/month (none post-setup) |
+| EKS | $100+ | $400+ | $500+ | ~20 hrs/month (node mgmt, upgrades) |
+
+**Interview answer:** "For a learning project building distributed systems patterns, ECS Fargate is the right choice. It eliminates the distraction of node management and lets me focus on service-to-service communication, resilience patterns, and CI/CD. If this project grew to 50+ microservices and I needed to self-heal nodes or run a service mesh, EKS would make sense. But Kubernetes is a separate learning project; Fargate is the pragmatic default."
+
+---
+
+### RDS PostgreSQL vs Aurora vs DocumentDB (AWS managed databases)
+
+**Choose RDS PostgreSQL when:**
+
+- You know SQL well (strong ACID, complex queries, CTEs, window functions)
+- Existing PostgreSQL expertise in team
+- Cost matters (RDS is cheapest AWS SQL option)
+- Schema is stable
+
+**Choose Aurora PostgreSQL when:**
+
+- You need read replicas + automatic failover (but costs 2-3x more)
+- You exceed 200 concurrent connections (Aurora has higher limit)
+- You need fast backups/restore
+- You're willing to pay for Serverless
+
+**Choose DocumentDB when:**
+
+- Data is genuinely document-shaped (high schema variance)
+- You prefer document queries over SQL
+- You don't need complex aggregations (CTEs, window functions)
+
+**Trade-off RDS:** manual read replica setup, smaller connection pool (100 default vs 3000 Aurora), no built-in serverless option.
+
+**Interview answer:** "I chose RDS PostgreSQL for primary storage because the data is relational, I need ACID guarantees, and window functions for analytics (Phase 5). MongoDB is also in the stack but specifically for scraped documents (Phase 2) where schema variance is expected. Aurora would cost 3x more; we hit RDS limits only if we exceed 1000 concurrent connections, which won't happen with ECS running 2 tasks."
+
+---
+
+### ElastiCache Redis vs Memcached vs DynamoDB (managed caches)
+
+**Choose ElastiCache Redis when:**
+
+- You need persistence (AOF, snapshots) or complex data structures (sorted sets, streams)
+- You want Lua scripting for atomic operations
+- You prefer multi-AZ failover (ElastiCache cluster mode)
+
+**Choose Memcached when:**
+
+- You only need simple key-value cache (no structures)
+- You want simplicity and speed (simpler than Redis)
+- You don't need persistence
+
+**Choose DynamoDB when:**
+
+- Cache is really a database (queries are complex)
+- You want full AWS-managed (no patching)
+- You don't mind eventual consistency
+
+**Interview answer:** "ElastiCache Redis with TLS + AUTH is the middle ground for this project. It gives me persistence (important for development state), expiration policies (TTL), and failover in production (Multi-AZ). Memcached would be faster but offers no persistence; DynamoDB would require you to treat it as a database, which adds complexity."
+
+---
+
+### MSK Serverless (AWS-managed Kafka) vs Self-Managed Kafka vs Redpanda
+
+**Local (docker-compose, Phase 1–6):**
+
+- Use Redpanda: no Zookeeper, simpler Docker setup, Kafka-compatible API
+
+**Production (Phase 7 onwards):**
+
+- Use MSK Serverless: AWS-managed, IAM auth (no password management), auto-scaling, high availability
+
+| Option | Setup Time | Ops Labor | Cost (dev) | Cost (prod) |
+|--------|------------|-----------|-----------|------------|
+| Redpanda (local) | 2 min | 0 hrs | $0 | N/A (not prod) |
+| MSK Serverless | 5 min (Terraform) | ~1 hr/month | ~$0.30 per million requests | $500+/month |
+| Self-managed Kafka | 30 min | 10+ hrs/month | varies | varies |
+
+**Interview answer:** "For local development, Redpanda is unbeatable — just pull a Docker image, no Zookeeper. For AWS production, MSK Serverless eliminates all broker management: AWS handles failovers, upgrades, and scaling. IAM authentication integrates with our GitHub OIDC role; we never store passwords. The tradeoff is cost (~500/mo for prod brokers), but that's paid labor you'd otherwise spend on broker patches and disk management."
+
+---
+
+### S3 Backend + DynamoDB State Locking (Terraform)
+
+**Choose S3 + DynamoDB when:**
+
+- Team > 1 person (multiple people apply Terraform)
+- You need audit trail (S3 versioning, DynamoDB locks prevent concurrent writes)
+- You want remote state (not .tfstate on laptop)
+
+**Choose local state only when:**
+
+- Solo project, never collaborating
+- You're OK with merge conflicts if two people apply simultaneously
+
+**Trade-off remote state:** adds complexity (2 AWS resources: S3 bucket, DynamoDB table), requires backend setup once, but pays for itself immediately with team > 1.
+
+**Interview answer:** "Even for a solo project, I put Terraform state in S3 with DynamoDB locking. It forces good practices (versioning, audit trail) and if I add a collaborator later, we don't have to redo the setup. The 10-minute setup (bucket + lock table) is worth the safety."
+
+---
+
+### GitHub OIDC vs Long-Lived Access Keys (CI/CD authentication)
+
+**Choose GitHub OIDC when:**
+
+- You're deploying from GitHub Actions
+- You want no long-lived secrets in GitHub Secrets
+- You want CloudTrail audit trail of all role assumptions
+
+**Choose long-lived keys only when:**
+
+- You have no alternative (old CI/CD system)
+- You're OK with rotating keys every 90 days
+- You're OK with "Who made this deploy?" being hard to trace
+
+**Trade-off OIDC:** setup is a bit more complex (IAM provider + role + trust policy), but it's one-time per AWS account.
+
+**Interview answer:** "I use GitHub OIDC instead of AWS Access Keys in GitHub Secrets. GitHub generates a JWT per workflow run; we exchange it for temporary AWS credentials scoped to just what the CI/CD needs (ECR push). If that credential is ever exposed, it's only valid for a few minutes and only for ECR. With long-lived keys, a compromise means rotating all your credentials. This is a best practice and barely more effort than the naive approach."
+
+---
+
+### dev vs prod environment strategy (different instance types, Spot pricing)
+
+**Separation Strategy:**
+
+- **dev:** Fargate Spot (saves 70%), db.t3.micro, 1 NAT Gateway, 14-day backup retention
+- **prod:** Fargate On-Demand, db.t3.medium Multi-AZ, 3 NAT Gateways (HA), 90-day backups
+
+**Why separate:**
+
+- Costs are different (dev should be cheap to experiment)
+- HA requirements differ (dev can tolerate outages; prod cannot)
+- Testing data doesn't need 90-day retention (noise in backups)
+
+**Cost impact:** ~$85/month dev, ~$280/month prod. Shared environment would cost ~$280/month always-on, so we save money by being cheap in dev.
+
+**Interview answer:** "Environments should optimize for their use case, not copy production. Development is cheap (Spot instances, micro DB, minimal backups) and okay with outages. Production is bulletproof (on-demand, Multi-AZ, long backups) but costs more. The 70% Spot savings in dev makes it easier to experiment with expensive services like Qdrant and MSK Serverless without guilt."
+
+---
+
 ## Quick Reference Decision Matrix
 
 | Question                | Answer                                                                 |
@@ -373,7 +533,13 @@ Long-running service, want managed?       → ECS Fargate
 | Message broker?         | Redpanda (learning/dev); Kafka/MSK (prod)                              |
 | Vector store?           | pgvector (existing Postgres, < 10M); Qdrant (scale + dedicated)        |
 | Frontend?               | HTMX (backend devs, server-rendered); React (complex SPA)              |
-| Cloud compute?          | ECS Fargate (managed); EKS (K8s expertise required)                    |
+| Cloud compute?          | ECS Fargate (managed, learning); EKS (K8s expertise required)          |
+| Cloud database?         | RDS PostgreSQL (cost, simplicity); Aurora (HA + replicas, 3x cost)     |
+| Cloud cache?            | ElastiCache Redis (persistent, structures); Memcached (simple, fast)   |
+| Cloud message queue?    | MSK Serverless (managed, IAM auth); self-managed Kafka (control)       |
+| Infrastructure code?    | Terraform (popular, HCL); CloudFormation (AWS-native, verbose)         |
+| Terraform state?        | Remote S3 + DynamoDB locks (team-safe); local (solo, risky)             |
+| CI/CD secrets?          | GitHub OIDC (no AWS keys, audit trail); AWS access keys (simple, risky) |
 | Auth?                   | JWT (stateless, multi-service); Sessions (need immediate revocation)   |
 | Distributed txn?        | Saga pattern (event choreography)                                      |
 | Schema migrations?      | Alembic (production); `create_all()` (tests only)                      |
