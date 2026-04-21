@@ -145,6 +145,22 @@ class Settings(BaseSettings):
         description="Enable MongoDB storage. Disabled by default (safe for tests w/o MongoDB).",
     )
 
+    # ============ OpenTelemetry ============
+    otel_enabled: bool = Field(
+        default=False,
+        description="Enable OpenTelemetry distributed tracing. Disabled by default.",
+    )
+
+    otel_endpoint: str = Field(
+        default="http://localhost:4317",
+        description="OTLP gRPC endpoint for trace export (e.g., http://jaeger:4317).",
+    )
+
+    otel_service_name: str = Field(
+        default="ingestor",
+        description="Service name shown in Jaeger / OTel collector UI.",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",  # Load from .env (local dev)
         env_file_encoding="utf-8",

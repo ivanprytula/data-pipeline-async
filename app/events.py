@@ -9,6 +9,8 @@ Advanced Python patterns demonstrated:
 - TypeVar + Generic: EventPayload[T] typed event envelope (Phase 1 spec)
 - Observer pattern: publish_record_created called from records router
   after successful DB write (record creation triggers the event)
+- Circuit breaker (Phase 4): _send_to_kafka is wrapped with @circuit_breaker
+  so repeated Kafka failures open the circuit and stop hammering the broker
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ from typing import Any
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaError
+
+from app.core.circuit_breaker import CircuitOpenError, circuit_breaker
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +70,26 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Internal send helper (circuit-breaker guarded)
+# ---------------------------------------------------------------------------
+@circuit_breaker(failure_threshold=5, recovery_timeout=30)
+async def _send_to_kafka(topic: str, value: bytes) -> None:
+    """Low-level send — raises on failure so the circuit breaker can track it.
+
+    Args:
+        topic: Kafka topic name.
+        value: Serialized message bytes.
+
+    Raises:
+        KafkaError: If the broker rejects or is unreachable.
+        RuntimeError: If the producer is not connected.
+    """
+    if _producer is None:
+        return
+    await _producer.send_and_wait(topic, value=value)
+
+
+# ---------------------------------------------------------------------------
 # Lifecycle helpers (called from app/main.py lifespan)
 # ---------------------------------------------------------------------------
 async def connect_producer(bootstrap_servers: str) -> None:
@@ -99,8 +123,8 @@ async def disconnect_producer() -> None:
 async def publish_record_created(record_id: int, payload: dict[str, Any]) -> None:
     """Publish a record.created event to TOPIC_RECORD_CREATED.
 
-    Fail-open: KafkaError is logged as a warning; the request is never failed.
-    If the producer is not connected (kafka_enabled=False), this is a no-op.
+    Fail-open: KafkaError and CircuitOpenError are logged as warnings; the
+    request is never failed. No-op if producer is not connected.
 
     Args:
         record_id: Primary key of the newly created record.
@@ -115,15 +139,15 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
     )
 
     try:
-        await _producer.send_and_wait(
+        await _send_to_kafka(
             TOPIC_RECORD_CREATED,
-            value=json.dumps(event.to_dict()).encode(),
+            json.dumps(event.to_dict()).encode(),
         )
         logger.debug(
             "event_published",
             extra={"event_type": "record.created", "record_id": record_id},
         )
-    except KafkaError as exc:
+    except (KafkaError, CircuitOpenError) as exc:
         logger.warning(
             "kafka_publish_failed",
             extra={"error": str(exc), "record_id": record_id},
@@ -133,8 +157,8 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
 async def publish_doc_scraped(source: str, count: int) -> None:
     """Publish a doc.scraped event to TOPIC_SCRAPED.
 
-    Fail-open: KafkaError is logged as a warning; the request is never failed.
-    No-op if the producer is not connected (kafka_enabled=False).
+    Fail-open: KafkaError and CircuitOpenError are logged as warnings; the
+    request is never failed. No-op if the producer is not connected.
 
     Args:
         source: Scraper source identifier (e.g., 'hn', 'jsonplaceholder').
@@ -149,15 +173,15 @@ async def publish_doc_scraped(source: str, count: int) -> None:
     )
 
     try:
-        await _producer.send_and_wait(
+        await _send_to_kafka(
             TOPIC_SCRAPED,
-            value=json.dumps(event.to_dict()).encode(),
+            json.dumps(event.to_dict()).encode(),
         )
         logger.debug(
             "event_published",
             extra={"event_type": "doc.scraped", "source": source, "count": count},
         )
-    except KafkaError as exc:
+    except (KafkaError, CircuitOpenError) as exc:
         logger.warning(
             "kafka_publish_failed",
             extra={"error": str(exc), "source": source},

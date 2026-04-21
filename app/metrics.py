@@ -16,7 +16,7 @@ Pillars:
   Next step: connect Grafana dashboard (Week 5)
 """
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 
 # ---------------------------------------------------------------------------
@@ -48,6 +48,32 @@ records_upsert_conflicts_total = Counter(
 
 Labels:
   mode: "idempotent" | "strict"
+"""
+
+
+# ---------------------------------------------------------------------------
+# Gauges
+# ---------------------------------------------------------------------------
+
+circuit_breaker_state = Gauge(
+    name="pipeline_circuit_breaker_state",
+    documentation="Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN).",
+    labelnames=["circuit"],
+)
+"""Circuit breaker state indicator.
+
+Labels:
+  circuit: Function qualified name (e.g. "_send_to_kafka", "_mongo_insert_one")
+
+Values:
+  0 = CLOSED (normal operation)
+  1 = OPEN (failures >= threshold, calls rejected)
+  2 = HALF_OPEN (recovery timeout elapsed, probe allowed)
+
+Usage::
+
+    from app.metrics import circuit_breaker_state
+    circuit_breaker_state.labels(circuit="my_function").set(1)  # OPEN
 """
 
 # ---------------------------------------------------------------------------

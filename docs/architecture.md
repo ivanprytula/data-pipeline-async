@@ -1,6 +1,6 @@
 # System Architecture — Data Zoo Platform
 
-**Last Updated**: April 18, 2026
+**Last Updated**: April 21, 2026
 **Scope**: Phase 0 (Foundation) → Phase 8 (Production)
 **Status**: In Design (Phase 1+ implementation pending)
 
@@ -676,6 +676,277 @@ This is the opposite of fail-closed (crash on error). For observability, fail-op
 
 ---
 
+## Phase 4: Resilience Patterns — Circuit Breaker, DLQ, OpenTelemetry (Current Implementation)
+
+**Status**: ✅ Complete — Circuit breakers + DLQ routing + distributed tracing
+**Timeline**: Week 7–8 (April 2026)
+
+### Architecture
+
+```mermaid
+graph TB
+    Client["👤 API Client<br/>HTTP"]
+
+    subgraph Ingestor["📝 Ingestor (app/)"]
+        RecordsRouter["🔀 Records Router<br/>/api/v1/records"]
+        EventsPub["📤 Events Publisher<br/>app/events.py"]
+        CircuitBreaker1["⚡ Circuit Breaker<br/>@circuit_breaker"]
+    end
+
+    subgraph Kafka["📬 Redpanda (Kafka)"]
+        TopicMain["Topic: records.events"]
+        TopicDLQ["Topic: records.events.dlq"]
+    end
+
+    subgraph Processor["⚙️ Processor (services/processor/)"]
+        Consumer["Kafka Consumer<br/>MAX_RETRIES=3"]
+        DLQRouter["❌ DLQ Router<br/>_send_to_dlq()"]
+        OTelSpan["🔍 OTel Span<br/>kafka.consume"]
+    end
+
+    subgraph Storage["🗄️ Storage Layer"]
+        MongoDB["📚 MongoDB<br/>(scraped docs)"]
+        CircuitBreaker2["⚡ Circuit Breaker<br/>@circuit_breaker"]
+    end
+
+    subgraph Observability["🔭 Observability"]
+        Jaeger["🔍 Jaeger<br/>(OTLP gRPC :4317)"]
+        Prometheus["📊 Prometheus<br/>(/metrics)"]
+    end
+
+    Client -->|POST /records| RecordsRouter
+    RecordsRouter -->|Publish| EventsPub
+    EventsPub --> CircuitBreaker1
+    CircuitBreaker1 -->|State: CLOSED/OPEN/HALF_OPEN| TopicMain
+    CircuitBreaker1 -.->|Metrics| Prometheus
+
+    TopicMain --> Consumer
+    Consumer -->|Success| OTelSpan
+    Consumer -->|Failure (3x)| DLQRouter
+    DLQRouter -->|asyncio.wait_for(5s)| TopicDLQ
+
+    Consumer -->|Embed/Index| MongoDB
+    MongoDB --> CircuitBreaker2
+    CircuitBreaker2 -.->|Metrics| Prometheus
+
+    EventsPub -.->|Trace| Jaeger
+    Consumer -.->|Trace| Jaeger
+    OTelSpan -.->|trace_id| Jaeger
+
+    style Ingestor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Processor fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Observability fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Kafka fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+```
+
+### Components
+
+**⚡ Circuit Breaker** (`app/core/circuit_breaker.py`)
+
+- Three-state machine: CLOSED → OPEN → HALF_OPEN
+- Failure threshold: 5 consecutive failures → circuit opens
+- Recovery timeout: 30 seconds before transitioning to HALF_OPEN
+- Concurrency safety: `asyncio.Lock` for state transitions
+- Applied to:
+  - `app/events.py::_send_to_kafka` — protects Kafka producer
+  - `app/storage/mongo.py::_mongo_insert_one` — protects MongoDB writes
+
+```python
+@circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
+async def _send_to_kafka(topic: str, value: bytes) -> None:
+    """Kafka publish wrapped with circuit breaker."""
+    if _producer is None:
+        raise RuntimeError("Producer not connected")
+    await _producer.send_and_wait(topic, value=value)
+```
+
+**State machine**:
+
+```text
+CLOSED ──(failures >= 5)──► OPEN
+  ▲                           │
+  │                           │ (30s elapsed)
+  │                        HALF_OPEN
+  │                           │
+  └────(next call succeeds)───┘
+```
+
+**❌ Dead Letter Queue (DLQ)** (`services/processor/main.py`)
+
+- Retry tracking: `retry_counts[(partition, offset)] = attempt`
+- Max retries: 3 (configurable via `MAX_RETRIES`)
+- After 3 failures: route to `records.events.dlq` topic
+- Timeout protection: `asyncio.wait_for(..., timeout=5.0)` prevents hang
+- DLQ payload structure:
+
+```json
+{
+  "source_topic": "records.events",
+  "source_partition": 0,
+  "source_offset": 1234,
+  "reason": "json.JSONDecodeError: Expecting value: line 1 column 1",
+  "original": "{malformed json..."
+}
+```
+
+**Why DLQ prevents head-of-line blocking**: Poison pill messages (malformed JSON, invalid schema) are forwarded to DLQ after 3 retries. Processor continues processing next message instead of blocking entire queue.
+
+**🔍 OpenTelemetry Distributed Tracing** (`app/core/tracing.py`)
+
+- TracerProvider with OTLP gRPC exporter → Jaeger backend (port 4317)
+- FastAPI auto-instrumentation: `FastAPIInstrumentor.instrument_app(app)`
+- Manual consumer spans: `tracer.start_as_current_span("kafka.consume", attributes={...})`
+- Trace ID injection into logs:
+  - Dev format: `[trace:abc12345] record_created`
+  - Prod JSON: `{"trace_id": "abc12345...", "message": "record_created"}`
+
+**End-to-end trace example**:
+
+```text
+Jaeger UI → Trace abc12345 →
+  Span 1: POST /api/v1/records (ingestor, 50ms)
+  Span 2: kafka.publish (ingestor, 5ms)
+  Span 3: kafka.consume (processor, 200ms)
+    → All linked by trace_id
+```
+
+**📊 Prometheus Metrics** (`app/metrics.py`)
+
+- Circuit breaker state: `pipeline_circuit_breaker_state` (Gauge, 0=CLOSED, 1=OPEN, 2=HALF_OPEN)
+  - Labels: `circuit` (e.g., `_send_to_kafka`, `_mongo_insert_one`)
+  - Exported at `/metrics` endpoint
+- State transitions update metric:
+
+```python
+# In circuit_breaker.py
+if _METRICS_AVAILABLE:
+    from app.metrics import circuit_breaker_state
+    circuit_breaker_state.labels(circuit=self.name).set(1)  # OPEN
+```
+
+### Design Principles (Phase 4)
+
+1. **Fail-Open with Circuit Breaker**
+   - Kafka down → circuit opens after 5 failures → ingestor continues serving requests
+   - MongoDB down → circuit opens → scraper continues serving requests (items_stored=0)
+   - Rationale: Prevent cascading failures; system degrades gracefully
+2. **Poison Pill Isolation with DLQ**
+   - Malformed message → retry 3x → forward to DLQ → continue processing
+   - Rationale: One bad message doesn't block entire queue (head-of-line blocking)
+3. **End-to-End Observability**
+   - Every request traced: ingestor → Kafka → processor
+   - Trace ID in all logs → correlate logs with traces in Jaeger UI
+   - Circuit state exported to Prometheus → alert on prolonged OPEN state
+4. **Concurrency Safety in Circuit Breaker**
+   - `asyncio.Lock` prevents race conditions during state transitions
+   - Test coverage: `test_concurrent_calls_thread_safe` validates lock behavior
+5. **Graceful Degradation**
+   - OTel tracer unavailable → logs warning, continues without tracing
+   - DLQ send timeout → logs error, continues processing next message
+   - Circuit open → immediate failure, no hammering downstream service
+
+### Data Flows
+
+**Happy Path (with tracing):**
+
+```text
+POST /api/v1/records
+  ↓
+  OTel: Start span "POST /api/v1/records" (trace_id=abc12345)
+  ↓
+  Circuit breaker: State = CLOSED
+  ↓
+  Publish to Kafka (trace_id propagated in message metadata)
+  ↓
+  Processor: Start span "kafka.consume" (parent_span_id=abc12345)
+  ↓
+  Process message → Success
+  ↓
+  Jaeger UI: Full trace (ingestor → Kafka → processor)
+```
+
+**Degraded (Circuit open):**
+
+```text
+POST /api/v1/records
+  ↓
+  Circuit breaker: State = OPEN (5 consecutive failures)
+  ↓
+  Raise CircuitOpenError("Circuit _send_to_kafka is OPEN")
+  ↓
+  Log warning: "event_publish_failed circuit=_send_to_kafka"
+  ↓
+  Request still returns 201 (event lost, logged)
+  ↓
+  After 30s: Circuit → HALF_OPEN (1 probe allowed)
+```
+
+**Poison Pill (DLQ routing):**
+
+```text
+Kafka message: {malformed json...}
+  ↓
+  Processor: json.JSONDecodeError
+  ↓
+  retry_counts[(partition, offset)] = 1
+  ↓
+  Retry #2: json.JSONDecodeError
+  ↓
+  retry_counts[(partition, offset)] = 2
+  ↓
+  Retry #3: json.JSONDecodeError
+  ↓
+  retry_counts[(partition, offset)] = 3 (>= MAX_RETRIES)
+  ↓
+  _send_to_dlq(producer, raw_value, reason, partition, offset)
+  ↓
+  DLQ topic: records.events.dlq (with full context)
+  ↓
+  retry_counts.pop((partition, offset))  # Clear counter
+  ↓
+  Continue processing next message
+```
+
+### Configuration
+
+```yaml
+# docker-compose.yml
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "16686:16686" # Jaeger UI
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+  ingestor:
+    environment:
+      - OTEL_ENABLED=true
+      - OTEL_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=ingestor
+```
+
+```python
+# app/config.py
+otel_enabled: bool = True
+otel_endpoint: str = "http://localhost:4317"
+otel_service_name: str = "ingestor"
+```
+
+### Key Learnings (Phase 4)
+
+1. **Circuit breaker state transitions must be lock-safe**: Without `asyncio.Lock`, concurrent failures cause race conditions (e.g., two failures both increment counter to 5).
+2. **DLQ retry counter must be cleared after send**: Without `retry_counts.pop()`, memory grows unbounded.
+3. **OTel setup must run before first log**: If logging starts before OTel initialized, first log line missing trace ID.
+4. **Circuit breaker guard vs business logic separation**: If circuit wraps "not connected" check + I/O, test skips count as failures and open circuit. Solution: Separate guard (outside) from I/O (inside circuit).
+
+### ADR
+
+See [ADR #005: Circuit Breaker Pattern](adr/005-circuit-breaker-pattern.md) for detailed decision rationale.
+
+---
+
 ## Key Design Decisions
 
 | Decision                      | Rationale                                                                  |
@@ -689,6 +960,9 @@ This is the opposite of fail-closed (crash on error). For observability, fail-op
 | Fail-open events              | Kafka unavailability doesn't block ingestor; events are observability only |
 | Processor as separate service | Enables independent scaling, deployment, and development (Phase 2+)        |
 | Single topic `records.events` | Start simple; add `records.events.dlq` in Phase 4 for error handling       |
+| Circuit breaker pattern       | Protect downstream services from cascading failures (Phase 4)              |
+| DLQ routing                   | Prevent poison pill messages from blocking queue (Phase 4)                 |
+| OpenTelemetry tracing         | End-to-end observability across microservices (Phase 4)                    |
 
 ## Related Documents
 

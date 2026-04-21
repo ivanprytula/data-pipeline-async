@@ -144,6 +144,9 @@ services:
       MONGO_URL: mongodb://mongodb:27017
       MONGO_ENABLED: "true"
       AI_GATEWAY_URL: http://ai-gateway:8001
+      OTEL_ENABLED: "true"
+      OTEL_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: ingestor
     ports:
       - '8000:8000'
     depends_on:
@@ -153,6 +156,8 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8000/readyz']
       interval: 5s
@@ -243,9 +248,14 @@ services:
     container_name: data-pipeline-processor
     environment:
       KAFKA_BROKER_URL: redpanda:29092
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: processor
     depends_on:
       redpanda:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     deploy:
       restart_policy:
         condition: on-failure
@@ -295,6 +305,34 @@ services:
         limits:
           cpus: '1.0'
           memory: '1G'
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: data-pipeline-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - '16686:16686'  # Jaeger UI
+      - '4317:4317'    # OTLP gRPC receiver
+      - '4318:4318'    # OTLP HTTP receiver
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:16686']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '128M'
+        limits:
+          cpus: '0.25'
+          memory: '256M'
 
 volumes:
   pg_data:

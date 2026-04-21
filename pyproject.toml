@@ -38,6 +38,10 @@ dependencies = [
     # AI Gateway (Phase 3) — embeddings & vector search
     "sentence-transformers>=2.2.2",  # SentenceTransformer for embeddings
     "qdrant-client>=1.12.0",  # Qdrant vector database client
+    # Resilience + Observability (Phase 4) — OTel distributed tracing
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-exporter-otlp>=1.25.0",
 ]
 
 [dependency-groups]

@@ -22,6 +22,7 @@ from app.auth import verify_docs_credentials
 from app.config import settings
 from app.constants import HEALTH_RATE_LIMIT
 from app.core.logging import set_cid, setup_logging
+from app.core.tracing import setup_tracing
 from app.database import engine, get_db
 from app.fetch import close_http_client
 from app.fetch_aiohttp import close_http_session
@@ -79,6 +80,14 @@ async def lifespan(app: FastAPI):
     """Replaces the deprecated `@app.on_event("startup")` pattern.
     Everything before `yield` is startup; after `yield` is shutdown.
     """
+    # Startup: init OTel tracing first (trace_id available for all logs)
+    if settings.otel_enabled:
+        setup_tracing(
+            app,
+            endpoint=settings.otel_endpoint,
+            service_name=settings.otel_service_name,
+        )
+
     logger.info("startup", extra={"event": "application_started"})
 
     # Startup: connect Redis if enabled

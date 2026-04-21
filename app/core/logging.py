@@ -27,6 +27,16 @@ from pythonjsonlogger.json import JsonFormatter
 from app.config import settings
 
 
+def _get_trace_id() -> str | None:
+    """Return the current OTel trace ID, or None if not in a trace."""
+    try:
+        from app.core.tracing import get_trace_id
+
+        return get_trace_id()
+    except Exception:
+        return None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Context variable for request correlation ID (cid)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -83,9 +93,11 @@ class DevelopmentFormatter(logging.Formatter):
         # Source location as IDE-clickable format (relative to project root)
         source_link = f"{rel_path}:{record.lineno}:{record.funcName}"
 
-        # Correlation ID if available
+        # Correlation ID and trace ID if available
         cid = get_cid()
         cid_str = f"[{cid}]" if cid else ""
+        trace_id = _get_trace_id()
+        trace_str = f"[trace:{trace_id[:8]}]" if trace_id else ""
 
         # Message
         message = record.getMessage()
@@ -121,7 +133,9 @@ class DevelopmentFormatter(logging.Formatter):
         }
         extra_str = f" {extra_dict}" if extra_dict else ""
 
-        return f"{timestamp} | {level_name} | {source_link} | {cid_str} {message}{extra_str}"
+        prefix = " ".join(filter(None, [cid_str, trace_str]))
+        prefix_str = f"{prefix} " if prefix else ""
+        return f"{timestamp} | {level_name} | {source_link} | {prefix_str}{message}{extra_str}"
 
 
 class ProductionJsonFormatter(JsonFormatter):
@@ -145,10 +159,13 @@ class ProductionJsonFormatter(JsonFormatter):
         """Add minimal fields: message + auto-injected cid only."""
         super().add_fields(log_data, record, message_dict)
 
-        # Auto-inject correlation ID if available
+        # Auto-inject correlation ID and trace ID if available
         cid = get_cid()
         if cid:
             log_data["cid"] = cid
+        trace_id = _get_trace_id()
+        if trace_id:
+            log_data["trace_id"] = trace_id
 
 
 def setup_logging() -> logging.Logger:
