@@ -51,6 +51,25 @@ Next planned hardening:
 
 ---
 
+## Pillar 7 Status: Admin UI and User Workflows
+
+Current state (implemented baseline):
+
+- Dashboard admin page is live at `/admin` (HTMX + Jinja2).
+- Worker health workflow is wired to background worker health API.
+- Task lookup workflow is wired to task status API by task ID.
+- Manual rerun workflow submits one-record background batches.
+- Role-aware session bootstrap workflow is available from admin UI.
+- Dashboard integration tests cover admin page and all admin partial workflows.
+
+Next planned hardening:
+
+- Add persisted user CRUD/auth endpoints in ingestor.
+- Replace bootstrap-only session helper with real user management operations.
+- Add audit/event views in admin UI for operational traceability.
+
+---
+
 ## 8-Phase Roadmap
 
 Data Zoo progresses through **8 phases**, each adding one architectural layer:
@@ -62,7 +81,7 @@ Data Zoo progresses through **8 phases**, each adding one architectural layer:
 | **3** | AI + Vector DB | ✅ Done | Semantic search over 100K docs |
 | **4** | Resilience Patterns | ✅ Done | Circuit breaker + DLQ for failures |
 | **5** | CQRS + Analytics | 🚀 Active | Read-optimized DB for 10M queries/day |
-| **6** | Dashboard | ⏹️ Queued | Server-rendered dashboard with SSE |
+| **6** | Dashboard | ✅ Implemented baseline | Server-rendered dashboard with SSE + admin workflows |
 | **7** | Cloud IaC | ✅ Done | Multi-env Terraform (dev/staging/prod) |
 | **8** | Production Hardening | ⏹️ Queued | Backup/chaos/observability strategy |
 
@@ -77,6 +96,7 @@ Data Zoo progresses through **8 phases**, each adding one architectural layer:
 | **Cache** | Redis |
 | **Streaming** | Redpanda (Kafka-compatible) |
 | **Background Jobs** | APScheduler + in-process worker queue |
+| **Admin UI** | HTMX + Jinja2 dashboard workflows |
 | **Observability** | Prometheus + OpenTelemetry + structured JSON logging |
 | **Security/Auth** | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
 | **Testing** | pytest + aiosqlite (in-memory for fast unit tests) |

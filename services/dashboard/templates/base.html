@@ -13,6 +13,7 @@
     <a href="/" {% if active == 'records' %}class="active"{% endif %}>Records</a>
     <a href="/search" {% if active == 'search' %}class="active"{% endif %}>Search</a>
     <a href="/metrics" {% if active == 'metrics' %}class="active"{% endif %}>Metrics</a>
+    <a href="/admin" {% if active == 'admin' %}class="active"{% endif %}>Admin</a>
   </nav>
   <main>
     {% block content %}{% endblock %}

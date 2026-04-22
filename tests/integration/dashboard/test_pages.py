@@ -178,3 +178,107 @@ async def test_metrics_page_includes_sse_div(client: AsyncClient) -> None:
     assert r.status_code == 200
     # Check for HTMX SSE attributes
     assert "hx-ext" in r.text or "sse" in r.text.lower()
+
+
+# -----------------------------------------------------------------------
+# Admin Page (/admin)
+# -----------------------------------------------------------------------
+@pytest.mark.integration
+async def test_admin_page_returns_html(client: AsyncClient) -> None:
+    """GET /admin returns admin workflows page."""
+    r = await client.get("/admin")
+
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert "Admin Workflows" in r.text
+
+
+@pytest.mark.integration
+async def test_admin_workers_health_partial_returns_fragment(
+    client: AsyncClient,
+    patch_pages_async_client,
+) -> None:
+    """GET /partials/admin/workers/health returns rendered worker health."""
+    patch_pages_async_client(
+        json_data={
+            "running": True,
+            "worker_count": 3,
+            "queue_size": 1,
+            "active_tasks": 1,
+        }
+    )
+
+    r = await client.get("/partials/admin/workers/health")
+
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert "Running" in r.text
+    assert "True" in r.text
+
+
+@pytest.mark.integration
+async def test_admin_task_status_partial_returns_fragment(
+    client: AsyncClient,
+    patch_pages_async_client,
+) -> None:
+    """GET /partials/admin/tasks renders task lookup result."""
+    patch_pages_async_client(
+        json_data={
+            "task_id": "task-1",
+            "status": "succeeded",
+            "batch_size": 4,
+        }
+    )
+
+    r = await client.get("/partials/admin/tasks?task_id=task-1")
+
+    assert r.status_code == 200
+    assert "task-1" in r.text
+    assert "succeeded" in r.text
+
+
+@pytest.mark.integration
+async def test_admin_manual_rerun_partial_returns_fragment(
+    client: AsyncClient,
+    patch_pages_async_client,
+) -> None:
+    """POST /partials/admin/rerun renders queued task details."""
+    patch_pages_async_client(
+        json_data={
+            "task_id": "task-rerun-1",
+            "status": "queued",
+            "batch_size": 1,
+        }
+    )
+
+    r = await client.post(
+        "/partials/admin/rerun",
+        data={"source": "admin.manual", "value": "123.4"},
+    )
+
+    assert r.status_code == 200
+    assert "task-rerun-1" in r.text
+    assert "queued" in r.text
+
+
+@pytest.mark.integration
+async def test_admin_session_partial_returns_fragment(
+    client: AsyncClient,
+    patch_pages_async_client,
+) -> None:
+    """POST /partials/admin/session renders created session details."""
+    patch_pages_async_client(
+        json_data={
+            "session_id": "sess-123",
+            "message": "Session created",
+        }
+    )
+
+    r = await client.post(
+        "/partials/admin/session",
+        data={"user_id": "alice", "role": "writer"},
+    )
+
+    assert r.status_code == 200
+    assert "sess-123" in r.text
+    assert "writer" in r.text

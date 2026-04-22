@@ -281,6 +281,18 @@ Should return: `{"status":"healthy"}`
 
 ## Workflow 7: Test API Endpoints
 
+### Dashboard Admin UI (Pillar 7)
+
+Use the new dashboard control surface for operator workflows:
+
+- Open `http://localhost:8003/admin` for Admin Workflows.
+- Refresh worker health from the Worker Health panel.
+- Lookup one task ID from the Task Lookup panel.
+- Trigger one-record reruns from Manual Rerun.
+- Create role-aware test sessions from Session Bootstrap (RBAC).
+
+These UI actions call existing ingestor APIs and are useful for fast operational checks without crafting manual curl commands.
+
 ### Manual HTTP Requests
 
 ```bash

@@ -85,7 +85,26 @@ Implemented protected route examples:
 - `DELETE /api/v1/records/{record_id}/secure/delete` (admin only)
 - `POST /api/v2/records/jwt` (writer/admin via JWT claim)
 
-### Phase 6 & 7: Cloud Deployment ✅ Done
+### Admin UI and User Workflows Baseline (Pillar 7) ✅ Implemented
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Dashboard Admin Page | HTMX + Jinja2 | Operational control surface at `/admin` |
+| Worker Health Panel | HTMX partial + ingestor API | Check worker-pool state without CLI |
+| Task Lookup Workflow | HTMX partial + ingestor API | Inspect one task by ID |
+| Manual Rerun Workflow | HTMX form + batch ingest API | Submit operational reruns from UI |
+| Session Bootstrap Workflow | HTMX form + auth login API | Create role-aware session for secure flow checks |
+| Integration Tests | pytest + httpx | Verify admin page and all partial workflows |
+
+Implemented admin workflow endpoints (dashboard):
+
+- `GET /admin`
+- `GET /partials/admin/workers/health`
+- `GET /partials/admin/tasks`
+- `POST /partials/admin/rerun`
+- `POST /partials/admin/session`
+
+### Phase 7: Cloud Deployment ✅ Done
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -268,6 +287,26 @@ See [docs/design/architecture.md](design/architecture.md) for full schema detail
 6. Route handler performs soft-delete (archive)
    ↓
 7. Response returns with security headers
+```
+
+---
+
+## Request Flow (Example: Manual Rerun from Admin UI)
+
+```
+1. Operator opens GET /admin
+   ↓
+2. Submits Manual Rerun form (source + value)
+   ↓
+3. Dashboard route POST /partials/admin/rerun validates input
+   ↓
+4. Dashboard calls ingestor POST /api/v1/background/ingest/batch
+   ↓
+5. Background worker pool queues task and returns task_id
+   ↓
+6. Dashboard renders HTMX result fragment with task status
+   ↓
+7. Operator can query task via GET /partials/admin/tasks?task_id=...
 ```
 
 ---

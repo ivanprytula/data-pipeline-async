@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
@@ -103,6 +104,71 @@ async def metrics_page(request: Request) -> HTMLResponse:
     )
 
 
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request) -> HTMLResponse:
+    """Admin UI page with user/session and background-job workflows."""
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {"active": "admin"},
+    )
+
+
+@router.get("/partials/admin/workers/health", response_class=HTMLResponse)
+async def admin_workers_health_partial(request: Request) -> HTMLResponse:
+    """HTMX partial: worker-pool health summary."""
+    health = await _fetch_workers_health()
+    return templates.TemplateResponse(
+        request,
+        "partials/admin_workers_health.html",
+        {"health": health},
+    )
+
+
+@router.get("/partials/admin/tasks", response_class=HTMLResponse)
+async def admin_task_status_partial(
+    request: Request,
+    task_id: Annotated[str, Query(min_length=1)],
+) -> HTMLResponse:
+    """HTMX partial: one background task status lookup."""
+    status_payload = await _fetch_task_status(task_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/admin_task_status.html",
+        {"task": status_payload},
+    )
+
+
+@router.post("/partials/admin/rerun", response_class=HTMLResponse)
+async def admin_manual_rerun_partial(
+    request: Request,
+    source: Annotated[str, Form(min_length=1)],
+    value: Annotated[float, Form()],
+) -> HTMLResponse:
+    """HTMX partial: submit one-record batch ingest as manual rerun."""
+    result = await _submit_manual_rerun(source=source, value=value)
+    return templates.TemplateResponse(
+        request,
+        "partials/admin_rerun_result.html",
+        {"result": result},
+    )
+
+
+@router.post("/partials/admin/session", response_class=HTMLResponse)
+async def admin_create_session_partial(
+    request: Request,
+    user_id: Annotated[str, Form(min_length=1)],
+    role: Annotated[str, Form(min_length=1)] = "viewer",
+) -> HTMLResponse:
+    """HTMX partial: create a v1 session for quick RBAC workflow checks."""
+    result = await _create_session(user_id=user_id, role=role)
+    return templates.TemplateResponse(
+        request,
+        "partials/admin_session_result.html",
+        {"session": result},
+    )
+
+
 async def _fetch_records(
     *,
     skip: int = 0,
@@ -146,3 +212,97 @@ async def _fetch_search_results(query: str) -> list[dict]:
     except httpx.HTTPError as exc:
         logger.warning("ai_gateway_search_failed", extra={"error": str(exc)})
         return []
+
+
+async def _fetch_workers_health() -> dict:
+    """Fetch worker health from ingestor background endpoint."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{INGESTOR_URL}/api/v1/background/workers/health")
+            resp.raise_for_status()
+            body = resp.json()
+            return body if isinstance(body, dict) else {"running": False}
+    except httpx.HTTPError as exc:
+        logger.warning("background_workers_health_failed", extra={"error": str(exc)})
+        return {
+            "running": False,
+            "detail": "unavailable",
+            "error": str(exc),
+        }
+
+
+async def _fetch_task_status(task_id: str) -> dict:
+    """Fetch one background task status by ID from ingestor."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{INGESTOR_URL}/api/v1/background/tasks/{task_id}")
+            resp.raise_for_status()
+            body = resp.json()
+            return body if isinstance(body, dict) else {"status": "unknown"}
+    except httpx.HTTPError as exc:
+        logger.warning("background_task_lookup_failed", extra={"error": str(exc)})
+        return {
+            "task_id": task_id,
+            "status": "error",
+            "detail": "task lookup failed",
+            "error": str(exc),
+        }
+
+
+async def _submit_manual_rerun(*, source: str, value: float) -> dict:
+    """Submit one-record batch ingest as a manual rerun workflow."""
+    payload = {
+        "records": [
+            {
+                "source": source,
+                "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat(),
+                "data": {"value": value},
+                "tags": ["admin-rerun"],
+            }
+        ]
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                f"{INGESTOR_URL}/api/v1/background/ingest/batch",
+                json=payload,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            return body if isinstance(body, dict) else {"status": "queued"}
+    except httpx.HTTPError as exc:
+        logger.warning("manual_rerun_submit_failed", extra={"error": str(exc)})
+        return {
+            "status": "error",
+            "detail": "manual rerun failed",
+            "error": str(exc),
+        }
+
+
+async def _create_session(*, user_id: str, role: str) -> dict:
+    """Create v1 session in ingestor for RBAC checks from admin UI."""
+    normalized_role = role.strip().lower()
+    if not normalized_role:
+        normalized_role = "viewer"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{INGESTOR_URL}/api/v1/records/auth/login",
+                params={"user_id": user_id, "role": normalized_role},
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            if isinstance(body, dict):
+                body["role"] = normalized_role
+                return body
+            return {"message": "session created", "role": normalized_role}
+    except httpx.HTTPError as exc:
+        logger.warning("admin_session_create_failed", extra={"error": str(exc)})
+        return {
+            "status": "error",
+            "detail": "session creation failed",
+            "error": str(exc),
+            "role": normalized_role,
+        }

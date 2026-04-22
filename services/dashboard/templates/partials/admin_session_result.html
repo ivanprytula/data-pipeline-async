@@ -1,0 +1,15 @@
+<dl class="kv-list">
+  <div><dt>Role</dt><dd>{{ session.role if session.role is defined else 'viewer' }}</dd></div>
+  {% if session.session_id is defined %}
+  <div><dt>Session ID</dt><dd>{{ session.session_id }}</dd></div>
+  {% endif %}
+  {% if session.message is defined %}
+  <div><dt>Message</dt><dd>{{ session.message }}</dd></div>
+  {% endif %}
+  {% if session.detail is defined %}
+  <div><dt>Detail</dt><dd>{{ session.detail }}</dd></div>
+  {% endif %}
+  {% if session.error is defined %}
+  <div><dt>Error</dt><dd>{{ session.error }}</dd></div>
+  {% endif %}
+</dl>

@@ -1,0 +1,22 @@
+<dl class="kv-list">
+  <div><dt>Task ID</dt><dd>{{ task.task_id if task.task_id is defined else '—' }}</dd></div>
+  <div><dt>Status</dt><dd>{{ task.status if task.status is defined else 'unknown' }}</dd></div>
+  {% if task.batch_size is defined %}
+  <div><dt>Batch Size</dt><dd>{{ task.batch_size }}</dd></div>
+  {% endif %}
+  {% if task.queued_at is defined %}
+  <div><dt>Queued At</dt><dd>{{ task.queued_at }}</dd></div>
+  {% endif %}
+  {% if task.started_at is defined and task.started_at %}
+  <div><dt>Started At</dt><dd>{{ task.started_at }}</dd></div>
+  {% endif %}
+  {% if task.finished_at is defined and task.finished_at %}
+  <div><dt>Finished At</dt><dd>{{ task.finished_at }}</dd></div>
+  {% endif %}
+  {% if task.detail is defined %}
+  <div><dt>Detail</dt><dd>{{ task.detail }}</dd></div>
+  {% endif %}
+  {% if task.error is defined %}
+  <div><dt>Error</dt><dd>{{ task.error }}</dd></div>
+  {% endif %}
+</dl>

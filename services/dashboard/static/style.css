@@ -228,6 +228,68 @@ td {
   grid-row: 2;
 }
 
+/* ── Admin workflows ─────────────────────────────────────────── */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.admin-card h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-card select {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+  outline: none;
+}
+
+.result-box {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.kv-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.kv-list div {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.5rem;
+}
+
+.kv-list dt {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kv-list dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
 /* ── Metrics grid ─────────────────────────────────────────────── */
 #metrics-grid {
   display: grid;
@@ -294,4 +356,5 @@ td {
   main { padding: 1rem; }
   nav  { padding: 0.5rem 1rem; }
   td   { max-width: 120px; }
+  .kv-list div { grid-template-columns: 80px 1fr; }
 }

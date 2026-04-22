@@ -1,0 +1,18 @@
+<dl class="kv-list">
+  <div><dt>Running</dt><dd>{{ health.running }}</dd></div>
+  {% if health.worker_count is defined %}
+  <div><dt>Workers</dt><dd>{{ health.worker_count }}</dd></div>
+  {% endif %}
+  {% if health.queue_size is defined %}
+  <div><dt>Queue</dt><dd>{{ health.queue_size }}</dd></div>
+  {% endif %}
+  {% if health.active_tasks is defined %}
+  <div><dt>Active</dt><dd>{{ health.active_tasks }}</dd></div>
+  {% endif %}
+  {% if health.detail is defined %}
+  <div><dt>Detail</dt><dd>{{ health.detail }}</dd></div>
+  {% endif %}
+  {% if health.error is defined %}
+  <div><dt>Error</dt><dd>{{ health.error }}</dd></div>
+  {% endif %}
+</dl>

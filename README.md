@@ -19,6 +19,7 @@ If you have 10 minutes, use this evaluation path:
 - Measurable engineering outcomes: reliability improvements, latency optimization, throughput-oriented design.
 - Engineering maturity: tests, CI/CD, documentation quality, and explicit design decisions (ADRs).
 - Security baseline delivery: role-based auth guards, protected operations, response security headers, and CI vulnerability scans.
+- Admin workflow baseline: HTMX/Jinja2 admin UI for job health, task lookup, manual reruns, and role-aware session bootstrap.
 - Practical scope fit: strong middle/middle+ backend profile with realistic boundaries around platform depth.
 
 ### Evidence Map
@@ -29,6 +30,7 @@ If you have 10 minutes, use this evaluation path:
 | Database and performance reasoning | [docs/09-backend-concepts-and-patterns.md](docs/09-backend-concepts-and-patterns.md), [docs/progress/phase-5-advanced-sql-cqrs.md](docs/progress/phase-5-advanced-sql-cqrs.md) |
 | Reliability and resilience | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md) |
 | Security, auth, and RBAC | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/pillar-5-security.md](docs/progress/pillar-5-security.md), [docs/progress/roadmap.md](docs/progress/roadmap.md) |
+| Admin UI and user workflows | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/03-daily-development.md](docs/03-daily-development.md), [docs/progress/roadmap.md](docs/progress/roadmap.md) |
 | Communication quality | [CV.md](CV.md), [docs/10-interview-prep-middle-plus.md](docs/10-interview-prep-middle-plus.md) |
 | Delivery workflow quality | [docs/dev/commands.md](docs/dev/commands.md), [docs/cloud-deployment.md](docs/cloud-deployment.md), [docs/adr/README.md](docs/adr/README.md) |
 
@@ -133,7 +135,7 @@ Then access:
 | **3** | AI + Vectors    | ✅      | Semantic search over 100K docs        |
 | **4** | Resilience      | ✅      | Circuit breaker + DLQ                 |
 | **5** | CQRS            | 🚀      | Read-optimized DB for 10M queries/day |
-| **6** | Dashboard       | ⏹️      | Server-rendered SSE dashboard         |
+| **6** | Dashboard       | ✅      | Server-rendered SSE dashboard + admin workflows |
 | **7** | Cloud IaC       | ✅      | Multi-env Terraform                   |
 | **8** | Hardening       | ⏹️      | Backup/chaos/observability            |
 

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Admin Workflows — Data Zoo{% endblock %}
+{% block content %}
+<h1>Admin Workflows</h1>
+<p class="muted">Minimal operational UI for background jobs and role-aware session bootstrap.</p>
+
+<section class="admin-grid">
+  <article class="admin-card">
+    <h2>Worker Health</h2>
+    <form hx-get="/partials/admin/workers/health" hx-target="#workers-health-result" hx-trigger="submit, load">
+      <button type="submit">Refresh health</button>
+    </form>
+    <div id="workers-health-result" class="result-box"></div>
+  </article>
+
+  <article class="admin-card">
+    <h2>Task Lookup</h2>
+    <form hx-get="/partials/admin/tasks" hx-target="#task-status-result">
+      <input type="text" name="task_id" placeholder="Task ID" required>
+      <button type="submit">Check task</button>
+    </form>
+    <div id="task-status-result" class="result-box"></div>
+  </article>
+
+  <article class="admin-card">
+    <h2>Manual Rerun</h2>
+    <form hx-post="/partials/admin/rerun" hx-target="#rerun-result">
+      <input type="text" name="source" placeholder="source (e.g. admin.manual)" required>
+      <input type="text" name="value" placeholder="numeric value" required>
+      <button type="submit">Submit batch</button>
+    </form>
+    <div id="rerun-result" class="result-box"></div>
+  </article>
+
+  <article class="admin-card">
+    <h2>Session Bootstrap (RBAC)</h2>
+    <form hx-post="/partials/admin/session" hx-target="#session-result">
+      <input type="text" name="user_id" placeholder="user id" required>
+      <select name="role">
+        <option value="viewer">viewer</option>
+        <option value="writer">writer</option>
+        <option value="admin">admin</option>
+      </select>
+      <button type="submit">Create session</button>
+    </form>
+    <div id="session-result" class="result-box"></div>
+  </article>
+</section>
+{% endblock %}

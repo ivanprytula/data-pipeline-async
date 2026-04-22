@@ -63,6 +63,15 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
 7. Admin UI & User Workflows — **Score: 6**
    - Why: Admin tooling reduces friction (job control, user management, visibility).
    - Immediate tasks: implement a minimal admin UI (static React or server-side templates) for job status, manual re-run, and user management; iterate after API stabilization.
+   - Current status (April 23, 2026): baseline dashboard admin workflows shipped.
+   - Implemented:
+     - dashboard admin page at `GET /admin` (HTMX + Jinja2)
+     - worker health panel wired to `GET /api/v1/background/workers/health`
+     - task lookup workflow wired to `GET /api/v1/background/tasks/{task_id}`
+     - manual rerun workflow wired to `POST /api/v1/background/ingest/batch` (single-record admin batch)
+     - role-aware session bootstrap workflow via `POST /api/v1/records/auth/login`
+     - integration coverage for admin page and all admin partial workflows
+   - Next: add persisted user CRUD flows in ingestor and expose role/user management in admin UI.
    - Timeframe: 60–180 days
 
 8. Notifications & Emailing — **Score: 5**

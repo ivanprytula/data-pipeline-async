@@ -63,6 +63,15 @@ Prioritized pillars (scores & immediate steps)
 7) Admin UI & User Workflows — Score: 6
 - Why: Admin tooling reduces friction (job control, user management, visibility).
 - Immediate tasks: implement a minimal admin UI (static React or server-side templates) for job status, manual re-run, and user management; iterate after API stabilization.
+- Current status (April 23, 2026): baseline dashboard admin workflows shipped.
+- Implemented in repo:
+  - Dashboard admin page: `GET /admin` (HTMX + Jinja2)
+  - Worker health workflow: `GET /api/v1/background/workers/health`
+  - Task lookup workflow: `GET /api/v1/background/tasks/{task_id}`
+  - Manual rerun workflow: `POST /api/v1/background/ingest/batch` (single-record admin batch)
+  - Session bootstrap workflow: `POST /api/v1/records/auth/login` (role-aware)
+  - Integration tests for admin page and admin partial workflows
+- Next: add persisted user CRUD/auth endpoints and expose real user management in admin UI.
 - Timeframe: 60–180 days
 
 8) Notifications & Emailing — Score: 5
