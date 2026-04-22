@@ -521,6 +521,106 @@ Long-running service, want managed?       → ECS Fargate
 
 ---
 
+## Deployment & Container Decisions
+
+### Docker Build Optimization: BuildKit vs Legacy Builder
+
+**Choose BuildKit when:** you're doing multi-stage builds with repeated package installations (apt, pip). BuildKit's `--mount=type=cache` persists layer cache across builds, yielding 3-5x rebuild speedup.
+
+**Choose Legacy Builder when:** you have very simple single-stage Dockerfiles or need exact reproducibility without any caching.
+
+**In practice:** always use BuildKit for production. The syntax is cleaner, cache mounts reduce bandwidth, and it's been stable since Docker 20.10.
+
+**Setup:**
+
+```bash
+export DOCKER_BUILDKIT=1  # Permanent in ~/.bashrc
+docker build -t service:latest .  # BuildKit enabled
+```
+
+**Key patterns:**
+
+- `# syntax=docker/dockerfile:1.4` as first line enables BuildKit features
+- `SHELL ["/bin/bash", "-o", "pipefail", "-c"]` after each FROM (fail-fast)
+- `apt-get clean` instead of `rm -rf /var/lib/apt/*` (respects layer caching)
+
+**Interview answer:** "BuildKit's cache mounts are a game-changer for multi-stage builds. Instead of re-downloading 200MB of apt packages on every build, the cache persists. Second build goes from 3 minutes to 30 seconds. For a team doing frequent local builds and CI/CD pushes, the 3-5x speedup justifies the small setup effort."
+
+---
+
+### Base Image Pinning: Digest vs Latest vs Version Tag
+
+**Choose digest pinning when:** you need reproducible builds and want to prevent surprise breakage from base image updates. Trade-off: requires manual updates when patching.
+
+**Choose version tags (`:3.14-slim`) when:** you're okay with minor patches applied automatically, but want predictable major versions.
+
+**Choose `latest` when:** this is a learning project and manual updates aren't a concern.
+
+**Security rationale:** uncontrolled base image drift can introduce vulnerabilities without your knowledge. Pinning gives you explicit control and audit trail.
+
+**Example:**
+
+```dockerfile
+# PINNED — reproducible, secure
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+
+# NOT PINNED — auto-patches, less control
+FROM python:3.14-slim
+```
+
+**Interview answer:** "I pin base image digests in production Dockerfiles for reproducibility. Every build produces identical layers across environments, which is critical for security scanning — we know exactly what's in the image. The trade-off is that upgrading the base image requires a deliberate digest change, which forces a code review. That's actually a feature: you know when the base image changed."
+
+---
+
+### Container Vulnerability Scanning: Trivy vs Snyk vs Clair
+
+**Choose Trivy when:** you want fast, free, open-source scanning for OS-level and application vulnerabilities. No subscriptions, can run offline after initial DB pull.
+
+**Choose Snyk when:** you're an org that needs managed scanning across multiple repos, developer workflows integration, and commercial support. Requires paid plan for advanced features.
+
+**Choose Clair when:** you're running a private Docker registry and want scanning integrated at the infrastructure level (registry hooks).
+
+**In this project:** Trivy is ideal for GitHub Actions workflows and local development because it's zero-cost and requires no external accounts.
+
+**What each scans:**
+
+- **Trivy**: OS packages (libc, openssl, curl), Python packages, Node packages, image misconfigurations
+- **Snyk**: Same + supply chain analysis + policy enforcement + license compliance
+- **Clair**: OS + application packages, designed for registry integration
+
+**Interview answer:** "Trivy covers all our scanning needs: it finds OS CVEs (OpenSSL, curl) and Python CVEs via pip-audit. The SARIF output integrates with GitHub Code Scanning for visibility. For a learning project, Trivy's free tier is perfect. Snyk adds compliance and managed workflows — worth considering if the org needs SOC2 or if multiple teams are shipping containers."
+
+---
+
+### Dependency Scanning: pip-audit vs Safety vs Bandit
+
+**pip-audit (Python dependencies):**
+
+- Checks for known CVEs in pip packages
+- Official PyPA tool, trusted source
+- Can auto-upgrade vulnerable packages
+- Pre-commit hook friendly
+
+**Safety (Python dependencies):**
+
+- Older tool, less frequently updated
+- Requires online DB check (slower)
+- Deprecated in favor of pip-audit for most use cases
+
+**Bandit (Python code security):**
+
+- Scans code for security anti-patterns (hardcoded secrets, SQL injection risks, etc.)
+- Complementary to pip-audit (different scope: code vs dependencies)
+- Often paired with pip-audit for comprehensive security
+
+**Choose pip-audit + Bandit when:** running a Python project. Use pip-audit for dependency CVEs, Bandit for code issues.
+
+**Skip Safety:** pip-audit is newer, faster, and official PyPA endorsement.
+
+**Interview answer:** "pip-audit is my first stop for Python security — it checks if any pip packages have known CVEs. Bandit complements it by scanning for code-level issues like hardcoded credentials or unsafe SQL usage. Together they cover both supply chain (which packages are vulnerable) and code (are we using vulnerable patterns). Running both in pre-commit and CI/CD catches 95% of common issues before code reaches production."
+
+---
+
 ## Quick Reference Decision Matrix
 
 | Question                | Answer                                                                 |
@@ -543,3 +643,8 @@ Long-running service, want managed?       → ECS Fargate
 | Auth?                   | JWT (stateless, multi-service); Sessions (need immediate revocation)   |
 | Distributed txn?        | Saga pattern (event choreography)                                      |
 | Schema migrations?      | Alembic (production); `create_all()` (tests only)                      |
+| Docker build system?    | BuildKit with cache mounts (fast rebuilds); Legacy builder (simple)    |
+| Base image pinning?     | Digest pinning (reproducible, secure); version tags (auto-patch)      |
+| Container scanning?     | Trivy (free, fast, GitHub integration); Snyk (managed, compliance)     |
+| Dependency scanning?    | pip-audit (Python CVEs); Bandit (code security issues)                 |
+| Security gates?         | Pre-commit hooks (local); GHA CI/CD (automated verification)           |

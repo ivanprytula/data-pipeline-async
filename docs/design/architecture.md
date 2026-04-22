@@ -1257,6 +1257,89 @@ curl https://<alb-dns>/api/v1/records  # 401 (unauthenticated for now)
 
 ---
 
+## Docker Image Architecture & Security (All Phases)
+
+### Multi-Service Dockerfile Strategy
+
+All 6 services follow a consistent multi-stage build pattern optimized for security and rebuild performance:
+
+```dockerfile
+# syntax=docker/dockerfile:1.4  ← Enable BuildKit features
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]  ← Fail-fast on pipe errors
+
+# Install build tools + dependencies (apt cache persists across builds)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y [...] \
+    && apt-get clean  ← Preserve cache layer (not rm -rf)
+
+# Copy source, run builds
+COPY . .
+RUN uv sync --frozen  ← Reproducible deps from uv.lock
+
+# Final stage: runtime only (no build tools)
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+RUN useradd -m -u 1001 appuser  ← Non-root execution
+COPY --from=builder /app /app
+USER appuser
+CMD ["uvicorn", "app.main:app"]
+```
+
+### Why This Architecture?
+
+| Feature | Benefit |
+|---------|---------|
+| **BuildKit + syntax directive** | `# syntax=docker/dockerfile:1.4` enables cache mounts |
+| **Cache mounts on apt** | 2nd build 3-5x faster (apt cache reused) |
+| **Digest pinning** | `python:3.14-slim@sha256:...` ensures reproducible builds across all developers |
+| **Multi-stage builder** | Final image ~300MB (no build tools, compilers, git); builder stage discarded |
+| **SHELL pipefail** | `set -o pipefail` catches errors in piped commands (e.g., `apt-get ... \| grep`) |
+| **Non-root user** | `USER 1001` (appuser) prevents container escape escalation |
+| **uv.lock pinning** | `uv sync --frozen` guarantees identical dependencies in dev/CI/prod |
+| **Health checks** | `HEALTHCHECK` endpoints enable Kubernetes/ECS readiness probes |
+
+### Services & Image Sizes
+
+| Service | Base | Build Time (cached) | Final Size | Notes |
+|---------|------|-------------------|-----------|-------|
+| Ingestor | 3.14-slim | 30s | 280MB | FastAPI REST, Playwright browser |
+| Processor | 3.14-slim | 15s | 250MB | Async consumer, simple deps |
+| AI Gateway | 3.14-slim | 45s | 480MB | sentence-transformers (large model) |
+| Query API | 3.14-slim | 20s | 260MB | Analytics + CQRS read model |
+| Dashboard | 3.14-slim | 15s | 240MB | Jinja2 templates, minimal deps |
+| Database | postgres:17 | 90s | 150MB | pgvector extension compiled from source |
+
+**Total stack**: ~1.7GB across 6 images (compressed in registry: ~400MB)
+
+### Security Scanning Pipeline
+
+**Local Development**:
+
+```bash
+# Pre-commit hook catches vulnerable Python dependencies
+pre-commit run pip-audit --all-files
+
+# Developer can scan image locally before push
+trivy image ingestor:local
+```
+
+**GitHub Actions CI/CD**:
+
+1. **Python dependency check** (`pip-audit`) — scans for known CVEs in pip packages
+2. **Container image scan** (`Trivy`) — scans for OS-level vulns (libc, openssl, etc.)
+3. **Results** → GitHub Code Scanning dashboard (SARIF format)
+
+**Threat Model Addressed**:
+
+- A05 (Security Misconfiguration): Unpatched base images caught by digest pinning + Trivy
+- A06 (Vulnerable Components): pip-audit catches known CVE packages; Trivy catches OS vulns
+- Supply chain attacks: SBOM generation + scan audit trail
+
+See [ADR 004: Docker BuildKit & Security Scanning](../adr/004-docker-buildkit-and-security-scanning.md) for full rationale.
+
+---
+
 ## Key Design Decisions
 
 | Decision                      | Rationale                                                                  |

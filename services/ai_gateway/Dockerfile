@@ -1,12 +1,16 @@
-FROM python:3.14-slim
+# syntax=docker/dockerfile:1.4
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR /app
 
 # Dependencies for numpy and sentence-transformers
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     build-essential \
     libopenblas-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 # Install Python packages
 RUN pip install --no-cache-dir \

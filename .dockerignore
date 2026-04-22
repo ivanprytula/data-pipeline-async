@@ -34,3 +34,14 @@ Dockerfile*
 .dockerignore
 # Exclude local volumes
 pg_data/
+
+# Coverage reports
+htmlcov/
+.coverage/
+
+# Generated certificates (HTTPS setup)
+infra/certs/
+*.pem
+
+# Application logs
+logs/

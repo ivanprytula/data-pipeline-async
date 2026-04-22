@@ -1,0 +1,62 @@
+version: 2
+updates:
+  # Python package updates (pip + uv)
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"  # 3 AM UTC
+    target-branch: develop
+    open-pull-requests-limit: 5
+    reviewers:
+      - ivanp
+    assignees:
+      - ivanp
+    labels:
+      - "type/dependency"
+      - "area/python-packages"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: auto
+    versioning-strategy: auto
+
+  # Docker base image updates
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "03:00"  # 3 AM UTC
+    target-branch: develop
+    open-pull-requests-limit: 10
+    reviewers:
+      - ivanp
+    assignees:
+      - ivanp
+    labels:
+      - "type/dependency"
+      - "area/docker-images"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    registries:
+      - registry-type: docker-hub
+        registry-url: registry.hub.docker.com
+      - registry-type: ghcr
+        registry-url: ghcr.io
+    rebase-strategy: auto
+
+# Vulnerability alerts are handled separately by GitHub's Dependabot security tab
+# (no action-based workflow needed; alerts appear in Security tab automatically)

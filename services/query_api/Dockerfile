@@ -1,12 +1,16 @@
+# syntax=docker/dockerfile:1.4
 # Multi-stage build for query-api service
-FROM python:3.14-slim as builder
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa as builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 # Copy pyproject.toml and install Python dependencies via uv
 COPY pyproject.toml uv.lock ./
@@ -14,7 +18,8 @@ RUN pip install -U pip && pip install uv && \
     uv pip install --system -e .
 
 # Production stage
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR /app
 

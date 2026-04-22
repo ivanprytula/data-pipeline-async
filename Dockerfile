@@ -1,12 +1,17 @@
-FROM python:3.14-slim AS builder
+# syntax=docker/dockerfile:1.4
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # uv — fast dependency installer
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Install system dependencies for asyncpg/postgresql
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 WORKDIR /app
 
@@ -18,11 +23,14 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --frozen --no-install-project
 
 # Stage 2: Final image — slim, no build tools, non-root user
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /app
 
 # Install system deps for asyncpq/pgvector + Playwright browser execution
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     libpq5 \
     libnss3 \
     libxss1 \
@@ -41,7 +49,7 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxfixes3 \
     fonts-noto \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 # Copy Python environment from builder
 COPY --from=builder /app/.venv /app/.venv

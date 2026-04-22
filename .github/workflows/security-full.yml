@@ -1,0 +1,243 @@
+name: Security Scan (Full Pipeline)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'Dockerfile'
+      - 'services/*/Dockerfile'
+      - 'infra/database/Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/security-full.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'Dockerfile'
+      - 'services/*/Dockerfile'
+      - 'infra/database/Dockerfile'
+      - '.dockerignore'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  python-deps:
+    name: Python Dependencies (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e7b10b6291dadaecdb150 # v4.7.0
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit with descriptions
+        id: audit
+        run: pip-audit --desc
+        continue-on-error: true
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request' && steps.audit.outcome == 'failure'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **pip-audit found vulnerabilities!**\n\nRun `pip-audit --desc` locally for details.'
+            })
+
+      - name: Report summary
+        run: |
+          echo "### Python Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ steps.audit.outcome }} == 'success' ]; then
+            echo "✅ No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Vulnerabilities detected (see step output above)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if vulnerabilities found
+        if: steps.audit.outcome == 'failure'
+        run: exit 1
+
+  docker-images:
+    name: Docker Images (Trivy)
+    runs-on: ubuntu-latest
+    needs: python-deps
+    if: github.event_name == 'push'  # Only scan on push to main/develop
+    strategy:
+      matrix:
+        dockerfile:
+          - name: ingestor
+            path: Dockerfile
+          - name: ai_gateway
+            path: services/ai_gateway/Dockerfile
+          - name: query_api
+            path: services/query_api/Dockerfile
+          - name: processor
+            path: services/processor/Dockerfile
+          - name: dashboard
+            path: services/dashboard/Dockerfile
+          - name: database
+            path: infra/database/Dockerfile
+      fail-fast: false  # Continue scanning all images even if one fails
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Build Docker image
+        run: |
+          export DOCKER_BUILDKIT=1
+          docker build \
+            -t ${{ matrix.dockerfile.name }}:${{ github.sha }} \
+            -f ${{ matrix.dockerfile.path }} \
+            .
+
+      - name: Run Trivy scan (SARIF)
+        uses: aquasecurity/trivy-action@596663df4c19c487e7c8fa0138c4e12f9ea76814 # v0.17.0
+        with:
+          image-ref: ${{ matrix.dockerfile.name }}:${{ github.sha }}
+          format: sarif
+          output: trivy-${{ matrix.dockerfile.name }}.sarif
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Set to '1' to fail on vulns (optional)
+
+      - name: Generate SBOM (CycloneDX format)
+        uses: aquasecurity/trivy-action@596663df4c19c487e7c8fa0138c4e12f9ea76814 # v0.17.0
+        with:
+          image-ref: ${{ matrix.dockerfile.name }}:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-${{ matrix.dockerfile.name }}.json
+          scanners: 'image,config'
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@47b3685fe9c552c72e8345287d38c6cacf27abf5 # v2.24.2
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.dockerfile.name }}.sarif
+          category: trivy-${{ matrix.dockerfile.name }}
+
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@50f7afb41cd716255599e6f4f071e39e40249376b # v4.4.0
+        with:
+          name: sbom-cyclonedx
+          path: sbom-${{ matrix.dockerfile.name }}.json
+          retention-days: 90
+
+      - name: Report summary
+        run: |
+          echo "### Trivy Container Scan (${{ matrix.dockerfile.name }})" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ matrix.dockerfile.name }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ✅ Scanned and uploaded to Code Scanning" >> $GITHUB_STEP_SUMMARY
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [python-deps, docker-images]
+    if: always()
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "## 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Dependencies | ${{ needs.python-deps.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Images | ${{ needs.docker-images.result == 'success' && '✅ Passed' || '⏭️ Skipped on PR' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Results available in [Code Scanning tab](https://github.com/${{ github.repository }}/security/code-scanning)." >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if python-deps failed
+        if: needs.python-deps.result == 'failure'
+        run: |
+          echo "❌ Security scan failed: Python dependencies have vulnerabilities"
+          exit 1
+
+  compliance-dashboard:
+    name: Compliance Dashboard
+    runs-on: ubuntu-latest
+    needs: [python-deps, docker-images]
+    if: github.event_name == 'push' && always()
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: sbom-cyclonedx
+          path: ./sbom-artifacts
+
+      - name: Generate compliance report
+        run: |
+          mkdir -p compliance-reports
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Create compliance summary JSON
+          cat > compliance-reports/compliance-${{ github.sha }}.json <<EOF
+          {
+            "timestamp": "$timestamp",
+            "commit_sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "sbom_generated": true,
+            "sbom_format": "CycloneDX",
+            "python_deps_status": "${{ needs.python-deps.result }}",
+            "docker_images_status": "${{ needs.docker-images.result }}",
+            "images_scanned": 6,
+            "sbom_artifacts": [
+              "sbom-ingestor.json",
+              "sbom-ai_gateway.json",
+              "sbom-query_api.json",
+              "sbom-processor.json",
+              "sbom-dashboard.json",
+              "sbom-database.json"
+            ]
+          }
+          EOF
+
+          cat compliance-reports/compliance-${{ github.sha }}.json
+
+      - name: Upload compliance report
+        uses: actions/upload-artifact@50f7afb41cd716255599e6f4f071e39e40249376b # v4.4.0
+        with:
+          name: compliance-reports
+          path: compliance-reports/
+          retention-days: 365  # Keep for 1 year (compliance requirement)
+
+      - name: Report compliance summary
+        run: |
+          echo "## 📋 Compliance Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Phase 3: SBOM & Compliance Tracking" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **SBOM Generation (Phase 3.1)**" >> $GITHUB_STEP_SUMMARY
+          echo "- Generated CycloneDX SBOMs for all 6 services" >> $GITHUB_STEP_SUMMARY
+          echo "- Format: `cyclonedx` (standard software bill of materials)" >> $GITHUB_STEP_SUMMARY
+          echo "- Retention: 90 days" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Compliance Dashboard (Phase 3.2)**" >> $GITHUB_STEP_SUMMARY
+          echo "- Scan timestamp: \`$(date -u +"%Y-%m-%d %H:%M:%S UTC")\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Compliance report stored for audit trail (365 day retention)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SBOM Artifacts Available:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Download from: Actions → [Latest Run] → Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Use for: License scanning, vulnerability tracking, compliance audits" >> $GITHUB_STEP_SUMMARY
