@@ -137,3 +137,42 @@ cache_errors_total = Counter(
 Labels:
   operation: "get" | "set" | "invalidate"
 """
+
+
+# ---------------------------------------------------------------------------
+# Scheduled job metrics
+# ---------------------------------------------------------------------------
+
+job_executions_total = Counter(
+    name="pipeline_job_executions_total",
+    documentation="Number of scheduled job executions by outcome.",
+    labelnames=["job_name", "status"],
+)
+"""Incremented on every scheduled job completion.
+
+Labels:
+  job_name: Registered job name (e.g. "api_ingest_hourly")
+  status: "success" | "timeout" | "failed"
+
+Usage::
+
+    from ingestor.metrics import job_executions_total
+    job_executions_total.labels(job_name="api_ingest_hourly", status="success").inc()
+"""
+
+job_duration_seconds = Histogram(
+    name="pipeline_job_duration_seconds",
+    documentation="Wall-clock execution time for scheduled jobs.",
+    labelnames=["job_name"],
+    buckets=[0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
+)
+"""Observe execution duration per scheduled job.
+
+Labels:
+  job_name: Registered job name
+
+Usage::
+
+    from ingestor.metrics import job_duration_seconds
+    job_duration_seconds.labels(job_name="api_ingest_hourly").observe(duration)
+"""

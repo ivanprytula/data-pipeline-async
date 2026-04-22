@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -30,6 +31,8 @@ from ingestor.jobs_registry import register_jobs
 from ingestor.metrics import (  # noqa: F401 — imported to register metrics at startup
     batch_size_histogram,
     enrich_duration_seconds,
+    job_duration_seconds,
+    job_executions_total,
     records_created_total,
     records_upsert_conflicts_total,
 )
@@ -77,7 +80,32 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         # Try to get cid from X-Correlation-ID header; fallback to new UUID
         cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
         set_cid(cid)
+
+        logger.info(
+            "request_start",
+            extra={
+                "cid": cid,
+                "method": request.method,
+                "path": request.url.path,
+                "client_ip": request.client.host if request.client else None,
+            },
+        )
+
+        start = time.perf_counter()
         response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        logger.info(
+            "request_end",
+            extra={
+                "cid": cid,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            },
+        )
+
         response.headers["X-Correlation-ID"] = cid
         return response
 

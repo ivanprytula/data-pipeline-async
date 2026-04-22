@@ -197,3 +197,21 @@ async def test_upsert_conflict_counter_increments_on_idempotent_duplicate(
     assert count_after == count_before + 1, (
         f"Expected conflict counter +1. Before: {count_before}, After: {count_after}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Job execution metrics — registered metric names visible in /metrics
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+async def test_metrics_contains_job_execution_metric_names(
+    client: AsyncClient,
+) -> None:
+    """Job execution metric names are registered and visible in /metrics output."""
+    r = await client.get(_METRICS_URL)
+    body = r.text
+    assert "pipeline_job_executions_total" in body, (
+        "Expected pipeline_job_executions_total in /metrics"
+    )
+    assert "pipeline_job_duration_seconds" in body, (
+        "Expected pipeline_job_duration_seconds in /metrics"
+    )

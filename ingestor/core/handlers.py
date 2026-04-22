@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from ingestor.core.job_types import Job
+from ingestor.metrics import job_duration_seconds, job_executions_total
 
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,9 @@ def wrap_job_handler(
             job_obj._health.success_count += 1
             job_obj._health.last_error = None
 
+            job_executions_total.labels(job_name=job_obj.name, status="success").inc()
+            job_duration_seconds.labels(job_name=job_obj.name).observe(duration)
+
             logger.info(
                 "job_executed_successfully",
                 extra={
@@ -87,6 +91,8 @@ def wrap_job_handler(
             job_obj._health.last_run_at = datetime.now(UTC)
             job_obj._health.failure_count += 1
             job_obj._health.last_error = str(e)
+
+            job_executions_total.labels(job_name=job_obj.name, status="timeout").inc()
 
             logger.error(
                 "job_execution_timeout",
@@ -111,6 +117,8 @@ def wrap_job_handler(
             job_obj._health.last_run_at = datetime.now(UTC)
             job_obj._health.failure_count += 1
             job_obj._health.last_error = str(e)
+
+            job_executions_total.labels(job_name=job_obj.name, status="failed").inc()
 
             logger.error(
                 "job_execution_failed",

@@ -213,3 +213,68 @@ class TestErrorResponses:
         assert r.status_code == 422
         body = r.json()
         assert "detail" in body
+
+
+# ---------------------------------------------------------------------------
+# Request Lifecycle Logging
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+class TestRequestLifecycleLogging:
+    """Verify request_start / request_end log entries are emitted with correct fields."""
+
+    async def test_request_lifecycle_logs_emitted(self, client: AsyncClient) -> None:
+        """GET /readyz emits request_start and request_end log entries."""
+        from unittest.mock import patch
+
+        with patch("ingestor.main.logger") as mock_logger:
+            await client.get("/readyz")
+
+        call_args = [c[0][0] for c in mock_logger.info.call_args_list]
+        assert "request_start" in call_args, f"Missing request_start. Got: {call_args}"
+        assert "request_end" in call_args, f"Missing request_end. Got: {call_args}"
+
+    async def test_request_end_has_duration_ms(self, client: AsyncClient) -> None:
+        """request_end log entry includes duration_ms field in extra."""
+        from unittest.mock import patch
+
+        with patch("ingestor.main.logger") as mock_logger:
+            await client.get("/readyz")
+
+        end_calls = [
+            c for c in mock_logger.info.call_args_list if c[0][0] == "request_end"
+        ]
+        assert end_calls, "No request_end log call found"
+        extra = end_calls[0][1].get("extra", {})
+        assert "duration_ms" in extra, f"request_end missing duration_ms. extra={extra}"
+        assert isinstance(extra["duration_ms"], float)
+        assert extra["duration_ms"] >= 0
+
+    async def test_request_end_has_status_code(self, client: AsyncClient) -> None:
+        """request_end log entry includes status_code field in extra."""
+        from unittest.mock import patch
+
+        with patch("ingestor.main.logger") as mock_logger:
+            r = await client.get("/readyz")
+
+        end_calls = [
+            c for c in mock_logger.info.call_args_list if c[0][0] == "request_end"
+        ]
+        assert end_calls
+        extra = end_calls[0][1].get("extra", {})
+        assert "status_code" in extra
+        assert extra["status_code"] == r.status_code
+
+    async def test_request_start_has_method_and_path(self, client: AsyncClient) -> None:
+        """request_start log entry includes method and path in extra."""
+        from unittest.mock import patch
+
+        with patch("ingestor.main.logger") as mock_logger:
+            await client.get("/readyz")
+
+        start_calls = [
+            c for c in mock_logger.info.call_args_list if c[0][0] == "request_start"
+        ]
+        assert start_calls
+        extra = start_calls[0][1].get("extra", {})
+        assert extra.get("method") == "GET"
+        assert extra.get("path") == "/readyz"
