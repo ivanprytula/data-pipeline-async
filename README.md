@@ -1,104 +1,158 @@
-# Data Zoo — Backend Platform (8 Phases)
+# Data Zoo — Backend Platform
 
-Async FastAPI + SQLAlchemy 2.0 data pipeline. An 8-phase learning program covering
-event streaming, scraping, CI/CD, AI/vectors, testing, database optimization, security,
-and infrastructure as code.
+Production-grade async data pipeline in Python. Learn scalable backend patterns through a real codebase: event streaming, scraping, AI, resilience, observability, and cloud deployment.
+
+**8-phase learning program**: Build a complete system from REST API to Kubernetes deployment, covering every layer of a production backend.
+
+## For Recruiters and Technical Interviewers
+
+If you have 10 minutes, use this evaluation path:
+
+1. [CV](CV.md): Candidate scope, impact stories, role level.
+2. [Architecture Overview](docs/04-architecture-overview.md): System thinking, design depth, trade-offs.
+3. [Backend Concepts and Patterns](docs/09-backend-concepts-and-patterns.md): Technical reasoning quality.
+4. [Interview Prep](docs/10-interview-prep-middle-plus.md): Communication clarity under interview-style questions.
+
+### What This Repository Demonstrates
+
+- Real backend production patterns: async I/O, resilience, idempotency, CQRS, observability.
+- Measurable engineering outcomes: reliability improvements, latency optimization, throughput-oriented design.
+- Engineering maturity: tests, CI/CD, documentation quality, and explicit design decisions (ADRs).
+- Practical scope fit: strong middle/middle+ backend profile with realistic boundaries around platform depth.
+
+### Evidence Map
+
+| Capability | Evidence |
+|-----------|----------|
+| System design and architecture | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/design/decisions.md](docs/design/decisions.md) |
+| Database and performance reasoning | [docs/09-backend-concepts-and-patterns.md](docs/09-backend-concepts-and-patterns.md), [docs/progress/phase-5-advanced-sql-cqrs.md](docs/progress/phase-5-advanced-sql-cqrs.md) |
+| Reliability and resilience | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md) |
+| Communication quality | [CV.md](CV.md), [docs/10-interview-prep-middle-plus.md](docs/10-interview-prep-middle-plus.md) |
+| Delivery workflow quality | [docs/dev/commands.md](docs/dev/commands.md), [docs/cloud-deployment.md](docs/cloud-deployment.md), [docs/adr/README.md](docs/adr/README.md) |
 
 ---
 
-# Quick Start
-
-**First-time setup:**
+## Quick Start (One Command)
 
 ```bash
-# 1. Install system packages (PostgreSQL, MongoDB, Docker, mkcert, etc.)
-# See docs/setup/system-requirements.md for your platform
-
-# 2. Generate HTTPS certificates (one-time)
-bash scripts/setup-https.sh
-
-# 3. Start services and run app
-cp .env.example .env          # configure local values
-uv sync --frozen              # install Python dependencies (use --frozen for reproducible installs)
-docker compose up -d          # start all services (with HTTPS on :443)
-uv run alembic upgrade head   # apply migrations
-
-# 4. Access the app
-open https://localhost              # Dashboard + all services via nginx
-open https://localhost/api/docs     # API documentation
+bash scripts/quick-setup.sh
 ```
 
-Recent updates
---------------
-- CI workflows were split into [`.github/workflows/ci-unit.yml`](.github/workflows/ci-unit.yml) and [`.github/workflows/ci-integration.yml`](.github/workflows/ci-integration.yml) to separate fast unit runs from longer integration/e2e jobs; CI installs `uv` pinned to `0.11.7` and runs `uv sync --frozen` for reproducible installs and cache keys keyed by `uv.lock`.
-- Quick Start now recommends `uv sync --frozen` to match CI; if you don't have `uv` installed run `python -m pip install --upgrade pip && python -m pip install uv==0.11.7` first.
+This automatically:
 
-📖 **Documentation:**
+- Installs `uv` (Python package manager)
+- Syncs Python dependencies
+- Generates local HTTPS certificates
+- Starts all services (PostgreSQL, Redis, Kafka, etc.)
+- Creates database schema
 
-- [System Requirements](docs/setup/system-requirements.md) — Required packages (PostgreSQL, MongoDB, Docker, etc.)
-- [Environment Setup](docs/setup/environment-setup.md) — Local `.env` config, Docker services
-- [Daily Dev Commands](docs/dev/commands.md) — All dev, test, migration, and backup commands
-- [CI workflows — unit](.github/workflows/ci-unit.yml) & [integration/e2e](.github/workflows/ci-integration.yml) — split unit vs integration/e2e with caching
+Then access:
+
+- **API**: `https://localhost/api/docs` (Swagger UI)
+- **Metrics**: `http://localhost:9090` (Prometheus)
+- **Tracing**: `http://localhost:16686` (Jaeger)
+
+---
+
+## Documentation
+
+📖 **Quick Navigation** (numbered for clarity):
+
+### Table of Contents
+
+- [Data Zoo — Backend Platform](#data-zoo--backend-platform)
+  - [For Recruiters and Technical Interviewers](#for-recruiters-and-technical-interviewers)
+    - [What This Repository Demonstrates](#what-this-repository-demonstrates)
+    - [Evidence Map](#evidence-map)
+  - [Quick Start (One Command)](#quick-start-one-command)
+  - [Documentation](#documentation)
+    - [Table of Contents](#table-of-contents)
+    - [Core Learning Path (for developers)](#core-learning-path-for-developers)
+    - [Job Search \& Career Path](#job-search--career-path)
+    - [Additional Reference Docs](#additional-reference-docs)
+  - [Tech Stack](#tech-stack)
+  - [8-Phase Roadmap](#8-phase-roadmap)
+  - [Project Layout](#project-layout)
+    - [Architecture Records](#architecture-records)
+    - [Pillars, Portfolio \& Weekly Progress](#pillars-portfolio--weekly-progress)
+
+### Core Learning Path (for developers)
+
+| Doc                                                                              | Purpose                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **[00 — Project Overview](docs/00-project-overview.md)**                         | What this project is, how to navigate            |
+| **[01 — System Setup](docs/01-system-setup.md)**                                 | Install system packages (5–10 min)               |
+| **[02 — First-Time Setup](docs/02-first-time-setup.md)**                         | Initialize project locally                       |
+| **[03 — Daily Development](docs/03-daily-development.md)**                       | Common workflows & commands                      |
+| **[04 — Architecture](docs/04-architecture-overview.md)**                        | System design & components                       |
+| **[09 — Backend Concepts & Patterns](docs/09-backend-concepts-and-patterns.md)** | Theory/mental models for strong middle engineers |
+
+### Job Search & Career Path
+
+| Doc                                                              | Purpose                                            |
+| ---------------------------------------------------------------- | -------------------------------------------------- |
+| **[CV.md](CV.md)**                                               | Recruiter-focused narrative + Data Zoo positioning |
+| **[10 — Interview Prep](docs/10-interview-prep-middle-plus.md)** | Practical Q&A for middle/middle+ roles             |
+
+### Additional Reference Docs
+
+| Doc                                                             | Purpose                                          |
+| --------------------------------------------------------------- | ------------------------------------------------ |
+| **[Dev Commands](docs/dev/commands.md)**                        | Day-to-day command reference                     |
+| **[Cloud Deployment](docs/cloud-deployment.md)**                | Deployment architecture and operational guidance |
+| **[Design Decisions](docs/design/decisions.md)**                | Architectural decisions and trade-offs           |
+| **[Knowledge Base](docs/design/be-learning-knowledge-base.md)** | Backend learning patterns and references         |
+| **[ADR Index](docs/adr/README.md)**                             | Architecture Decision Records index              |
 
 ---
 
 ## Tech Stack
 
-| Layer     | Choice                                                 |
-| --------- | ------------------------------------------------------ |
-| API       | FastAPI + Pydantic v2                                  |
-| ORM       | SQLAlchemy 2.0 async (`AsyncSession`, `mapped_column`) |
-| DB        | PostgreSQL 17 + Alembic migrations                     |
-| Cache     | Redis (fail-open; `fakeredis` in tests)                |
-| Streaming | Redpanda (Kafka-compatible) + aiokafka                 |
-| Testing   | pytest + aiosqlite (no Postgres required in CI)        |
-| Linting   | Ruff + ty type checker                                 |
+| Layer               | Technology                                |
+| ------------------- | ----------------------------------------- |
+| **API**             | FastAPI + Pydantic v2                     |
+| **Database**        | PostgreSQL 17 + SQLAlchemy 2.0 (async)    |
+| **Cache**           | Redis                                     |
+| **Streaming**       | Redpanda (Kafka)                          |
+| **Background Jobs** | APScheduler + in-process workers          |
+| **Observability**   | Prometheus + OpenTelemetry + JSON logging |
+| **Testing**         | pytest + aiosqlite                        |
+| **CI/CD**           | GitHub Actions                            |
+| **IaC**             | Terraform (AWS)                           |
 
 ---
 
-## 8-Phase Overview
+## 8-Phase Roadmap
 
-| Phase | Focus                | Core Interview Q                              | Status    |
-| ----- | -------------------- | --------------------------------------------- | --------- |
-| **1** | Event Streaming      | Design real-time ETL for 1000+ events/sec     | ✅ Done   |
-| **2** | Data Scraping        | Design scraper for 100K URLs without ban      | ✅ Done   |
-| **3** | AI + Vector DB       | Design semantic search over 100K docs         | ✅ Done   |
-| **4** | Resilience Patterns  | Design circuit breaker + DLQ for failures     | ✅ Done   |
-| **5** | CQRS + Analytics     | Design read-optimized DB for 10M queries/day  | 🚀 Active |
-| **6** | Dashboard            | Design server-rendered dashboard with SSE     | ⏹️ Queued |
-| **7** | Cloud IaC            | Design multi-env Terraform (dev/staging/prod) | ✅ Done   |
-| **8** | Production Hardening | Design backup/chaos/observability strategy    | ⏹️ Queued |
+| Phase | Focus           | Status | Interview Q                           |
+| ----- | --------------- | ------ | ------------------------------------- |
+| **1** | Event Streaming | ✅      | Real-time ETL for 1000+ events/sec    |
+| **2** | Data Scraping   | ✅      | Scraper for 100K URLs without ban     |
+| **3** | AI + Vectors    | ✅      | Semantic search over 100K docs        |
+| **4** | Resilience      | ✅      | Circuit breaker + DLQ                 |
+| **5** | CQRS            | 🚀      | Read-optimized DB for 10M queries/day |
+| **6** | Dashboard       | ⏹️      | Server-rendered SSE dashboard         |
+| **7** | Cloud IaC       | ✅      | Multi-env Terraform                   |
+| **8** | Hardening       | ⏹️      | Backup/chaos/observability            |
 
 ---
 
-## Docs
+## Project Layout
 
-### Setup & Tech Stack
+```
+ingestor/              # Main application
+docs/                  # Documentation (canonical docs + references)
+scripts/               # Automation & workflows
+tests/                 # Test suite (unit + integration)
+infra/                 # Infrastructure-as-Code (Terraform)
+docker-compose.yml     # Local dev services
+pyproject.toml         # Python dependencies
+```
 
-| File                                                                     | Purpose                                                                     |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| [docs/setup/system-requirements.md](docs/setup/system-requirements.md)   | Required system packages (PostgreSQL, MongoDB, Docker, chaos testing tools) |
-| [docs/setup/local-https-setup.md](docs/setup/local-https-setup.md)       | Enable HTTPS locally with mkcert (production-like from the start)           |
-| [docs/setup/environment-setup.md](docs/setup/environment-setup.md)       | Local setup, `.env` config, Docker services                                 |
-| [docs/setup/pgvector-setup-guide.md](docs/setup/pgvector-setup-guide.md) | pgvector extension setup                                                    |
-| [docs/setup/references.md](docs/setup/references.md)                     | External docs and learning resources                                        |
+### Architecture Records
 
-### Daily Dev
-
-| File                                         | Purpose                                         |
-| -------------------------------------------- | ----------------------------------------------- |
-| [docs/dev/commands.md](docs/dev/commands.md) | All dev, test, migration and load-test commands |
-| [docs/dev/gotchas.md](docs/dev/gotchas.md)   | Known pitfalls and non-obvious behaviours       |
-
-### System Design & Architecture
-
-| File                                                                                   | Purpose                                                                |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [docs/cloud-deployment.md](docs/cloud-deployment.md)                                   | Phase 7: AWS Fargate deployment, Terraform setup, secrets management   |
-| [docs/design/architecture.md](docs/design/architecture.md)                             | System overview and component diagram (Phases 0–7)                     |
-| [docs/design/decisions.md](docs/design/decisions.md)                                   | Key design decisions with rationale (infrastructure, databases, CI/CD) |
-| [docs/design/be-learning-knowledge-base.md](docs/design/be-learning-knowledge-base.md) | Backend patterns knowledge base                                        |
-| [docs/design/adr/](docs/design/adr/)                                                   | Architecture Decision Records (ADR 001–003)                            |
+- [ADR Index](docs/adr/README.md)
+- [Legacy ADR Folder](docs/design/adr/)
 
 ### Pillars, Portfolio & Weekly Progress
 
