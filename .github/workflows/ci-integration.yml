@@ -84,13 +84,13 @@ jobs:
           set -euo pipefail
           case "$TEST_TYPE" in
             integration)
-              pytest -q -m "integration"
+              uv run pytest -q -m "integration"
               ;;
             e2e)
-              pytest -q -m "e2e"
+              uv run pytest -q -m "e2e"
               ;;
             *)
-              pytest -q
+              uv run pytest -q
               ;;
           esac
 

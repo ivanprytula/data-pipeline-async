@@ -55,7 +55,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pytest-
 
       - name: Run unit tests
-        run: pytest -q -m "unit"
+        run: uv run pytest -q -m "unit"
 
       - name: Upload coverage
         if: always()

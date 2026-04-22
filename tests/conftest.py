@@ -558,23 +558,25 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
         pool_pre_ping=True,  # Validate connections before use
     )
 
+    # Create session (expires_on_commit=False required for async)
+    # Define before try block to avoid "unbound variable" in finally
+    SessionLocal = async_sessionmaker(
+        isolated_engine,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+
     # Create session against the already-migrated test database schema.
     try:
         async with isolated_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-        # Create session (expires_on_commit=False required for async)
-        SessionLocal = async_sessionmaker(
-            isolated_engine,
-            expire_on_commit=False,
-            autoflush=False,
-        )
+        async with SessionLocal() as cleanup_session:
+            await _clear_records(cleanup_session)
 
         async with SessionLocal() as session:
             # Store sessionmaker on the session for use by client_isolated
             session._sessionmaker = SessionLocal  # type: ignore[attr-defined]
-            async with SessionLocal() as cleanup_session:
-                await _clear_records(cleanup_session)
             yield session
     finally:
         # Cleanup data only. The migrated schema is shared across tests and
