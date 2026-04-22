@@ -1,25 +1,29 @@
 name: Security Scan (Full Pipeline)
 
-on:
+'on':
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
     paths:
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - 'Dockerfile'
-      - 'services/*/Dockerfile'
-      - 'infra/database/Dockerfile'
-      - '.dockerignore'
-      - '.github/workflows/security-full.yml'
+      - pyproject.toml
+      - uv.lock
+      - Dockerfile
+      - services/*/Dockerfile
+      - infra/database/Dockerfile
+      - .dockerignore
+      - .github/workflows/security-full.yml
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
     paths:
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - 'Dockerfile'
-      - 'services/*/Dockerfile'
-      - 'infra/database/Dockerfile'
-      - '.dockerignore'
+      - pyproject.toml
+      - uv.lock
+      - Dockerfile
+      - services/*/Dockerfile
+      - infra/database/Dockerfile
+      - .dockerignore
 
 permissions:
   contents: read
@@ -34,38 +38,84 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@f677139bbe7f9c59b41e7b10b6291dadaecdb150 # v4.7.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.14"
+          python-version: '3.14'
           cache: pip
 
-      - name: Install pip-audit
-        run: pip install pip-audit
+      - name: Install audit tools
+        run: python -m pip install --upgrade pip pip-audit uv
+
+      - name: Export locked dependencies for audit
+        run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt
 
       - name: Run pip-audit with descriptions
         id: audit
-        run: pip-audit --desc
+        run: |
+          set -o pipefail
+          python -m pip_audit -r requirements-audit.txt --desc --format=json | tee pip-audit-report.json
         continue-on-error: true
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: 30
 
       - name: Comment on PR with results
         if: github.event_name == 'pull_request' && steps.audit.outcome == 'failure'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
+            const fs = require('fs');
+            const findings = JSON.parse(fs.readFileSync('pip-audit-report.json', 'utf8'));
+            const vulnerableDeps = findings.dependencies
+              .filter(dep => Array.isArray(dep.vulns) && dep.vulns.length > 0)
+              .map(dep => {
+                const vulns = dep.vulns
+                  .map(vuln => `${vuln.id}${vuln.fix_versions?.length ? ` → fix: ${vuln.fix_versions.join(', ')}` : ''}`)
+                  .join('; ');
+                return `- ${dep.name} ${dep.version}: ${vulns}`;
+              })
+              .join('\n');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ **pip-audit found vulnerabilities!**\n\nRun `pip-audit --desc` locally for details.'
+              body: `⚠️ **pip-audit found vulnerabilities**\n\n${vulnerableDeps || 'See uploaded artifact for details.'}`
             })
+
+      - name: Report pip-audit findings in summary
+        if: always()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const findings = JSON.parse(fs.readFileSync('pip-audit-report.json', 'utf8'));
+            const vulnerableDeps = findings.dependencies.filter(dep => Array.isArray(dep.vulns) && dep.vulns.length > 0);
+            const lines = ['### Python Dependency Security Scan'];
+            if (vulnerableDeps.length === 0) {
+              lines.push('', '✅ No vulnerabilities found');
+            } else {
+              lines.push('', '❌ Vulnerabilities detected:', '');
+              for (const dep of vulnerableDeps) {
+                const vulnText = dep.vulns
+                  .map(vuln => `- ${vuln.id}${vuln.fix_versions?.length ? ` (fix: ${vuln.fix_versions.join(', ')})` : ''}`)
+                  .join('\n');
+                lines.push(`- ${dep.name} ${dep.version}`, vulnText);
+              }
+              lines.push('', 'Artifact: `pip-audit-report`');
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 
       - name: Report summary
         run: |
-          echo "### Python Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
-          if [ ${{ steps.audit.outcome }} == 'success' ]; then
-            echo "✅ No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ steps.audit.outcome }} = 'success' ]; then
+            echo "pip-audit completed without findings"
           else
-            echo "❌ Vulnerabilities detected (see step output above)" >> $GITHUB_STEP_SUMMARY
+            echo "pip-audit found vulnerabilities; see step summary and artifact"
           fi
 
       - name: Fail if vulnerabilities found
@@ -76,7 +126,7 @@ jobs:
     name: Docker Images (Trivy)
     runs-on: ubuntu-latest
     needs: python-deps
-    if: github.event_name == 'push'  # Only scan on push to main/develop
+    if: github.event_name == 'push' # Only scan on push to main/develop
     strategy:
       matrix:
         dockerfile:
@@ -92,7 +142,7 @@ jobs:
             path: services/dashboard/Dockerfile
           - name: database
             path: infra/database/Dockerfile
-      fail-fast: false  # Continue scanning all images even if one fails
+      fail-fast: false # Continue scanning all images even if one fails
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -111,8 +161,8 @@ jobs:
           image-ref: ${{ matrix.dockerfile.name }}:${{ github.sha }}
           format: sarif
           output: trivy-${{ matrix.dockerfile.name }}.sarif
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Set to '1' to fail on vulns (optional)
+          severity: CRITICAL,HIGH
+          exit-code: '0' # Set to '1' to fail on vulns (optional)
 
       - name: Generate SBOM (CycloneDX format)
         uses: aquasecurity/trivy-action@596663df4c19c487e7c8fa0138c4e12f9ea76814 # v0.17.0
@@ -120,7 +170,7 @@ jobs:
           image-ref: ${{ matrix.dockerfile.name }}:${{ github.sha }}
           format: cyclonedx
           output: sbom-${{ matrix.dockerfile.name }}.json
-          scanners: 'image,config'
+          scanners: image,config
 
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@47b3685fe9c552c72e8345287d38c6cacf27abf5 # v2.24.2
@@ -131,7 +181,7 @@ jobs:
 
       - name: Upload SBOM artifact
         if: always()
-        uses: actions/upload-artifact@50f7afb41cd716255599e6f4f071e39e40249376b # v4.4.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom-cyclonedx
           path: sbom-${{ matrix.dockerfile.name }}.json
@@ -146,7 +196,9 @@ jobs:
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [python-deps, docker-images]
+    needs:
+      - python-deps
+      - docker-images
     if: always()
     steps:
       - name: Generate security summary
@@ -169,7 +221,9 @@ jobs:
   compliance-dashboard:
     name: Compliance Dashboard
     runs-on: ubuntu-latest
-    needs: [python-deps, docker-images]
+    needs:
+      - python-deps
+      - docker-images
     if: github.event_name == 'push' && always()
     permissions:
       contents: read
@@ -215,11 +269,11 @@ jobs:
           cat compliance-reports/compliance-${{ github.sha }}.json
 
       - name: Upload compliance report
-        uses: actions/upload-artifact@50f7afb41cd716255599e6f4f071e39e40249376b # v4.4.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: compliance-reports
           path: compliance-reports/
-          retention-days: 365  # Keep for 1 year (compliance requirement)
+          retention-days: 365 # Keep for 1 year (compliance requirement)
 
       - name: Report compliance summary
         run: |

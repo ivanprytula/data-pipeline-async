@@ -53,10 +53,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.5",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.25.3",
     "pytest-cov>=6.1.0",
     "pytest-postgresql>=6.1.0",  # PostgreSQL fixtures for EXPLAIN ANALYZE tests
+    "pygments>=2.20.0",
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
     "fakeredis[aioredis]>=2.22.0",  # in-memory redis for tests
