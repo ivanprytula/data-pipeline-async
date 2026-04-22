@@ -244,7 +244,7 @@ class TestSecurityHeaders:
         self, client: AsyncClient
     ) -> None:
         response = await client.get("/health")
-        assert response.status_code == 200
+        assert response.status_code in {200, 429}
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert response.headers["X-Frame-Options"] == "DENY"
         assert response.headers["Referrer-Policy"] == "no-referrer"

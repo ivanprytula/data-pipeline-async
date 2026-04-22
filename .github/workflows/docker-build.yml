@@ -1,9 +1,8 @@
-name: Docker Build & Push
+name: Docker Build
 
 # Triggers:
-#   push to main     → build + push → tagged 'latest'  (future: deploy to prod)
-#   push to develop  → build + push → tagged 'develop' (future: deploy to dev)
-#   PR to main/develop → build only (validates Dockerfile, no ECR push)
+#   push to main/develop → build only (ECR push disabled until CD is enabled)
+#   PR to main/develop   → build only (validates Dockerfile)
 on:
   push:
     branches: [main, develop]
@@ -25,11 +24,10 @@ jobs:
   # To add a new service: duplicate this job, change ECR_REPOSITORY and the
   # docker build context/Dockerfile path.
   ingestor:
-    name: Ingestor — build${{ github.event_name == 'push' && ' & push' || '' }}
+    name: Ingestor — build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # Required for OIDC-based AWS auth
 
     env:
       ECR_REPOSITORY: data-zoo/ingestor
@@ -54,20 +52,6 @@ jobs:
       # ── AWS Auth via OIDC (push events only) ──────────────────────────────
       # No long-lived access keys. Uses the IAM role created in modules/iam/.
       # On PRs: this step is skipped — only the build step below runs.
-      - name: Configure AWS credentials (OIDC)
-        if: github.event_name == 'push'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          # Session tagged with branch + SHA for CloudTrail auditability
-          role-session-name: github-actions-${{ steps.tags.outputs.env_tag }}-${{ steps.tags.outputs.short_sha }}
-
-      - name: Login to Amazon ECR
-        if: github.event_name == 'push'
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       # ── Docker Build ───────────────────────────────────────────────────────
       - name: Build image
         run: |
@@ -79,19 +63,15 @@ jobs:
             --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             .
 
-      # ── Push to ECR (push events only, not PRs) ────────────────────────────
-      - name: Push to ECR
-        if: github.event_name == 'push'
-        run: |
-          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}"
-          docker push "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}"
-
       - name: Image summary
-        if: github.event_name == 'push'
         run: |
-          echo "### Pushed images" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Built images" >> "$GITHUB_STEP_SUMMARY"
           echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ECR push disabled notice
+        run: |
+          echo "ECR push and CD steps are intentionally disabled until AWS infrastructure and OIDC credentials are enabled." >> "$GITHUB_STEP_SUMMARY"
 
       # ══════════════════════════════════════════════════════════════════════════
       # CD STEPS — Uncomment when Terraform has been applied and ECS is live.

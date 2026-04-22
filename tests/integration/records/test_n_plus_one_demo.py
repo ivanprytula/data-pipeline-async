@@ -262,11 +262,10 @@ class TestNPlusOneEndpoint:
         assert response.status_code == 200
         data = response.json()
 
-        # The naive approach should be at least as slow or slower
-        # (Due to database overhead and query caching, they may be similar with small data)
-        assert data["naive_ms"] >= data["optimized_ms"] * 0.9
-        # Speedup should be >= 1.0 (or very close if very fast)
-        assert data["speedup"] >= 0.9
+        # CI timing is noisy, especially for very small datasets. Keep this as a
+        # weak regression check: the naive path should not be materially faster.
+        assert data["naive_ms"] >= data["optimized_ms"] * 0.7
+        assert data["speedup"] >= 0.7
 
     async def test_endpoint_empty_database(self, client: AsyncClient) -> None:
         """Endpoint handles empty database gracefully."""

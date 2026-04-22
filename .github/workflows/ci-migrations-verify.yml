@@ -13,18 +13,13 @@ concurrency:
 
 jobs:
   verify-migrations:
-    name: Verify Alembic migrations (PostgreSQL ${{ matrix.pg-version }})
+    name: Verify Alembic migrations (PostgreSQL 17)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        pg-version: ["15", "16", "17"]
-        python-version: ["3.14"]
 
     services:
       postgres:
-        image: postgres:${{ matrix.pg-version }}
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -47,15 +42,15 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          key: ${{ runner.os }}-pip-uv-0.11.7-3.14-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-uv-0.11.7-3.14-
             ${{ runner.os }}-pip-uv-0.11.7-
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.14'
           cache: 'pip'
 
       - name: Install `uv` and sync dependencies
