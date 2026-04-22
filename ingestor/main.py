@@ -17,15 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 
-from ingestor import cache, events
 from ingestor.auth import verify_docs_credentials
 from ingestor.config import settings
 from ingestor.constants import HEALTH_RATE_LIMIT
 from ingestor.core.logging import set_cid, setup_logging
+from ingestor.core.scheduler import JobScheduler
 from ingestor.core.tracing import setup_tracing
 from ingestor.database import engine, get_db
 from ingestor.fetch import close_http_client
 from ingestor.fetch_aiohttp import close_http_session
+from ingestor.jobs_registry import register_jobs
 from ingestor.metrics import (  # noqa: F401 — imported to register metrics at startup
     batch_size_histogram,
     enrich_duration_seconds,
@@ -33,8 +34,17 @@ from ingestor.metrics import (  # noqa: F401 — imported to register metrics at
     records_upsert_conflicts_total,
 )
 from ingestor.rate_limiting import limiter
-from ingestor.routers import analytics, records, records_v2, scraper
-from ingestor.storage import mongo
+from ingestor.routers import (
+    analytics,
+    health_ingestion_jobs,
+    records,
+    records_v2,
+    scraper,
+)
+from ingestor.services_lifecycle import (
+    cleanup_external_services,
+    initialize_external_services,
+)
 
 
 # Type alias for database dependency
@@ -75,12 +85,30 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 # Lifespan: startup and shutdown events (e.g. for resource management)
 # ---------------------------------------------------------------------------
+# Global scheduler instance (initialized in lifespan startup)
+_scheduler: JobScheduler | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Replaces the deprecated `@app.on_event("startup")` pattern.
-    Everything before `yield` is startup; after `yield` is shutdown.
+    """FastAPI lifespan context manager.
+
+    Encapsulates startup and shutdown logic:
+    1. Initialize distributed tracing (OTel) first
+    2. Initialize external services (Redis, Kafka, MongoDB) — fail-open
+    3. Initialize and start job scheduler
+    4. Yield to run application
+    5. Shutdown in reverse order: scheduler, external services, HTTP clients, DB
+
+    All external service failures are non-fatal and logged as warnings.
     """
-    # Startup: init OTel tracing first (trace_id available for all logs)
+    global _scheduler
+
+    # ========================================================================
+    # STARTUP
+    # ========================================================================
+
+    # Init distributed tracing first (trace_id available for all subsequent logs)
     if settings.otel_enabled:
         setup_tracing(
             app,
@@ -90,51 +118,57 @@ async def lifespan(app: FastAPI):
 
     logger.info("startup", extra={"event": "application_started"})
 
-    # Startup: connect Redis if enabled
-    if settings.redis_enabled:
-        try:
-            await cache.connect_cache(settings.redis_url)
-        except Exception as e:
-            logger.warning(
-                "redis_startup_failed",
-                extra={"error": str(e)},
-            )
-            # Non-fatal: cache is optional, app continues without it
+    # Initialize external services (Redis, Kafka, MongoDB)
+    await initialize_external_services()
 
-    # Startup: connect Kafka producer if enabled
-    if settings.kafka_enabled:
-        try:
-            await events.connect_producer(settings.kafka_broker_url)
-        except Exception as e:
-            logger.warning(
-                "kafka_startup_failed",
-                extra={"error": str(e)},
-            )
-            # Non-fatal: events are fail-open, app continues without broker
+    # Initialize job scheduler and register all jobs
+    _scheduler = JobScheduler()
+    register_jobs(_scheduler)
 
-    # Startup: connect MongoDB if enabled
-    if settings.mongo_enabled:
-        try:
-            await mongo.connect_mongo(settings.mongo_url, settings.mongo_db_name)
-        except Exception as e:
-            logger.warning(
-                "mongo_startup_failed",
-                extra={"error": str(e)},
-            )
-            # Non-fatal: scraper routes degrade gracefully without MongoDB
+    # Start scheduler (only if there are enabled jobs)
+    try:
+        await _scheduler.start(get_db)
+        # Inject scheduler into health router for health check endpoints
+        from ingestor.routers import health_ingestion_jobs as health_router
+
+        health_router.set_scheduler(_scheduler)
+        logger.info(
+            "scheduler_started",
+            extra={"job_count": len(_scheduler._jobs)},
+        )
+    except Exception as e:
+        logger.warning(
+            "scheduler_startup_failed",
+            extra={"error": str(e)},
+        )
+        # Non-fatal: app continues without scheduled jobs
 
     yield
 
-    # Shutdown: cleanup resources (cleanup order: app-level clients first, then Redis, then engine)
-    await close_http_client()  # httpx client cleanup
-    await close_http_session()  # aiohttp session cleanup
-    await (
-        events.disconnect_producer()
-    )  # Kafka producer cleanup (safe even if not connected)
-    await cache.disconnect_cache()  # Redis cleanup (safe even if not connected)
-    await mongo.disconnect_mongo()  # MongoDB cleanup (safe even if not connected)
-    await engine.dispose()  # Database connections cleanup
-    logger.info("shutdown", extra={"event": "engine_disposed"})
+    # ========================================================================
+    # SHUTDOWN
+    # ========================================================================
+
+    # Stop scheduler first (cancel any running jobs)
+    if _scheduler:
+        try:
+            await _scheduler.stop()
+        except Exception as e:
+            logger.warning(
+                "scheduler_shutdown_error",
+                extra={"error": str(e)},
+            )
+
+    # Cleanup external services (Redis, Kafka, MongoDB)
+    await cleanup_external_services()
+
+    # Cleanup HTTP clients
+    await close_http_client()  # httpx client
+    await close_http_session()  # aiohttp session
+
+    # Cleanup database connections
+    await engine.dispose()
+    logger.info("shutdown", extra={"event": "application_shutdown_complete"})
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +273,9 @@ app.include_router(records.router)
 app.include_router(records_v2.router)
 app.include_router(scraper.router)
 app.include_router(analytics.router)
+
+
+app.include_router(health_ingestion_jobs.router)
 
 
 # ---------------------------------------------------------------------------

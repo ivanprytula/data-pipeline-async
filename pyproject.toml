@@ -36,6 +36,8 @@ dependencies = [
     "motor>=3.3",
     "playwright>=1.40",
     "beautifulsoup4>=4.12",
+    # Job scheduling (Phase 1) — lightweight, migrable to Celery/arq
+    "apscheduler>=3.10,<4.0",
     # AI Gateway (Phase 3) — embeddings & vector search
     "sentence-transformers>=2.2.2",  # SentenceTransformer for embeddings
     "qdrant-client>=1.12.0",  # Qdrant vector database client

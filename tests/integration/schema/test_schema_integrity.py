@@ -350,7 +350,7 @@ class TestPartitionedTables:
                 WHERE parent.relname = 'records_archive'
             """)
         )
-        partition_count = result.scalar()
+        partition_count = result.scalar() or 0
         assert partition_count > 0, (
             f"No partitions found for records_archive (count: {partition_count})"
         )
