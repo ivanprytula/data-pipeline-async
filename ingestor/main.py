@@ -21,6 +21,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 from ingestor.auth import verify_docs_credentials
 from ingestor.config import settings
 from ingestor.constants import HEALTH_RATE_LIMIT
+from ingestor.core.background_workers import BackgroundWorkerPool
 from ingestor.core.logging import set_cid, setup_logging
 from ingestor.core.scheduler import JobScheduler
 from ingestor.core.tracing import setup_tracing
@@ -29,6 +30,10 @@ from ingestor.fetch import close_http_client
 from ingestor.fetch_aiohttp import close_http_session
 from ingestor.jobs_registry import register_jobs
 from ingestor.metrics import (  # noqa: F401 — imported to register metrics at startup
+    background_jobs_active,
+    background_jobs_in_queue,
+    background_jobs_processed_total,
+    background_jobs_submitted_total,
     batch_size_histogram,
     enrich_duration_seconds,
     job_duration_seconds,
@@ -39,6 +44,7 @@ from ingestor.metrics import (  # noqa: F401 — imported to register metrics at
 from ingestor.rate_limiting import limiter
 from ingestor.routers import (
     analytics,
+    background_processing,
     health_ingestion_jobs,
     records,
     records_v2,
@@ -115,6 +121,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 # Global scheduler instance (initialized in lifespan startup)
 _scheduler: JobScheduler | None = None
+_background_workers: BackgroundWorkerPool | None = None
 
 
 @asynccontextmanager
@@ -130,7 +137,7 @@ async def lifespan(app: FastAPI):
 
     All external service failures are non-fatal and logged as warnings.
     """
-    global _scheduler
+    global _background_workers, _scheduler
 
     # ========================================================================
     # STARTUP
@@ -152,6 +159,31 @@ async def lifespan(app: FastAPI):
     # Initialize job scheduler and register all jobs
     _scheduler = JobScheduler()
     register_jobs(_scheduler)
+
+    # Initialize in-process background worker pool (Pillar 5 prototype)
+    if settings.background_workers_enabled:
+        try:
+            _background_workers = BackgroundWorkerPool(
+                worker_count=settings.background_worker_count,
+                queue_size=settings.background_worker_queue_size,
+                max_tracked_tasks=settings.background_max_tracked_tasks,
+            )
+            await _background_workers.start()
+            background_processing.set_worker_pool(_background_workers)
+            logger.info(
+                "background_workers_started",
+                extra={
+                    "worker_count": settings.background_worker_count,
+                    "queue_size": settings.background_worker_queue_size,
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                "background_workers_startup_failed",
+                extra={"error": str(e)},
+            )
+    else:
+        background_processing.set_worker_pool(None)
 
     # Start scheduler (only if there are enabled jobs)
     try:
@@ -184,6 +216,16 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(
                 "scheduler_shutdown_error",
+                extra={"error": str(e)},
+            )
+
+    # Stop background workers
+    if _background_workers:
+        try:
+            await _background_workers.stop()
+        except Exception as e:
+            logger.warning(
+                "background_workers_shutdown_error",
                 extra={"error": str(e)},
             )
 
@@ -301,6 +343,7 @@ app.include_router(records.router)
 app.include_router(records_v2.router)
 app.include_router(scraper.router)
 app.include_router(analytics.router)
+app.include_router(background_processing.router)
 
 
 app.include_router(health_ingestion_jobs.router)

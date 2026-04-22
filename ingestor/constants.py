@@ -78,3 +78,10 @@ UPSERT_MODE_STRICT: str = "strict"  # 201 on create, 409 on conflict
 # ---------------------------------------------------------------------------
 CACHE_KEY_RECORD: str = "dp:record:{record_id}"  # Redis key namespace
 CACHE_TTL_RECORD: int = 3600  # 1 hour — single records are stable
+
+# ---------------------------------------------------------------------------
+# Background workers (Pillar 5)
+# ---------------------------------------------------------------------------
+BACKGROUND_WORKER_COUNT_DEFAULT: int = 2
+BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT: int = 200
+BACKGROUND_MAX_TRACKED_TASKS_DEFAULT: int = 500

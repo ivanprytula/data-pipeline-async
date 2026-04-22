@@ -1,8 +1,51 @@
 # System Architecture — Data Zoo Platform
 
-**Last Updated**: April 21, 2026
+**Last Updated**: April 22, 2026
 **Scope**: Phase 0 (Foundation) → Phase 8 (Production)
-**Status**: In Design (Phase 1+ implementation pending)
+**Status**: Active Implementation (Phases 1-5 partially implemented)
+
+---
+
+## Current Implementation Snapshot (April 2026)
+
+- Primary API package is `ingestor/`, and path naming in this document is aligned to that package.
+- Pillar 3 scheduling is implemented with APScheduler and health endpoints:
+  - `GET /health/jobs-metrics`
+  - `GET /health/jobs/{job_name}-metrics`
+- Pillar 4 observability is implemented:
+  - structured logging + correlation IDs
+  - Prometheus metrics (`/metrics`)
+  - OpenTelemetry tracing (Jaeger/OTLP)
+- Pillar 5 background processing now includes an in-process worker queue prototype:
+  - `POST /api/v1/background/ingest/batch`
+  - `GET /api/v1/background/tasks/{task_id}`
+  - `GET /api/v1/background/workers/health`
+  - feature flags: `BACKGROUND_WORKERS_ENABLED`, `BACKGROUND_WORKER_COUNT`, `BACKGROUND_WORKER_QUEUE_SIZE`, `BACKGROUND_MAX_TRACKED_TASKS`
+
+### Pillar 5 Runtime Flow (Current Prototype)
+
+```text
+Client
+  |
+  | POST /api/v1/background/ingest/batch
+  v
+Background Router
+  |
+  | enqueue task_id + payload
+  v
+BackgroundWorkerPool (asyncio.Queue)
+  |
+  | consumed by N async workers
+  v
+jobs.ingest_api_batch(...)
+  |
+  v
+Task Status Store (in-memory) + Prometheus metrics
+  |
+  | GET /api/v1/background/tasks/{task_id}
+  v
+Client polls terminal state: succeeded | failed | cancelled
+```
 
 ---
 
@@ -10,7 +53,7 @@
 
 ```text
 data-pipeline-async/
-├── app/                          (Phase 1+: Ingestor service)
+├── ingestor/                          (Phase 1+: Ingestor service)
 │   ├── main.py
 │   ├── crud.py                   (Ingestor-specific CRUD: Record operations)
 │   ├── models.py
@@ -73,7 +116,7 @@ data-pipeline-async/
 | **2** | Data Scraping        | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client          |
 | **3** | AI + Vector DB       | ai_gateway          | Qdrant, sentence-transformers, embeddings           |
 | **4** | Resilience Patterns  | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger         |
-| **5** | CQRS Read Layer      | query_api           | Materialized views, window functions, partitioning  |
+| **5** | Background Workers + CQRS | ingestor, query_api | In-process worker queue prototype, task status APIs, analytics read layer |
 | **6** | Dashboard            | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI              |
 | **7** | Cloud Deployment ✅   | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
 | **8** | Production Hardening | (all services)      | Prometheus, Grafana, backups, chaos testing         |
@@ -88,7 +131,7 @@ graph TB
     ALB["⚡ AWS Application<br/>Load Balancer"]
 
     subgraph Compute["AWS ECS Fargate"]
-        Ingestor["📝 Ingestor<br/>(app/)"]
+        Ingestor["📝 Ingestor<br/>(ingestor/)"]
         Scraper["🕷️ Scraper<br/>(Phase 2)"]
         Processor["⚙️ Processor<br/>(services/)"]
         AIGateway["🤖 AI Gateway<br/>(embeddings)"]
@@ -169,15 +212,15 @@ graph TB
 graph TB
     Client["👤 API Client<br/>HTTP"]
 
-    subgraph Ingestor["📝 Ingestor Service (app/)"]
+    subgraph Ingestor["📝 Ingestor Service (ingestor/)"]
         Router["🔀 Router<br/>/api/v1/records"]
         Validation["✔️ Pydantic v2"]
-        CRUD["📦 Record CRUD<br/>app/crud.py"]
-        Producer["📤 Kafka Producer<br/>app/events.py"]
+        CRUD["📦 Record CRUD<br/>ingestor/crud.py"]
+        Producer["📤 Kafka Producer<br/>ingestor/events.py"]
     end
 
-    subgraph Storage["🗄️ Platform Storage (app/storage/)"]
-        EventsCRUD["📊 Event Storage<br/>app/storage/events.py<br/>(shared: ingestor + processor)"]
+    subgraph Storage["🗄️ Platform Storage (ingestor/storage/)"]
+        EventsCRUD["📊 Event Storage<br/>ingestor/storage/events.py<br/>(shared: ingestor + processor)"]
     end
 
     subgraph DB["🗄️ PostgreSQL 17"]
@@ -186,7 +229,7 @@ graph TB
     end
 
     subgraph Cache["⚡ Redis Optional"]
-        RedisNode["💾 Cache<br/>app/cache.py"]
+        RedisNode["💾 Cache<br/>ingestor/cache.py"]
     end
 
     subgraph Messaging["📬 Redpanda<br/>Kafka-compatible"]
@@ -239,7 +282,7 @@ graph TB
 
 ### 🔀 FastAPI Application Layer
 
-**Location**: \`app/main.py\`, \`app/routers/\`
+**Location**: \`ingestor/main.py\`, \`ingestor/routers/\`
 
 **Responsibilities:**
 
@@ -251,7 +294,7 @@ graph TB
 
 ### 📦 CRUD Layer
 
-**Location**: \`app/crud.py\`
+**Location**: \`ingestor/crud.py\`
 
 **Responsibilities:**
 
@@ -269,7 +312,7 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
 
 ### 🗄️ PostgreSQL + asyncpg
 
-**Location**: \`app/database.py\`
+**Location**: \`ingestor/database.py\`
 
 **Configuration:**
 
@@ -279,17 +322,17 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
 
 ### 🏷️ Correlation ID Tracing
 
-**Location**: \`app/core/logging.py\`
+**Location**: \`ingestor/core/logging.py\`
 
 Tracks requests end-to-end via ContextVar, injected into every log.
 
 ### 📤 Kafka Producer (Phase 1)
 
-**Location**: `app/events.py`
+**Location**: `ingestor/events.py`
 
 **Responsibilities:**
 
-- Singleton AIOKafkaProducer connected in `app/main.py` lifespan
+- Singleton AIOKafkaProducer connected in `ingestor/main.py` lifespan
 - `publish_record_created(record_id, payload)` — publishes to `records.events` topic
 - Fail-open: logs KafkaError but doesn't crash the request
 - Generic type: `EventPayload[T]` for typed event payloads
@@ -311,7 +354,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 
 ### 📊 Event Storage Layer (Platform-Wide) — Phase 1+
 
-**Location**: `app/storage/events.py`
+**Location**: `ingestor/storage/events.py`
 
 **Why it exists**: Processor needs to track consumed events with **industry-standard patterns**:
 
@@ -321,7 +364,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 - **Offset tracking**: Kafka offset stored for recovery after crashes
 - **Batch efficiency**: Bulk-insert via INSERT...RETURNING (single round-trip)
 
-**Shared by**: Both ingestor service and processor service (decoupled from `app/crud.py` which is ingestor-specific)
+**Shared by**: Both ingestor service and processor service (decoupled from `ingestor/crud.py` which is ingestor-specific)
 
 **Core Functions:**
 
@@ -345,7 +388,7 @@ await mark_event_failed(db, event.id, "timeout error", {"stack": "..."})  # → 
 await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (human inspection)
 ```
 
-**ORM Model**: `app/models.py::ProcessedEvent` with fields:
+**ORM Model**: `ingestor/models.py::ProcessedEvent` with fields:
 
 - `kafka_topic`, `kafka_partition`, `kafka_offset` — Kafka metadata
 - `idempotency_key` — unique per event (prevents double-processing)
@@ -380,7 +423,7 @@ cd services/processor && python main.py
 
 **Development:**
 \`\`\`
-2026-04-16 11:18:05 | INFO | app/routers/records.py:45:create_record | [cid-123] record created
+2026-04-16 11:18:05 | INFO | ingestor/routers/records.py:45:create_record | [cid-123] record created
 \`\`\`
 
 **Production:**
@@ -453,11 +496,11 @@ This prepares for Phase 2+ when we add scrapers with different payload types.
 graph TB
     Client["👤 API Client<br/>HTTP"]
 
-    subgraph Ingestor["📝 Ingestor (app/)"]
+    subgraph Ingestor["📝 Ingestor (ingestor/)"]
         RecordsRouter["🔀 Records Router<br/>/api/v1/records"]
     end
 
-    subgraph Scrapers["🕷️ Scraper Service (app/routers/scraper.py)"]
+    subgraph Scrapers["🕷️ Scraper Service (ingestor/routers/scraper.py)"]
         ScraperRouter["POST /api/v1/scrape/{source}"]
         Factory["🏭 ScraperFactory"]
         HTTPScraper["HTTPScraper<br/>(httpx)"]
@@ -465,12 +508,12 @@ graph TB
         BrowserScraper["BrowserScraper<br/>(Playwright)"]
     end
 
-    subgraph Storage["🗄️ Storage Layer (app/storage/)"]
+    subgraph Storage["🗄️ Storage Layer (ingestor/storage/)"]
         Mongo["📚 Motor Async<br/>MongoDB client"]
         Cache["💾 Redis Optional"]
     end
 
-    subgraph Events["📤 Event Publishing (app/events.py)"]
+    subgraph Events["📤 Event Publishing (ingestor/events.py)"]
         KafkaProducer["Kafka Producer<br/>publish_doc_scraped()"]
     end
 
@@ -507,7 +550,7 @@ graph TB
 
 ### Components
 
-**🏭 ScraperFactory** (`app/scrapers/__init__.py`)
+**🏭 ScraperFactory** (`ingestor/scrapers/__init__.py`)
 
 - Dispatches requests to appropriate scraper type
 - Pattern: Uniform interface, 3 implementations
@@ -533,12 +576,12 @@ graph TB
 
 📚 Motor Async MongoDB
 
-- Singleton pattern (app/storage/mongo.py)
+- Singleton pattern (ingestor/storage/mongo.py)
 - Collection: `scraped` — immutable log of scraped documents
 - Fail-open: Errors logged, endpoint still returns 200
 - Documents: `{url, title, content, source, created_at, updated_at}`
 
-**📊 ScrapeResponse** (`app/schemas.py`)
+**📊 ScrapeResponse** (`ingestor/schemas.py`)
 
 ```python
 class ScrapeResponse(BaseModel):
@@ -569,7 +612,7 @@ class ScrapeResponse(BaseModel):
 3. Configurable Resilience
 
     ```python
-    # app/config.py
+    # ingestor/config.py
     SCRAPER_TIMEOUTS = {
         "jsonplaceholder": 10,
         "hn": 15,
@@ -687,9 +730,9 @@ This is the opposite of fail-closed (crash on error). For observability, fail-op
 graph TB
     Client["👤 API Client<br/>HTTP"]
 
-    subgraph Ingestor["📝 Ingestor (app/)"]
+    subgraph Ingestor["📝 Ingestor (ingestor/)"]
         RecordsRouter["🔀 Records Router<br/>/api/v1/records"]
-        EventsPub["📤 Events Publisher<br/>app/events.py"]
+        EventsPub["📤 Events Publisher<br/>ingestor/events.py"]
         CircuitBreaker1["⚡ Circuit Breaker<br/>@circuit_breaker"]
     end
 
@@ -741,15 +784,15 @@ graph TB
 
 ### Components
 
-**⚡ Circuit Breaker** (`app/core/circuit_breaker.py`)
+**⚡ Circuit Breaker** (`ingestor/core/circuit_breaker.py`)
 
 - Three-state machine: CLOSED → OPEN → HALF_OPEN
 - Failure threshold: 5 consecutive failures → circuit opens
 - Recovery timeout: 30 seconds before transitioning to HALF_OPEN
 - Concurrency safety: `asyncio.Lock` for state transitions
 - Applied to:
-  - `app/events.py::_send_to_kafka` — protects Kafka producer
-  - `app/storage/mongo.py::_mongo_insert_one` — protects MongoDB writes
+  - `ingestor/events.py::_send_to_kafka` — protects Kafka producer
+  - `ingestor/storage/mongo.py::_mongo_insert_one` — protects MongoDB writes
 
 ```python
 @circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
@@ -791,7 +834,7 @@ CLOSED ──(failures >= 5)──► OPEN
 
 **Why DLQ prevents head-of-line blocking**: Poison pill messages (malformed JSON, invalid schema) are forwarded to DLQ after 3 retries. Processor continues processing next message instead of blocking entire queue.
 
-**🔍 OpenTelemetry Distributed Tracing** (`app/core/tracing.py`)
+**🔍 OpenTelemetry Distributed Tracing** (`ingestor/core/tracing.py`)
 
 - TracerProvider with OTLP gRPC exporter → Jaeger backend (port 4317)
 - FastAPI auto-instrumentation: `FastAPIInstrumentor.instrument_app(app)`
@@ -810,7 +853,7 @@ Jaeger UI → Trace abc12345 →
     → All linked by trace_id
 ```
 
-**📊 Prometheus Metrics** (`app/metrics.py`)
+**📊 Prometheus Metrics** (`ingestor/metrics.py`)
 
 - Circuit breaker state: `pipeline_circuit_breaker_state` (Gauge, 0=CLOSED, 1=OPEN, 2=HALF_OPEN)
   - Labels: `circuit` (e.g., `_send_to_kafka`, `_mongo_insert_one`)
@@ -820,7 +863,7 @@ Jaeger UI → Trace abc12345 →
 ```python
 # In circuit_breaker.py
 if _METRICS_AVAILABLE:
-    from app.metrics import circuit_breaker_state
+    from ingestor.metrics import circuit_breaker_state
     circuit_breaker_state.labels(circuit=self.name).set(1)  # OPEN
 ```
 
@@ -928,7 +971,7 @@ services:
 ```
 
 ```python
-# app/config.py
+# ingestor/config.py
 otel_enabled: bool = True
 otel_endpoint: str = "http://localhost:4317"
 otel_service_name: str = "ingestor"
@@ -1283,7 +1326,7 @@ FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2
 RUN useradd -m -u 1001 appuser  ← Non-root execution
 COPY --from=builder /app /app
 USER appuser
-CMD ["uvicorn", "app.main:app"]
+CMD ["uvicorn", "ingestor.main:app"]
 ```
 
 ### Why This Architecture?
@@ -1366,8 +1409,8 @@ See [ADR 004: Docker BuildKit & Security Scanning](../adr/004-docker-buildkit-an
 
 ## Related Documents
 
-- [API Routes](../app/routers/records.py)
-- [Database Models](../app/models.py)
+- [API Routes](../ingestor/routers/records.py)
+- [Database Models](../ingestor/models.py)
 - [Performance Benchmarks](../tests/integration/records/test_performance.py)
 - [6-Week Action Plan](../learning_docs/ACTION_PLAN.md)
 - [Frontend Strategy ADR](../adr/003-htmx-vs-react.md)

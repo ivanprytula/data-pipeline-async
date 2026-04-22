@@ -37,6 +37,13 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
 5. Background Processing & Scaling — **Score: 7**
    - Why: For scale and reliability (parallel workers, retries, visibility) a task broker may be needed.
    - Immediate tasks: start with scheduled tasks + lightweight workers; evaluate Celery (Redis/RabbitMQ), `arq` (Redis), and serverless job approaches; prototype with one workflow (e.g., large batch ingest) to validate operational model.
+   - Current status (April 22, 2026): lightweight worker prototype implemented and running behind feature flags.
+   - Implemented:
+     - in-process worker queue: `BackgroundWorkerPool`
+     - API endpoints: `POST /api/v1/background/ingest/batch`, `GET /api/v1/background/tasks/{task_id}`, `GET /api/v1/background/workers/health`
+     - metrics: queue depth, active workers, submitted jobs, processed outcomes
+     - integration tests with lifespan-enabled startup for worker pool
+   - Next: evaluate broker-backed execution (Celery/arq) using the same API contract and add persistence for task status beyond process memory.
    - Timeframe: 45–120 days
 
 6. Security, Auth, and RBAC — **Score: 7**
@@ -92,7 +99,7 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
   - Add Grafana dashboards for ingestion and job health.
 
 - **60–90 days (90-day focus):**
-  - Evaluate and prototype background worker approach (Celery/arq/proc model).
+  - Evaluate broker-backed execution (Celery/arq/proc model) after in-process prototype baseline.
   - Implement worker runbook and disaster-recovery steps for failed jobs.
   - Add automated alerting for job failures and high-latency requests.
 

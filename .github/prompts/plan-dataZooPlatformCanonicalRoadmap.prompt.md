@@ -37,6 +37,13 @@ Prioritized pillars (scores & immediate steps)
 5) Background Processing & Scaling — Score: 7
 - Why: For scale and reliability (parallel workers, retries, visibility) a task broker may be needed.
 - Immediate tasks: start with scheduled tasks + lightweight workers; evaluate Celery (Redis/RabbitMQ), `arq` (Redis), and serverless job approaches; prototype with one workflow (e.g., large batch ingest) to validate operational model.
+- Current status (April 22, 2026): in-process worker queue prototype shipped behind feature flags.
+- Implemented in repo:
+  - Worker pool: `BackgroundWorkerPool` (asyncio queue + N workers)
+  - Endpoints: `POST /api/v1/background/ingest/batch`, `GET /api/v1/background/tasks/{task_id}`, `GET /api/v1/background/workers/health`
+  - Metrics: `pipeline_background_jobs_submitted_total`, `pipeline_background_jobs_processed_total`, `pipeline_background_jobs_in_queue`, `pipeline_background_jobs_active`
+  - Tests: integration coverage with lifespan enabled and workers turned on
+- Next: evaluate Celery/arq as drop-in execution backend while preserving the current API contract and observability labels.
 - Timeframe: 45–120 days
 
 6) Security, Auth, and RBAC — Score: 7
@@ -92,7 +99,7 @@ Phase 3 — Productization & Advanced Capabilities (180+ days)
   - Add Grafana dashboards for ingestion and job health.
 
 - 60–90 days (90-day focus):
-  - Evaluate and prototype background worker approach (Celery/arq/proc model).
+  - Evaluate broker-backed worker approach (Celery/arq/proc model) and compare against current in-process baseline.
   - Implement worker runbook and disaster-recovery steps for failed jobs.
   - Add automated alerting for job failures and high-latency requests.
 

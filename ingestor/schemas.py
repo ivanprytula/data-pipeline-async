@@ -306,3 +306,30 @@ class ScrapeResponse(BaseModel):
     source: str
     scraped: int
     stored: int
+
+
+# ---------------------------------------------------------------------------
+# Background processing schemas (Pillar 5)
+# ---------------------------------------------------------------------------
+
+
+class BackgroundBatchSubmitResponse(BaseModel):
+    """Response from background batch ingestion submission endpoint."""
+
+    task_id: str
+    status: str
+    batch_size: int
+    queued_at: datetime
+
+
+class BackgroundTaskStatusResponse(BaseModel):
+    """Status response for a submitted background task."""
+
+    task_id: str
+    status: str
+    batch_size: int
+    queued_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None

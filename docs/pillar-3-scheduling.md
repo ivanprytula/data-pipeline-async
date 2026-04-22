@@ -103,10 +103,10 @@ Available via health check endpoints:
 
 ```bash
 # All jobs' health
-curl http://localhost:8000/health/jobs
+curl http://localhost:8000/health/jobs-metrics
 
 # Specific job's health
-curl http://localhost:8000/health/jobs/ingest_hourly_data
+curl http://localhost:8000/health/jobs/ingest_hourly_data-metrics
 ```
 
 ## Retry & Backoff Strategy
@@ -163,9 +163,10 @@ tracker.mark_seen("batch_2024_04_22")
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `SCHEDULER_ENABLED` | `true` | Enable/disable job scheduler |
 | `JOB_TIMEOUT_SECONDS` | `300` | Default timeout for all jobs (overridable per-job) |
 | `MAX_RETRIES` | `3` | Default max retries (overridable per-job) |
+
+Note: scheduler lifecycle is controlled by app startup/lifespan wiring; there is currently no standalone `SCHEDULER_ENABLED` setting in `ingestor/config.py`.
 
 ### Example: Enable a Scheduled Job
 
@@ -190,7 +191,6 @@ async def daily_ingest(db: AsyncSession) -> dict[str, Any]:
 Test job handlers without scheduler overhead:
 
 ```python
-@pytest.mark.asyncio
 async def test_ingest_single():
     mock_db = AsyncMock(spec=AsyncSession)
     request = RecordRequest(...)
@@ -204,7 +204,6 @@ async def test_ingest_single():
 Test scheduler lifecycle:
 
 ```python
-@pytest.mark.asyncio
 async def test_scheduler_lifecycle():
     scheduler = JobScheduler()
 
@@ -241,7 +240,7 @@ uv run pytest tests/integration/test_scheduler.py --cov=ingestor.core
 uv run uvicorn ingestor.main:app --reload
 
 # Check scheduler status
-curl http://localhost:8000/health/jobs
+curl http://localhost:8000/health/jobs-metrics
 ```
 
 ### Response Format
@@ -280,13 +279,13 @@ curl http://localhost:8000/health/jobs
 
 ```bash
 # Check specific job details
-curl http://localhost:8000/health/jobs/ingest_hourly_data
+curl http://localhost:8000/health/jobs/ingest_hourly_data-metrics
 
 # View application logs (structured JSON)
 docker-compose logs -f ingestor | grep "job_failed"
 
 # Check job registration
-curl http://localhost:8000/health/jobs | jq '.jobs | keys'
+curl http://localhost:8000/health/jobs-metrics | jq '.jobs | keys'
 ```
 
 ## Future Work (Phases 2+)
@@ -313,13 +312,13 @@ curl http://localhost:8000/health/jobs | jq '.jobs | keys'
 
 1. **Check scheduler is started**:
    ```bash
-   curl http://localhost:8000/health/jobs
+    curl http://localhost:8000/health/jobs-metrics
    ```
    If `"scheduler_running": false`, scheduler failed to start.
 
 2. **Check job registration**:
    ```bash
-   curl http://localhost:8000/health/jobs | jq '.jobs | keys'
+    curl http://localhost:8000/health/jobs-metrics | jq '.jobs | keys'
    ```
 
 3. **Check logs for startup errors**:

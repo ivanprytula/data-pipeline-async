@@ -3,6 +3,12 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from ingestor.constants import (
+    BACKGROUND_MAX_TRACKED_TASKS_DEFAULT,
+    BACKGROUND_WORKER_COUNT_DEFAULT,
+    BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT,
+)
+
 
 class Settings(BaseSettings):
     """Application configuration.
@@ -159,6 +165,33 @@ class Settings(BaseSettings):
     otel_service_name: str = Field(
         default="ingestor",
         description="Service name shown in Jaeger / OTel collector UI.",
+    )
+
+    # ============ Background workers (Pillar 5) ============
+    background_workers_enabled: bool = Field(
+        default=False,
+        description="Enable in-process background worker queue for large batch ingestion.",
+    )
+
+    background_worker_count: int = Field(
+        default=BACKGROUND_WORKER_COUNT_DEFAULT,
+        ge=1,
+        le=32,
+        description="Number of async worker tasks consuming the in-process queue.",
+    )
+
+    background_worker_queue_size: int = Field(
+        default=BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT,
+        ge=1,
+        le=10000,
+        description="Maximum number of queued background jobs before rejecting new submissions.",
+    )
+
+    background_max_tracked_tasks: int = Field(
+        default=BACKGROUND_MAX_TRACKED_TASKS_DEFAULT,
+        ge=10,
+        le=50000,
+        description="Maximum completed task statuses kept in memory for status lookups.",
     )
 
     model_config = SettingsConfigDict(

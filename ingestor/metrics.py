@@ -176,3 +176,43 @@ Usage::
     from ingestor.metrics import job_duration_seconds
     job_duration_seconds.labels(job_name="api_ingest_hourly").observe(duration)
 """
+
+
+# ---------------------------------------------------------------------------
+# Background processing metrics (Pillar 5)
+# ---------------------------------------------------------------------------
+
+background_jobs_submitted_total = Counter(
+    name="pipeline_background_jobs_submitted_total",
+    documentation="Number of background jobs submitted to the in-process worker queue.",
+    labelnames=["kind"],
+)
+"""Incremented when a background task is accepted into the queue.
+
+Labels:
+  kind: currently "batch_ingest"
+"""
+
+background_jobs_processed_total = Counter(
+    name="pipeline_background_jobs_processed_total",
+    documentation="Number of background jobs processed by outcome.",
+    labelnames=["kind", "status"],
+)
+"""Incremented when background task processing finishes.
+
+Labels:
+  kind: currently "batch_ingest"
+  status: "succeeded" | "failed" | "cancelled"
+"""
+
+background_jobs_in_queue = Gauge(
+    name="pipeline_background_jobs_in_queue",
+    documentation="Current number of pending jobs in the background queue.",
+)
+"""Updated after every enqueue/dequeue operation."""
+
+background_jobs_active = Gauge(
+    name="pipeline_background_jobs_active",
+    documentation="Current number of jobs actively processed by workers.",
+)
+"""Incremented when a worker starts processing and decremented on completion."""
