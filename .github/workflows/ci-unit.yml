@@ -1,0 +1,65 @@
+name: CI — Unit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-unit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests — Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.14"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Cache pip / uv wheel (keyed by uv.lock)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
+          key: ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-uv-0.11.7-
+            ${{ runner.os }}-pip-
+
+      - name: Install `uv` and sync dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv==0.11.7
+          uv sync --frozen
+
+      - name: Cache pytest results
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pytest-
+
+      - name: Run unit tests
+        run: pytest -q -m "unit"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit-py${{ matrix.python-version }}
+          path: htmlcov

@@ -69,7 +69,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=app --cov-report=term-missing --cov-report=html -v -m 'not e2e'"
+# Limit coverage collection to the package under test to avoid "module X was never imported" warnings
+addopts = "--cov=ingestor --cov-report=term-missing --cov-report=html -q -m 'not e2e'"
 filterwarnings = [
     "ignore::DeprecationWarning:slowapi",
     "ignore::DeprecationWarning:fastapi.routing",

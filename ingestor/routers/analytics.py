@@ -37,7 +37,8 @@ async def get_summary(
     Returns record counts, processed percentages, and value statistics
     bucketed by hour. Uses Python-side grouping for SQLite compatibility.
     """
-    since = datetime.now(UTC) - timedelta(hours=hours)
+    # Normalize to tz-naive UTC to match DB TIMESTAMP (no timezone)
+    since = (datetime.now(UTC) - timedelta(hours=hours)).replace(tzinfo=None)
 
     result = await db.execute(
         select(Record)
@@ -154,7 +155,8 @@ async def get_top_by_source(
     Groups results by source and returns the highest-value records per
     source, using Python-side ranking to remain dialect-agnostic.
     """
-    since = datetime.now(UTC) - timedelta(hours=hours)
+    # Normalize to tz-naive UTC to match DB TIMESTAMP (no timezone)
+    since = (datetime.now(UTC) - timedelta(hours=hours)).replace(tzinfo=None)
 
     result = await db.execute(
         select(Record)

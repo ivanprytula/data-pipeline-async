@@ -13,7 +13,7 @@ Use Ctrl+F to jump to any section.
 
 ```bash
 # One command to start everything
-bash scripts/dev-services.sh
+bash scripts/dev_services.sh
 
 # What it starts:
 #   - PostgreSQL (main):   localhost:5432  (for app)

@@ -1,0 +1,121 @@
+# Data Zoo Platform — Canonical Roadmap
+
+## Executive summary
+
+This is the canonical, prioritized roadmap for the Data Zoo Platform. It consolidates the project pillars (stability, ingestion, background processing, observability, security, UI, notifications, and advanced ML features) into a single, scored plan with clear phases, milestones, and immediate next actions. The document is pragmatic: stabilize tests and the data model first, then incrementally add scheduling and observability before investing in brokers or ML features.
+
+## Scoring methodology
+
+- Score range: 1 (low) — 10 (critical)
+- Factors considered: user value, risk to shipping, cross-cutting dependencies, engineering effort, maintainability.
+- Outcome: higher score = earlier implementation priority.
+
+## Prioritized pillars (scores & immediate steps)
+
+1. Tests & CI Stabilization — **Score: 10**
+   - Why: Foundation for safe iteration; tests must be deterministic and fast in CI.
+   - Immediate tasks: ensure Alembic migrations run in test fixtures; preserve migrated schema (no destructive drop_all); truncate tables between tests; add CI job that runs full test matrix (unit + integration with PostgreSQL container).
+   - Owner: core maintainers / release engineer
+   - Timeframe: 0–14 days
+
+2. Core Data Model & Migrations — **Score: 9**
+   - Why: Data model correctness and migration hygiene are prerequisites for all features.
+   - Immediate tasks: review models for index hotspots, data retention needs, and unique constraints; finalize Alembic scripts; add migration verification step in CI.
+   - Timeframe: 0–30 days
+
+3. Reliable Ingestion & Scheduling — **Score: 8**
+   - Why: Ingestion is the product's primary function; must be robust and idempotent.
+   - Immediate tasks: add a lightweight scheduling abstraction (APScheduler or internal cron wrapper) for periodic jobs; implement idempotent ingestion tasks and backoff/retry policies; add health checks for ingestion pipelines.
+   - Longer: evaluate Celery/arq for long-running or heavy work.
+   - Timeframe: 14–60 days
+
+4. Observability & Monitoring — **Score: 8**
+   - Why: Operability and SLO measurement depend on metrics, traces, and logs.
+   - Immediate tasks: integrate Prometheus metrics (request counters, latencies, job success/failure), structured JSON logging, and OpenTelemetry traces for key flows; add dashboards for ingestion health and job backlog.
+   - Timeframe: 14–45 days
+
+5. Background Processing & Scaling — **Score: 7**
+   - Why: For scale and reliability (parallel workers, retries, visibility) a task broker may be needed.
+   - Immediate tasks: start with scheduled tasks + lightweight workers; evaluate Celery (Redis/RabbitMQ), `arq` (Redis), and serverless job approaches; prototype with one workflow (e.g., large batch ingest) to validate operational model.
+   - Timeframe: 45–120 days
+
+6. Security, Auth, and RBAC — **Score: 7**
+   - Why: Product safety, multi-tenant readiness, and compliance.
+   - Immediate tasks: implement basic user model, role-based access control for API operations, rate-limiting (slowapi/fastapi middleware), and secret management patterns; add security headers and CI dependency scanning.
+   - Timeframe: 30–90 days
+
+7. Admin UI & User Workflows — **Score: 6**
+   - Why: Admin tooling reduces friction (job control, user management, visibility).
+   - Immediate tasks: implement a minimal admin UI (static React or server-side templates) for job status, manual re-run, and user management; iterate after API stabilization.
+   - Timeframe: 60–180 days
+
+8. Notifications & Emailing — **Score: 5**
+   - Why: Operational convenience (alerts, processed notifications) — not critical to core ingestion.
+   - Immediate tasks: add notification abstraction and a transactional email provider integration for alerts and user notifications.
+   - Timeframe: 60–150 days
+
+9. Embeddings & LLM Features (Vector Search) — **Score: 4**
+   - Why: Strategic differentiation but high effort, dependent on data shape and query patterns.
+   - Immediate tasks: define use cases, prototype small PoC with pgvector or Qdrant; defer large investment until core product stabilizes.
+   - Timeframe: 120+ days (after stabilization)
+
+## Phases & milestones
+
+### Phase 0 — Stabilize (0–30 days)
+- Runbook: Tests & CI stabilization, Alembic + migrations, core model reviews, limited observability (basic metrics + logging).
+- Milestone: Green CI across unit and integration suites; reproducible local dev environment; documented test lifecycle.
+
+### Phase 1 — Foundation (30–90 days)
+- Runbook: scheduling abstraction, idempotent ingestion jobs, role-based auth, richer observability dashboards, small admin UI.
+- Milestone: Scheduled jobs running in production-like environment; onboarding doc for new jobs; basic RBAC in API.
+
+### Phase 2 — Scale & Reliability (90–180 days)
+- Runbook: background worker architecture (broker selection + runbook), alerting/SLIs, horizontal scaling of ingestion, admin UX polish.
+- Milestone: Successful load test at expected traffic; worker autoscaling policy defined and tested.
+
+### Phase 3 — Productization & Advanced Capabilities (180+ days)
+- Runbook: notification workflows, ML/LLM features (vector search, similarity), marketplace integrations, hardened security controls for production tenants.
+- Milestone: Public-facing admin UI and stable LLM POC in production sandbox.
+
+## 30/60/90-day tactical plan
+
+- **0–30 days (30-day focus):**
+  - Ensure tests and CI are stable (Alembic in tests, truncate-only cleanup).
+  - Add CI job for migrations verification and PostgreSQL integration tests.
+  - Integrate basic Prometheus metrics and structured logging.
+  - Complete core model review and index recommendations.
+
+- **30–60 days (60-day focus):**
+  - Add scheduling abstraction and migrate one periodic job to it.
+  - Implement basic RBAC and rate-limiting middleware.
+  - Build minimal admin endpoints (job status, manual rerun).
+  - Add Grafana dashboards for ingestion and job health.
+
+- **60–90 days (90-day focus):**
+  - Evaluate and prototype background worker approach (Celery/arq/proc model).
+  - Implement worker runbook and disaster-recovery steps for failed jobs.
+  - Add automated alerting for job failures and high-latency requests.
+
+## Risks & mitigations
+
+- Risk: Premature broker adoption (complexity & ops burden)
+  - Mitigation: Start with internal scheduler + lightweight workers; only adopt broker if load and operational needs require it.
+
+- Risk: Test flakiness due to environmental mismatch (SQLite vs PostgreSQL)
+  - Mitigation: Standardize on Alembic migrations for tests; ensure CI runs full PostgreSQL integration matrix.
+
+- Risk: Data model changes cause downtime or long migrations
+  - Mitigation: Use online-safe migration patterns, zero-downtime migration docs, and migration previews in CI.
+
+## Next actions (immediate)
+
+1. Persist this plan: `docs/progress/roadmap.md` (this file).
+2. Create PR with the roadmap and link relevant pillar docs for traceability.
+3. Tag owners and schedule a short planning review to align 30/60/90-day commitments.
+4. Add CI job(s): migrations verification and PostgreSQL integration tests.
+5. Iterate this prompt/file with stakeholders and lock the canonical roadmap in `docs/progress/roadmap.md`.
+
+## Notes
+
+- This plan is intentionally pragmatic: fix the test & DB foundations first, then incrementally add scheduling and observability before investing in brokers or ML.
+- For each pillar, create 2–3 tickets that are small, testable, and shippable — prefer incremental rollouts.

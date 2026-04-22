@@ -5,7 +5,7 @@ Database selection:
   - If DATABASE_URL_TEST env var set: Use PostgreSQL (for concurrent tests)
 
 To run with PostgreSQL:
-    1. Start test DB: bash scripts/dev-services.sh
+    1. Start test DB: bash scripts/dev_services.sh
     2. Env vars are auto-loaded from .env (DATABASE_URL_TEST set automatically)
     3. Run tests: pytest tests/integration/records/test_concurrency.py -v
 
@@ -136,8 +136,22 @@ def _alembic_downgrade(sync_url: str) -> None:
 
 
 async def _clear_records(session: AsyncSession) -> None:
-    """Remove seeded records without changing the migrated schema."""
-    await session.execute(text("TRUNCATE TABLE records RESTART IDENTITY CASCADE"))
+    """Remove seeded data without changing the migrated schema.
+
+    On PostgreSQL this performs a `TRUNCATE ... RESTART IDENTITY CASCADE`
+    across all ORM tables (fast, resets sequences). For SQLite fallback to
+    per-table `DELETE` statements because SQLite does not support TRUNCATE.
+    """
+    if IS_POSTGRES:
+        # Build a deterministic, comma-separated list of table names from metadata
+        table_names = ", ".join([t.name for t in Base.metadata.sorted_tables])
+        await session.execute(
+            text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE")
+        )
+    else:
+        # SQLite: delete rows from each table in reverse dependency order
+        for t in reversed(Base.metadata.sorted_tables):
+            await session.execute(text(f"DELETE FROM {t.name}"))
     await session.commit()
 
 
@@ -257,8 +271,7 @@ async def db() -> AsyncGenerator[AsyncSession]:
     if IS_POSTGRES:
         # Wipe data between tests; schema (tables/views/extensions) persists.
         async with _AsyncSessionLocal() as cleanup:
-            await cleanup.execute(text("DELETE FROM records"))
-            await cleanup.commit()
+            await _clear_records(cleanup)
     else:
         async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)

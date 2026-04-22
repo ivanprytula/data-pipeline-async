@@ -422,7 +422,7 @@ These images are pulled when you first run `docker compose up`:
 
 1. **Install all packages** using the quick install commands above for your platform
 2. **Verify installation** with `scripts/verify-requirements.sh`
-3. **Start local environment** with `bash scripts/dev-services.sh`
+3. **Start local environment** with `bash scripts/dev_services.sh`
 4. **Try backup/restore** with `bash infra/scripts/backup.sh` and `bash infra/scripts/restore.sh`
 5. **Try chaos testing** with `bash infra/scripts/chaos.sh gauntlet`
 

@@ -1,0 +1,102 @@
+name: CI — Integration & E2E
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Integration/E2E — ${{ matrix.test-type }} (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.14"]
+        test-type: ["integration", "e2e"]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_database
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_database"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pip (keyed by uv.lock)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
+          key: ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+            ${{ runner.os }}-pip-uv-0.11.7-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-uv-0.11.7-
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install `uv` and sync dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv==0.11.7
+          uv sync --frozen
+
+      - name: Wait for Postgres
+        run: |
+          echo "Waiting for Postgres to be ready..."
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+          done
+
+      - name: Run tests
+        env:
+          TEST_TYPE: ${{ matrix.test-type }}
+        run: |
+          set -euo pipefail
+          case "$TEST_TYPE" in
+            integration)
+              pytest -q -m "integration"
+              ;;
+            e2e)
+              pytest -q -m "e2e"
+              ;;
+            *)
+              pytest -q
+              ;;
+          esac
+
+      - name: Upload coverage (integration)
+        if: ${{ matrix.test-type == 'integration' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration-py${{ matrix.python-version }}
+          path: htmlcov

@@ -23,7 +23,7 @@ DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_dat
 **Start services + tests:**
 
 ```bash
-bash scripts/dev-services.sh  # Starts all services (services use Docker networking)
+bash scripts/dev_services.sh  # Starts all services (services use Docker networking)
 uv run pytest tests/ -v       # Tests load .env automatically → uses DATABASE_URL_TEST
 ```
 
@@ -145,7 +145,7 @@ cp .env.example .env
 # Edit .env with local values (db passwords, URLs, etc.)
 
 # Start all services
-bash scripts/dev-services.sh
+bash scripts/dev_services.sh
 
 # Install dependencies
 uv sync
@@ -275,7 +275,7 @@ spec:
 3. Start test services:
 
    ```bash
-   bash scripts/dev-services.sh
+   bash scripts/dev_services.sh
    ```
 
 4. Run tests:

@@ -8,7 +8,9 @@ echo "==> Syncing dependencies"
 uv sync
 
 echo "==> Running tests (aiosqlite in-memory — no Postgres needed). Skipping e2e by default."
-uv run pytest -q -m "not e2e" tests/
+# fast unit tests first (run serially to avoid DB migration races), then slower integration tests
+uv run pytest -x -q -m "unit" --cov=ingestor --cov-report=term-missing --cov-report=html tests/
+# uv run pytest -x -q -m "integration" --cov=. --cov-report=term-missing --cov-report=html tests/
 
 echo "==> Done. Now, you can start the app with Docker:"
 echo "    docker compose up --build"

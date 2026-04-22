@@ -32,9 +32,9 @@ async def index(
         skip=skip, source=source, processed=processed
     )
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "active": "records",
             "records": records,
             "has_more": has_more,
@@ -57,9 +57,9 @@ async def records_partial(
         skip=skip, source=source, processed=processed
     )
     return templates.TemplateResponse(
+        request,
         "partials/records_rows.html",
         {
-            "request": request,
             "records": records,
             "has_more": has_more,
             "next_skip": skip + DEFAULT_PAGE_SIZE,
@@ -73,8 +73,9 @@ async def records_partial(
 async def search_page(request: Request) -> HTMLResponse:
     """Semantic Search page — full page render (empty state)."""
     return templates.TemplateResponse(
+        request,
         "search.html",
-        {"request": request, "active": "search"},
+        {"active": "search"},
     )
 
 
@@ -86,8 +87,9 @@ async def search_partial(
     """HTMX partial — calls ai-gateway /search and returns results partial."""
     results = await _fetch_search_results(query)
     return templates.TemplateResponse(
+        request,
         "partials/search_results.html",
-        {"request": request, "results": results},
+        {"results": results},
     )
 
 
@@ -95,8 +97,9 @@ async def search_partial(
 async def metrics_page(request: Request) -> HTMLResponse:
     """Live Metrics page — full page render (SSE-driven)."""
     return templates.TemplateResponse(
+        request,
         "metrics.html",
-        {"request": request, "active": "metrics"},
+        {"active": "metrics"},
     )
 
 
