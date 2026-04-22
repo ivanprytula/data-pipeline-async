@@ -44,11 +44,19 @@ def include_object(
     )
 
 
-# Convert app async URL into a SQLAlchemy sync psycopg URL
-# Example: postgresql+asyncpg://user:pass@host:port/db -> postgresql+psycopg://user:pass@host:port/db
-_sync_url = settings.database_url.replace(
-    "postgresql+asyncpg://", "postgresql+psycopg://"
-)
+# URL priority: programmatic override (testing) > app settings (production).
+# Programmatic callers set sqlalchemy.url via config.set_main_option() before
+# invoking alembic.command.upgrade/downgrade so they can target a different DB
+# (e.g. test_database) without touching application environment variables.
+_config_url = config.get_main_option("sqlalchemy.url")
+if _config_url:
+    _sync_url = _config_url
+else:
+    # Convert app async URL into a SQLAlchemy sync psycopg URL.
+    # Example: postgresql+asyncpg://... -> postgresql+psycopg://...
+    _sync_url = settings.database_url.replace(
+        "postgresql+asyncpg://", "postgresql+psycopg://"
+    )
 
 
 def run_migrations_offline() -> None:

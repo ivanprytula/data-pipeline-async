@@ -118,7 +118,7 @@ class TestFetchWithRetry:
                 raise Exception(f"Simulated failure #{attempt_count[0]}")
             return await original_fetch(url, simulate_failures=False)
 
-        with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
             result = await fetch_with_retry(url, max_retries=4, simulate_failures=False)
 
         assert isinstance(result, dict)
@@ -150,7 +150,7 @@ class TestFetchWithRetry:
             return await original_fetch(url, simulate_failures=False)
 
         with patch(
-            "app.fetch.fetch_from_external_api", side_effect=mock_fetch_with_timing
+            "ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch_with_timing
         ):
             _ = await fetch_with_retry(
                 "https://jsonplaceholder.typicode.com/posts/1",
@@ -190,7 +190,7 @@ class TestFetchWithRetry:
                 raise Exception("First attempt fails")
             return await fetch_from_external_api(url, simulate_failures=False)
 
-        with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
             with caplog.at_level(logging.INFO):
                 with pytest.raises(httpx.ConnectError):
                     await fetch_with_retry(
@@ -263,7 +263,7 @@ class TestRetryWithRealWorldScenarios:
         async def mock_fetch(url, simulate_failures=False):
             raise timeout_exception
 
-        with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
             with pytest.raises(httpx.TimeoutException):
                 await fetch_with_retry(
                     "https://example.invalid/slow-endpoint",

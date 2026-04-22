@@ -498,7 +498,7 @@ def test_cte_aggregation_avg_value_rounding() -> None:
         (123.456789, 123.4568),
         (10.0, 10.0),
         (0.123456, 0.1235),
-        (999.9999, 1000.0),  # Rounding up
+        (999.9999, 999.9999),  # Already at 4 decimal places — no rounding occurs
     ]
 
     for value, expected_rounded in test_cases:

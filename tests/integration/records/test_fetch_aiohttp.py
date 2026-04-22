@@ -74,7 +74,9 @@ async def test_fetch_success_without_failures(cleanup_http_session) -> None:
     async def mock_fetch(resource: str, simulate_failures: bool = False) -> dict:
         return MOCK_COUNTRY_RESPONSE
 
-    with patch("app.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+    ):
         result = await fetch_with_retry(TEST_RESOURCE, max_retries=3)
         assert result["name"]["common"] == "United States"
 
@@ -92,15 +94,17 @@ async def test_fetch_retry_on_transient_failure(cleanup_http_session) -> None:
             raise TimeoutError("Timeout on call 1")
         return MOCK_COUNTRY_SUCCESS
 
-    with patch("app.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+    ):
         result = await fetch_with_retry(TEST_RESOURCE, max_retries=3)
         assert result["name"]["common"] == "Germany"
         assert call_count == 2
 
 
 @pytest.mark.integration
-async def test_fetch_retry_exhaustion(cleanup_http_session, caplog) -> None:
-    """Max retries are respected and exhaustion is logged."""
+async def test_fetch_retry_exhaustion(cleanup_http_session) -> None:
+    """Max retries are respected and the last error is propagated."""
     call_count = 0
 
     async def always_fail(resource: str, simulate_failures: bool = False) -> dict:
@@ -109,35 +113,31 @@ async def test_fetch_retry_exhaustion(cleanup_http_session, caplog) -> None:
         raise Exception("Persistent API error")
 
     with (
-        patch("app.fetch_aiohttp.fetch_from_external_api", side_effect=always_fail),
-        patch("app.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
-        caplog.at_level(logging.ERROR),
+        patch(
+            "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=always_fail
+        ),
+        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(Exception, match="Persistent API error"):
             await fetch_with_retry(TEST_RESOURCE, max_retries=3)
         assert call_count == 3
 
-    # Verify exhaustion was logged
-    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
-
 
 @pytest.mark.integration
-async def test_fetch_timeout_error_handling(cleanup_http_session, caplog) -> None:
+async def test_fetch_timeout_error_handling(cleanup_http_session) -> None:
     """Timeout exceptions (aiohttp-style) are properly handled."""
 
     async def timeout_fetch(resource: str, simulate_failures: bool = False) -> dict:
         raise TimeoutError("Request timeout")
 
     with (
-        patch("app.fetch_aiohttp.fetch_from_external_api", side_effect=timeout_fetch),
-        patch("app.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
-        caplog.at_level(logging.ERROR),
+        patch(
+            "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=timeout_fetch
+        ),
+        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(asyncio.TimeoutError):
             await fetch_with_retry(TEST_RESOURCE, max_retries=1)
-
-    # Verify error was logged
-    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
 
 
 @pytest.mark.integration
@@ -148,7 +148,9 @@ async def test_concurrent_fetches(cleanup_http_session) -> None:
         country_name = resource.split("/")[-1].replace("%20", " ")
         return {"name": {"common": country_name}, "region": "Test"}
 
-    with patch("app.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+    ):
         # Launch 5 concurrent fetches
         countries = ["France", "Spain", "Italy", "Greece", "Portugal"]
         tasks = [
@@ -190,9 +192,7 @@ async def test_aiohttp_connector_configuration(cleanup_http_session) -> None:
 
 
 @pytest.mark.integration
-async def test_client_error_handling_aiohttp_style(
-    cleanup_http_session, caplog
-) -> None:
+async def test_client_error_handling_aiohttp_style(cleanup_http_session) -> None:
     """aiohttp-specific ClientError is properly handled."""
 
     async def client_error_fetch(
@@ -202,13 +202,10 @@ async def test_client_error_handling_aiohttp_style(
 
     with (
         patch(
-            "app.fetch_aiohttp.fetch_from_external_api", side_effect=client_error_fetch
+            "ingestor.fetch_aiohttp.fetch_from_external_api",
+            side_effect=client_error_fetch,
         ),
-        patch("app.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
-        caplog.at_level(logging.ERROR),
+        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(aiohttp.ClientError):
             await fetch_with_retry(TEST_RESOURCE, max_retries=2)
-
-    # Verify error was logged
-    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)

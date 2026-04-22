@@ -33,7 +33,7 @@ from ingestor.metrics import (  # noqa: F401 — imported to register metrics at
     records_upsert_conflicts_total,
 )
 from ingestor.rate_limiting import limiter
-from ingestor.routers import records, records_v2, scraper
+from ingestor.routers import analytics, records, records_v2, scraper
 from ingestor.storage import mongo
 
 
@@ -238,6 +238,7 @@ app.add_middleware(CorrelationIdMiddleware)
 app.include_router(records.router)
 app.include_router(records_v2.router)
 app.include_router(scraper.router)
+app.include_router(analytics.router)
 
 
 # ---------------------------------------------------------------------------
@@ -279,4 +280,4 @@ async def readyz(db: DbDep) -> dict[str, str]:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("ingestor.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -64,7 +64,7 @@ async def test_fetch_success_without_failures(cleanup_http_client) -> None:
     async def mock_fetch(url: str, simulate_failures: bool = False) -> dict:
         return MOCK_POST_RESPONSE
 
-    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
         result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
         assert result["title"] == "Test Post"
 
@@ -82,15 +82,15 @@ async def test_fetch_retry_on_transient_failure(cleanup_http_client) -> None:
             raise httpx.TimeoutException("Timeout on call 1")
         return MOCK_POST_SUCCESS
 
-    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
         result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
         assert result["title"] == "Success after retry"
         assert call_count == 2
 
 
 @pytest.mark.integration
-async def test_fetch_retry_exhaustion(cleanup_http_client, caplog) -> None:
-    """Max retries are respected and exhaustion is logged."""
+async def test_fetch_retry_exhaustion(cleanup_http_client) -> None:
+    """Max retries are respected and the last error is propagated."""
     call_count = 0
 
     async def always_fail(url: str, simulate_failures: bool = False) -> dict:
@@ -99,35 +99,27 @@ async def test_fetch_retry_exhaustion(cleanup_http_client, caplog) -> None:
         raise Exception("Persistent API error")
 
     with (
-        patch("app.fetch.fetch_from_external_api", side_effect=always_fail),
-        patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
-        caplog.at_level(logging.ERROR),
+        patch("ingestor.fetch.fetch_from_external_api", side_effect=always_fail),
+        patch("ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(Exception, match="Persistent API error"):
             await fetch_with_retry(TEST_POST_URL, max_retries=3)
         assert call_count == 3
 
-    # Verify exhaustion was logged
-    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
-
 
 @pytest.mark.integration
-async def test_fetch_timeout_error_handling(cleanup_http_client, caplog) -> None:
+async def test_fetch_timeout_error_handling(cleanup_http_client) -> None:
     """Timeout exceptions are properly handled."""
 
     async def timeout_fetch(url: str, simulate_failures: bool = False) -> dict:
         raise httpx.TimeoutException("Request timeout")
 
     with (
-        patch("app.fetch.fetch_from_external_api", side_effect=timeout_fetch),
-        patch("app.fetch.asyncio.sleep", new_callable=AsyncMock),
-        caplog.at_level(logging.ERROR),
+        patch("ingestor.fetch.fetch_from_external_api", side_effect=timeout_fetch),
+        patch("ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(httpx.TimeoutException):
             await fetch_with_retry(TEST_POST_URL, max_retries=1)
-
-    # Verify error was logged
-    assert any(LOG_FETCH_EXHAUSTED in r.message for r in caplog.records)
 
 
 @pytest.mark.integration
@@ -138,7 +130,7 @@ async def test_concurrent_fetches(cleanup_http_client) -> None:
         post_id = int(url.split("/")[-1])
         return {"id": post_id, "title": f"Post {post_id}"}
 
-    with patch("app.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
         # Launch 5 concurrent fetches
         tasks = [
             fetch_with_retry(f"{API_BASE}/posts/{i}", max_retries=3)

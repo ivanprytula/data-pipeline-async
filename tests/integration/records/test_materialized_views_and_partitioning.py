@@ -81,8 +81,8 @@ async def test_materialized_view_records_hourly_stats_exists(db: AsyncSession) -
         text(
             """
             SELECT EXISTS(
-                SELECT 1 FROM information_schema.views
-                WHERE table_name = 'records_hourly_stats'
+                SELECT 1 FROM pg_matviews
+                WHERE matviewname = 'records_hourly_stats'
             )
             """
         )
@@ -105,7 +105,7 @@ async def test_materialized_view_has_index(db: AsyncSession) -> None:
             """
         )
     )
-    index_count = result.scalar()
+    index_count = result.scalar() or 0
 
     assert index_count == 1, "Index idx_records_hourly_stats_hour not found"
 
@@ -124,11 +124,19 @@ async def test_materialized_view_aggregation_logic(
     """
     # Arrange: Create records in hour 0 (some processed, some not)
     for i in range(3):
-        record = {**_RECORD, "timestamp": _HOUR_0, "data": {"value": i * 100}}
+        record = {
+            **_RECORD,
+            "source": f"api.example.com-{i}",
+            "timestamp": f"2026-04-20T00:0{i}:00",
+            "data": {"value": i * 100},
+        }
         await client.post("/api/v1/records", json=record)
 
     # Create processed record in hour 1
-    await client.post("/api/v1/records", json={**_RECORD, "timestamp": _HOUR_1})
+    await client.post(
+        "/api/v1/records",
+        json={**_RECORD, "source": "api.example.com-hour1", "timestamp": _HOUR_1},
+    )
 
     # Refresh materialized view to capture new data
     await client.post("/api/v1/analytics/refresh-materialized-view")
@@ -151,9 +159,13 @@ async def test_materialized_view_cte_columns(db: AsyncSession) -> None:
     result = await db.execute(
         text(
             """
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'records_hourly_stats'
-            ORDER BY ordinal_position
+                        SELECT attname AS column_name
+                        FROM pg_attribute
+                        JOIN pg_class ON pg_class.oid = pg_attribute.attrelid
+                        WHERE pg_class.relname = 'records_hourly_stats'
+                            AND attnum > 0
+                            AND NOT attisdropped
+                        ORDER BY attnum
             """
         )
     )
@@ -268,7 +280,7 @@ async def test_partitioned_table_constraints_include_partitioning_column(
             ),
             {"constraint_name": constraint_name},
         )
-        col_count = col_result.scalar()
+        col_count = col_result.scalar() or 0
         assert col_count >= 1, (
             f"Constraint {constraint_name} does not include timestamp column"
         )
@@ -287,7 +299,7 @@ async def test_partitioned_table_has_partition_indexes(db: AsyncSession) -> None
             """
         )
     )
-    index_count = result.scalar()
+    index_count = result.scalar() or 0
 
     # Should have at least one partition with timestamp index
     assert index_count >= 1, "Partition indexes on timestamp not found"

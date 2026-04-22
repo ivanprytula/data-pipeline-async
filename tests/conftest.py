@@ -25,7 +25,7 @@ IMPORTANT TESTING NOTE (parallelism):
 
 import datetime
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -109,6 +109,37 @@ _RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2026-01-01T00:00:00")
 IS_POSTGRES = "postgresql" in _TEST_DB_URL
 IS_SQLITE = "sqlite" in _TEST_DB_URL
 
+# Path to alembic.ini (repo root, one level above tests/)
+_ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
+
+
+def _alembic_upgrade(sync_url: str) -> None:
+    """Run Alembic migrations to head (sync, called via asyncio.to_thread)."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    cfg = Config(str(_ALEMBIC_INI))
+    cfg.set_main_option("sqlalchemy.url", sync_url)
+    command.upgrade(cfg, "head")
+
+
+def _alembic_downgrade(sync_url: str) -> None:
+    """Downgrade all migrations to base (sync, called via asyncio.to_thread)."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    cfg = Config(str(_ALEMBIC_INI))
+    cfg.set_main_option("sqlalchemy.url", sync_url)
+    command.downgrade(cfg, "base")
+
+
+async def _clear_records(session: AsyncSession) -> None:
+    """Remove seeded records without changing the migrated schema."""
+    await session.execute(text("TRUNCATE TABLE records RESTART IDENTITY CASCADE"))
+    await session.commit()
+
 
 # ---------------------------------------------------------------------------
 # Timestamp Fixture (DRY: centralized test timestamp constant)
@@ -177,18 +208,60 @@ async def client_with_cache(
     cache._client = None
 
 
+@pytest.fixture(scope="session", autouse=True)
+def apply_migrations() -> Generator[None]:
+    """Apply Alembic migrations once per test session (PostgreSQL only).
+
+    On PostgreSQL, runs ``alembic upgrade head`` before the first test and
+    ``alembic downgrade base`` after the last test.  This ensures the test DB
+    has the exact same schema as production — including materialized views,
+    partitioned tables, and extensions that are not ORM models and are
+    therefore invisible to ``Base.metadata.create_all``.
+
+    On SQLite the fixture is a no-op; the ``db`` fixture handles DDL via
+    ``create_all`` / ``drop_all`` on a per-test basis.
+    """
+    if not IS_POSTGRES:
+        yield
+        return
+
+    _ensure_sessionmaker()
+    _sync_url = _TEST_DB_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+    _alembic_upgrade(_sync_url)
+    yield
+    _alembic_downgrade(_sync_url)
+
+
 @pytest_asyncio.fixture()
 async def db() -> AsyncGenerator[AsyncSession]:
-    """Create schema, yield session, teardown schema — all async."""
+    """Yield an async session with a clean-data slate.
+
+    Schema lifecycle:
+    - PostgreSQL: schema is managed by the session-scoped ``apply_migrations``
+      fixture (Alembic).  This fixture only deletes rows between tests so that
+      the migration-created objects (materialized views, partitions, extensions)
+      survive across the whole session.
+    - SQLite: ``create_all`` / ``drop_all`` per test function (no Alembic).
+    """
     _ensure_sessionmaker()
     assert _engine is not None, "_engine not initialized"
     assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+
+    if not IS_POSTGRES:
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
     async with _AsyncSessionLocal() as session:
         yield session
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+
+    if IS_POSTGRES:
+        # Wipe data between tests; schema (tables/views/extensions) persists.
+        async with _AsyncSessionLocal() as cleanup:
+            await cleanup.execute(text("DELETE FROM records"))
+            await cleanup.commit()
+    else:
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture()
@@ -425,17 +498,22 @@ async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
         bind=pg_engine, autocommit=False, autoflush=False, expire_on_commit=False
     )
 
-    # Create schema
+    # Create session against the already-migrated test database schema.
     try:
         async with pg_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+        async with pg_sessionmaker() as cleanup_session:
+            await _clear_records(cleanup_session)
+
         async with pg_sessionmaker() as session:
             yield session
     finally:
-        # Cleanup
-        async with pg_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+        # Cleanup data only. The migrated schema is shared across tests and
+        # owned by Alembic, so dropping tables here would break materialized
+        # views and other dependent objects.
+        async with pg_sessionmaker() as cleanup_session:
+            await _clear_records(cleanup_session)
         await pg_engine.dispose()
 
 
@@ -467,7 +545,7 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
         pool_pre_ping=True,  # Validate connections before use
     )
 
-    # Create schema
+    # Create session against the already-migrated test database schema.
     try:
         async with isolated_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -482,11 +560,15 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
         async with SessionLocal() as session:
             # Store sessionmaker on the session for use by client_isolated
             session._sessionmaker = SessionLocal  # type: ignore[attr-defined]
+            async with SessionLocal() as cleanup_session:
+                await _clear_records(cleanup_session)
             yield session
     finally:
-        # Cleanup
-        async with isolated_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+        # Cleanup data only. The migrated schema is shared across tests and
+        # owned by Alembic, so dropping tables here would break materialized
+        # views and other dependent objects.
+        async with SessionLocal() as cleanup_session:
+            await _clear_records(cleanup_session)
         await isolated_engine.dispose()
 
 

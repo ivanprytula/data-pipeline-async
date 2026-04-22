@@ -36,7 +36,7 @@ class TestDocsAuth:
     async def test_valid_credentials_returns_credentials(self) -> None:
         """Correct username+password passes through unchanged."""
         creds = HTTPBasicCredentials(username="admin", password="secret")
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.docs_username = "admin"
             mock_settings.docs_password = "secret"
             result = await verify_docs_credentials(creds)
@@ -45,7 +45,7 @@ class TestDocsAuth:
     async def test_wrong_username_raises_403(self) -> None:
         """Wrong username raises 403 Forbidden."""
         creds = HTTPBasicCredentials(username="hacker", password="secret")
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.docs_username = "admin"
             mock_settings.docs_password = "secret"
             with pytest.raises(HTTPException) as exc:
@@ -55,7 +55,7 @@ class TestDocsAuth:
     async def test_wrong_password_raises_403(self) -> None:
         """Wrong password raises 403 Forbidden."""
         creds = HTTPBasicCredentials(username="admin", password="wrongpass")
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.docs_username = "admin"
             mock_settings.docs_password = "secret"
             with pytest.raises(HTTPException) as exc:
@@ -65,7 +65,7 @@ class TestDocsAuth:
     async def test_auth_disabled_passes_through(self) -> None:
         """When docs_username is not set, any credentials pass through."""
         creds = HTTPBasicCredentials(username="anyone", password="anything")
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.docs_username = None
             mock_settings.docs_password = None
             result = await verify_docs_credentials(creds)
@@ -81,14 +81,14 @@ class TestBearerToken:
 
     async def test_valid_token_returns_credentials(self) -> None:
         """Correct bearer token returns the token string."""
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.api_v1_bearer_token = "secret-token"
             result = await verify_bearer_token("Bearer secret-token")
         assert result == "secret-token"
 
     async def test_missing_header_raises_401(self) -> None:
         """No Authorization header raises 401."""
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.api_v1_bearer_token = "secret-token"
             with pytest.raises(HTTPException) as exc:
                 await verify_bearer_token(None)
@@ -96,7 +96,7 @@ class TestBearerToken:
 
     async def test_wrong_scheme_raises_401(self) -> None:
         """Non-Bearer scheme (e.g., Basic) raises 401."""
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.api_v1_bearer_token = "secret-token"
             with pytest.raises(HTTPException) as exc:
                 await verify_bearer_token("Basic secret-token")
@@ -104,7 +104,7 @@ class TestBearerToken:
 
     async def test_invalid_token_raises_403(self) -> None:
         """Wrong token value raises 403 Forbidden."""
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.api_v1_bearer_token = "secret-token"
             with pytest.raises(HTTPException) as exc:
                 await verify_bearer_token("Bearer wrong-token")
@@ -112,7 +112,7 @@ class TestBearerToken:
 
     async def test_auth_disabled_returns_public(self) -> None:
         """When api_v1_bearer_token is not set, any request returns 'public'."""
-        with patch("app.auth.settings") as mock_settings:
+        with patch("ingestor.auth.settings") as mock_settings:
             mock_settings.api_v1_bearer_token = None
             result = await verify_bearer_token(None)
         assert result == "public"
