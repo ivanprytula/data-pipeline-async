@@ -42,7 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ingestor.auth import create_jwt_token, verify_jwt_token
+from ingestor.auth import create_jwt_token, jwt_role_guard
 from ingestor.constants import (
     API_V2_PREFIX,
     ENRICH_SEMAPHORE_LIMIT,
@@ -277,8 +277,8 @@ async def create_record_sliding_window(
 )
 async def issue_jwt_token(user_id: str) -> dict[str, str]:
     """Issue JWT token for the given user_id (learning example)."""
-    token = create_jwt_token(user_id, {"scope": "records:write"})
-    logger.info("jwt_issued", extra={"user_id": user_id})
+    token = create_jwt_token(user_id, {"scope": "records:write", "roles": ["writer"]})
+    logger.info("jwt_issued", extra={"user_id": user_id, "role": "writer"})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -304,7 +304,7 @@ async def issue_jwt_token(user_id: str) -> dict[str, str]:
 async def create_record_jwt(
     body: RecordRequest,
     db: DbDep,
-    claims: dict[str, Any] = Depends(verify_jwt_token),  # noqa: B008
+    claims: dict[str, Any] = Depends(jwt_role_guard("writer", "admin")),  # noqa: B008
 ) -> RecordResponse:
     """Create a record authenticated via JWT token."""
     user_id = claims.get("sub", "unknown")

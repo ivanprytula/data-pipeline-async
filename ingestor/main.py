@@ -116,6 +116,43 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach baseline security headers to every HTTP response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Baseline browser hardening headers.
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), camera=(), microphone=()"
+        )
+
+        # HSTS only makes sense when traffic is served over HTTPS.
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+
+def _validate_production_security_settings() -> None:
+    """Fail fast on weak default secrets in production-like environments."""
+    if settings.environment.lower() not in {"production", "prod"}:
+        return
+
+    weak_jwt_secret = settings.jwt_secret == "dev-secret-key-change-in-production"
+    weak_docs_password = settings.docs_password in {"changeme", "admin", "password"}
+
+    if weak_jwt_secret or weak_docs_password:
+        raise RuntimeError(
+            "Weak default secrets detected in production environment. "
+            "Set strong values via environment variables or a secrets manager."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Lifespan: startup and shutdown events (e.g. for resource management)
 # ---------------------------------------------------------------------------
@@ -152,6 +189,7 @@ async def lifespan(app: FastAPI):
         )
 
     logger.info("startup", extra={"event": "application_started"})
+    _validate_production_security_settings()
 
     # Initialize external services (Redis, Kafka, MongoDB)
     await initialize_external_services()
@@ -337,6 +375,7 @@ if settings.docs_username and settings.docs_password:
 
 
 # Add correlation ID middleware early (runs before route handlers)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(records.router)

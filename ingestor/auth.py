@@ -9,6 +9,7 @@ Three auth patterns for learning:
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -29,6 +30,9 @@ type DocsCredentialsDep = Annotated[HTTPBasicCredentials, Depends(security)]
 
 # In-memory session store (production would use Redis/database)
 _session_store: dict[str, dict[str, Any]] = {}
+
+# Simple role names for RBAC learning examples.
+DEFAULT_ROLE = "viewer"
 
 
 # ============================================================================
@@ -133,6 +137,76 @@ async def verify_session(
     return session_data
 
 
+def _normalize_roles(raw_roles: Any) -> set[str]:
+    """Normalize role claims from str/list/tuple into a lowercase role set."""
+    if raw_roles is None:
+        return set()
+    if isinstance(raw_roles, str):
+        return {raw_roles.strip().lower()} if raw_roles.strip() else set()
+    if isinstance(raw_roles, Iterable):
+        roles = {str(role).strip().lower() for role in raw_roles if str(role).strip()}
+        return roles
+    return set()
+
+
+def _extract_roles(claims_or_session: dict[str, Any]) -> set[str]:
+    """Extract normalized roles from auth context.
+
+    Supports `role` and `roles` fields for compatibility across session/JWT payloads.
+    """
+    roles = set()
+    roles.update(_normalize_roles(claims_or_session.get("roles")))
+    roles.update(_normalize_roles(claims_or_session.get("role")))
+    if not roles and claims_or_session.get("scope") == "records:write":
+        roles.add("writer")
+    return roles
+
+
+def require_roles(required_roles: set[str], current_roles: set[str]) -> None:
+    """Raise 403 when the current role set does not satisfy RBAC requirements."""
+    if not (required_roles & current_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient role permissions",
+        )
+
+
+def session_role_guard(*required_roles: str):
+    """Create a session-based RBAC dependency.
+
+    Example:
+        AdminSessionDep = Annotated[dict[str, Any], Depends(session_role_guard("admin"))]
+    """
+    normalized_required = {role.lower() for role in required_roles}
+
+    async def _guard(
+        session: dict[str, Any] = Depends(verify_session),
+    ) -> dict[str, Any]:
+        roles = _extract_roles(session)
+        require_roles(normalized_required, roles)
+        return session
+
+    return _guard
+
+
+def jwt_role_guard(*required_roles: str):
+    """Create a JWT-based RBAC dependency.
+
+    Example:
+        WriterJwtDep = Annotated[dict[str, Any], Depends(jwt_role_guard("writer", "admin"))]
+    """
+    normalized_required = {role.lower() for role in required_roles}
+
+    async def _guard(
+        claims: dict[str, Any] = Depends(verify_jwt_token),
+    ) -> dict[str, Any]:
+        roles = _extract_roles(claims)
+        require_roles(normalized_required, roles)
+        return claims
+
+    return _guard
+
+
 def create_session(
     user_id: str, custom_data: dict[str, Any] | None = None
 ) -> tuple[str, str]:
@@ -147,6 +221,7 @@ def create_session(
 
     _session_store[session_id] = {
         "user_id": user_id,
+        "role": DEFAULT_ROLE,
         "created_at": datetime.now(UTC).isoformat(),
         "expires_at": expires_at,
         **(custom_data or {}),

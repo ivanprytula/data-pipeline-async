@@ -32,6 +32,25 @@ Expected takeaway: this repository is not a toy demo. It is a structured portfol
 
 ---
 
+## Pillar 6 Status: Security, Auth, and RBAC
+
+Current state (implemented baseline):
+
+- Basic user data model exists (`users` table + Alembic migration).
+- RBAC role guards are implemented for session and JWT flows (`viewer`, `writer`, `admin`).
+- Role-protected API operations are live for secure archive/delete and JWT-protected writes.
+- Security headers are attached to all HTTP responses.
+- Production startup includes fail-fast checks for weak default secrets.
+- CI security scanning is active (`pip-audit` and Trivy image scans).
+
+Next planned hardening:
+
+- Move session state from in-memory to Redis-backed persistent store.
+- Add persisted user auth endpoints (registration/login/logout/role management).
+- Expand RBAC checks across additional API operations.
+
+---
+
 ## 8-Phase Roadmap
 
 Data Zoo progresses through **8 phases**, each adding one architectural layer:
@@ -59,6 +78,7 @@ Data Zoo progresses through **8 phases**, each adding one architectural layer:
 | **Streaming** | Redpanda (Kafka-compatible) |
 | **Background Jobs** | APScheduler + in-process worker queue |
 | **Observability** | Prometheus + OpenTelemetry + structured JSON logging |
+| **Security/Auth** | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
 | **Testing** | pytest + aiosqlite (in-memory for fast unit tests) |
 | **CI/CD** | GitHub Actions (split unit/integration workflows) |
 | **IaC** | Terraform (AWS Fargate + managed services) |

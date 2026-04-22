@@ -49,6 +49,15 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
 6. Security, Auth, and RBAC — **Score: 7**
    - Why: Product safety, multi-tenant readiness, and compliance.
    - Immediate tasks: implement basic user model, role-based access control for API operations, rate-limiting (slowapi/fastapi middleware), and secret management patterns; add security headers and CI dependency scanning.
+   - Current status (April 23, 2026): baseline implementation shipped.
+   - Implemented:
+     - basic user model + migration: `users` table with role and active flags
+     - RBAC dependencies for session and JWT flows (`viewer`/`writer`/`admin`)
+     - role-protected API operations for secure archive/delete and JWT write route
+     - response hardening via security headers middleware
+     - production secret guardrails (fail-fast on weak default secrets)
+     - CI dependency scanning already present (`security-full.yml`: pip-audit + Trivy)
+   - Next: migrate session store from in-memory to Redis, add persisted user CRUD/auth endpoints, and enforce RBAC on additional production routes.
    - Timeframe: 30–90 days
 
 7. Admin UI & User Workflows — **Score: 6**

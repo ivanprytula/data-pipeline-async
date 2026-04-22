@@ -46,6 +46,7 @@ bash scripts/dev-env.sh
 ### What's Running
 
 After this script:
+
 - PostgreSQL (main) is accepting connections on port 5432
 - PostgreSQL (test) is accepting connections on port 5433 (for parallel tests)
 - Redis is running on port 6379
@@ -177,6 +178,7 @@ bash scripts/quality-checks.sh
 ```
 
 This runs:
+
 - **Ruff format**: Auto-format code to PEP 8 style
 - **Ruff lint**: Check for code errors and style issues
 - **Type check**: Verify type hints with `pyright`
@@ -209,6 +211,7 @@ uv run uvicorn ingestor.main:app --reload
 Server starts at `https://localhost:8000`
 
 **Features**:
+
 - Auto-reloads when you save Python files
 - Shows detailed error messages
 - Hot-reload for dependency injection changes
@@ -221,6 +224,51 @@ Once server is running:
 - **ReDoc**: `https://localhost:8000/api/redoc`
 - **OpenAPI JSON**: `https://localhost:8000/openapi.json`
 
+---
+
+## Workflow 6: Auth and RBAC Smoke Checks
+
+Use these quick checks after touching auth, middleware, or route dependencies.
+
+### Session Login with Explicit Role
+
+```bash
+curl -k -i -X POST "https://localhost:8000/api/v1/records/auth/login?user_id=alice&role=writer"
+```
+
+Expected: `Set-Cookie: session_id=...` in response headers.
+
+### Writer Route (Should Succeed for writer/admin)
+
+```bash
+curl -k -i -X PATCH "https://localhost:8000/api/v1/records/1/secure/archive" \
+  --cookie "session_id=<SESSION_ID>"
+```
+
+Expected: `200 OK` for `writer`/`admin`, `403` for `viewer`.
+
+### Admin Route (Should Fail for writer)
+
+```bash
+curl -k -i -X DELETE "https://localhost:8000/api/v1/records/1/secure/delete" \
+  --cookie "session_id=<SESSION_ID>"
+```
+
+Expected: `403` unless session role is `admin`.
+
+### JWT Write Route (v2)
+
+```bash
+TOKEN=$(curl -k -s -X POST "https://localhost:8000/api/v2/records/auth/token" | jq -r '.access_token')
+
+curl -k -i -X POST "https://localhost:8000/api/v2/records/jwt" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"source":"rbac-check","timestamp":"2026-01-01T00:00:00","data":{"ok":true},"tags":["smoke"]}'
+```
+
+Expected: `201` with writer/admin token; `403` when token roles are insufficient.
+
 ### Health Check
 
 ```bash
@@ -231,7 +279,7 @@ Should return: `{"status":"healthy"}`
 
 ---
 
-## Workflow 6: Test API Endpoints
+## Workflow 7: Test API Endpoints
 
 ### Manual HTTP Requests
 
@@ -259,7 +307,7 @@ This script demonstrates various API calls (create, read, update, delete).
 
 ---
 
-## Workflow 7: Background Worker Testing
+## Workflow 8: Background Worker Testing
 
 ### Submit Batch Ingestion Job
 
@@ -293,7 +341,7 @@ Returns: Queue depth, active workers, submitted/processed counters
 
 ---
 
-## Workflow 8: Metrics & Observability
+## Workflow 9: Metrics & Observability
 
 ### Prometheus Metrics
 
@@ -321,13 +369,14 @@ open http://localhost:16686
 ```
 
 Traces show:
+
 - Request flow through middleware → router → CRUD
 - Database query timing
 - External HTTP calls (if traced)
 
 ---
 
-## Workflow 9: Database Inspection
+## Workflow 10: Database Inspection
 
 ### Connect via psql
 
@@ -336,6 +385,7 @@ docker compose exec db psql -U postgres -d data_pipeline
 ```
 
 Then:
+
 ```sql
 -- List tables
 \dt
@@ -362,7 +412,7 @@ docker compose exec db psql -U postgres data_pipeline < backup.sql
 
 ---
 
-## Workflow 10: Load Testing
+## Workflow 11: Load Testing
 
 ### Run Load Test
 
@@ -371,6 +421,7 @@ bash scripts/load_test.sh
 ```
 
 This script runs k6 load tests with:
+
 - 10 virtual users
 - Ramp-up over 30 seconds
 - 5-minute test duration

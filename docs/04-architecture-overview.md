@@ -20,7 +20,7 @@
                  │
          ┌───────▼──────────────────────────────┐
          │  Request Middleware                  │
-         │  (Auth, Logging, Correlation IDs)    │
+          │  (Auth, Security Headers, Logging, Correlation IDs)    │
          └───────┬──────────────────────────────┘
                  │
     ┌────────────┼────────────┬────────────────┐
@@ -66,6 +66,24 @@
 | Tracing | OpenTelemetry + Jaeger | Distributed request tracing |
 
 **Example flow**: Client POST batch → API returns 202 (accepted) → Worker pool processes → Metrics updated → Client polls status
+
+### Security/Auth/RBAC Baseline (Pillar 6) ✅ Implemented
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Docs Auth | HTTP Basic | Protect `/docs`, `/redoc`, `/openapi.json` when enabled |
+| v1 API Auth | Bearer token + session cookie | Stateful and simple token auth learning path |
+| v2 API Auth | JWT (HS256) | Stateless auth with role claims |
+| RBAC | Session/JWT role guards | Enforce `viewer`/`writer`/`admin` per endpoint |
+| Security Headers | HTTP middleware | Browser hardening (`nosniff`, `DENY`, referrer policy, permissions policy) |
+| Secret Guardrails | Startup validation | Fail fast in production-like envs with weak default secrets |
+| Security CI | `pip-audit`, Trivy | Dependency and container vulnerability scanning |
+
+Implemented protected route examples:
+
+- `PATCH /api/v1/records/{record_id}/secure/archive` (writer/admin)
+- `DELETE /api/v1/records/{record_id}/secure/delete` (admin only)
+- `POST /api/v2/records/jwt` (writer/admin via JWT claim)
 
 ### Phase 6 & 7: Cloud Deployment ✅ Done
 
@@ -170,6 +188,19 @@ CREATE TABLE background_tasks (
     result JSONB,
     error TEXT
 );
+
+-- users: auth and RBAC identity table (baseline)
+CREATE TABLE users (
+   id SERIAL PRIMARY KEY,
+   username VARCHAR(64) UNIQUE NOT NULL,
+   email VARCHAR(255) UNIQUE NOT NULL,
+   password_hash VARCHAR(255) NOT NULL,
+   role VARCHAR(32) NOT NULL DEFAULT 'viewer',
+   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+   created_at TIMESTAMP NOT NULL,
+   updated_at TIMESTAMP,
+   deleted_at TIMESTAMP
+);
 ```
 
 See [docs/design/architecture.md](design/architecture.md) for full schema details.
@@ -213,6 +244,30 @@ See [docs/design/architecture.md](design/architecture.md) for full schema detail
 10. nginx HTTPS termination
    ↓
 11. Client receives response
+```
+
+---
+
+## Request Flow (Example: Secured Archive with RBAC)
+
+```
+1. Client logs in: POST /api/v1/records/auth/login?user_id=alice&role=writer
+   ↓
+2. Client calls PATCH /api/v1/records/{id}/secure/archive with session cookie
+   ↓
+3. Request middleware runs
+   - correlation/logging context
+   - security headers attached on response
+   ↓
+4. Session dependency validates session_id
+   ↓
+5. RBAC guard checks role ∈ {writer, admin}
+   ├─ fail → 403 Insufficient role permissions
+   └─ pass → continue
+   ↓
+6. Route handler performs soft-delete (archive)
+   ↓
+7. Response returns with security headers
 ```
 
 ---

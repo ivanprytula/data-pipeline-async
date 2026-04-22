@@ -18,6 +18,7 @@ If you have 10 minutes, use this evaluation path:
 - Real backend production patterns: async I/O, resilience, idempotency, CQRS, observability.
 - Measurable engineering outcomes: reliability improvements, latency optimization, throughput-oriented design.
 - Engineering maturity: tests, CI/CD, documentation quality, and explicit design decisions (ADRs).
+- Security baseline delivery: role-based auth guards, protected operations, response security headers, and CI vulnerability scans.
 - Practical scope fit: strong middle/middle+ backend profile with realistic boundaries around platform depth.
 
 ### Evidence Map
@@ -27,6 +28,7 @@ If you have 10 minutes, use this evaluation path:
 | System design and architecture | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/design/decisions.md](docs/design/decisions.md) |
 | Database and performance reasoning | [docs/09-backend-concepts-and-patterns.md](docs/09-backend-concepts-and-patterns.md), [docs/progress/phase-5-advanced-sql-cqrs.md](docs/progress/phase-5-advanced-sql-cqrs.md) |
 | Reliability and resilience | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md) |
+| Security, auth, and RBAC | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/pillar-5-security.md](docs/progress/pillar-5-security.md), [docs/progress/roadmap.md](docs/progress/roadmap.md) |
 | Communication quality | [CV.md](CV.md), [docs/10-interview-prep-middle-plus.md](docs/10-interview-prep-middle-plus.md) |
 | Delivery workflow quality | [docs/dev/commands.md](docs/dev/commands.md), [docs/cloud-deployment.md](docs/cloud-deployment.md), [docs/adr/README.md](docs/adr/README.md) |
 

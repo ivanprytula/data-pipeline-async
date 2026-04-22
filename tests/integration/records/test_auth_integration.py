@@ -99,6 +99,68 @@ class TestSessionAuth:
         assert response.status_code == 401
         assert "expired" in response.json()["detail"].lower()
 
+    async def test_archive_record_secured_requires_writer_or_admin(
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
+    ) -> None:
+        """RBAC secure archive endpoint denies viewer role and allows writer role."""
+        from ingestor import crud
+
+        record = await crud.create_record(
+            db,
+            RecordRequest(source="test", timestamp=record_timestamp, data={}),
+        )
+
+        viewer_login = await client.post(
+            "/api/v1/records/auth/login",
+            params={"user_id": "viewer-user", "role": "viewer"},
+        )
+        client.cookies.set("session_id", viewer_login.json()["session_id"])
+        viewer_response = await client.patch(
+            f"/api/v1/records/{record.id}/secure/archive"
+        )
+        assert viewer_response.status_code == 403
+
+        writer_login = await client.post(
+            "/api/v1/records/auth/login",
+            params={"user_id": "writer-user", "role": "writer"},
+        )
+        client.cookies.set("session_id", writer_login.json()["session_id"])
+        writer_response = await client.patch(
+            f"/api/v1/records/{record.id}/secure/archive"
+        )
+        assert writer_response.status_code == 200
+
+    async def test_delete_record_secured_requires_admin(
+        self, client: AsyncClient, db: AsyncSession, record_timestamp
+    ) -> None:
+        """RBAC secure delete endpoint allows only admin role."""
+        from ingestor import crud
+
+        record = await crud.create_record(
+            db,
+            RecordRequest(source="test", timestamp=record_timestamp, data={}),
+        )
+
+        writer_login = await client.post(
+            "/api/v1/records/auth/login",
+            params={"user_id": "writer-user", "role": "writer"},
+        )
+        client.cookies.set("session_id", writer_login.json()["session_id"])
+        writer_response = await client.delete(
+            f"/api/v1/records/{record.id}/secure/delete"
+        )
+        assert writer_response.status_code == 403
+
+        admin_login = await client.post(
+            "/api/v1/records/auth/login",
+            params={"user_id": "admin-user", "role": "admin"},
+        )
+        client.cookies.set("session_id", admin_login.json()["session_id"])
+        admin_response = await client.delete(
+            f"/api/v1/records/{record.id}/secure/delete"
+        )
+        assert admin_response.status_code == 204
+
 
 @pytest.mark.integration
 class TestBearerTokenAuth:
@@ -172,3 +234,18 @@ class TestRateLimitHandler:
         # Slowapi may or may not set these headers depending on configuration
         # Just verify the endpoint works
         assert "id" in response.json()
+
+
+@pytest.mark.integration
+class TestSecurityHeaders:
+    """Baseline security headers should be attached by middleware."""
+
+    async def test_security_headers_present_on_health(
+        self, client: AsyncClient
+    ) -> None:
+        response = await client.get("/health")
+        assert response.status_code == 200
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert response.headers["Referrer-Policy"] == "no-referrer"
+        assert "Permissions-Policy" in response.headers

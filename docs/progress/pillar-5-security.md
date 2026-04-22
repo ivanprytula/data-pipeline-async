@@ -5,6 +5,30 @@
 
 ---
 
+## Current Repository Implementation Status
+
+Implemented baseline in this repository:
+
+- RBAC guard helpers for session and JWT auth paths.
+- Role-aware protected routes for secure archive/delete and JWT-protected writes.
+- Security headers middleware on all responses.
+- Production startup guardrails that reject weak default secrets.
+- `users` table added via Alembic migration as foundation for persisted auth.
+- Unit/integration coverage for RBAC behaviors and security headers.
+
+Not implemented yet (planned hardening):
+
+- Redis-backed persistent session store (current session store is in-memory for learning scope).
+- Full persisted user auth flows (registration, credential verification, logout/session revocation).
+- Broader RBAC coverage across all write/admin endpoints.
+
+See also:
+
+- [docs/progress/roadmap.md](roadmap.md)
+- [docs/04-architecture-overview.md](../04-architecture-overview.md)
+
+---
+
 ## Authentication Mechanisms
 
 This project demonstrates three distinct auth patterns for different use cases:

@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ingestor import cache, events
-from ingestor.auth import create_session, verify_bearer_token, verify_session
+from ingestor.auth import (
+    DEFAULT_ROLE,
+    create_session,
+    session_role_guard,
+    verify_bearer_token,
+    verify_session,
+)
 from ingestor.constants import (
     API_V1_PREFIX,
     DEFAULT_PAGE_SIZE,
@@ -64,6 +70,10 @@ router = APIRouter(prefix=f"{API_V1_PREFIX}/records", tags=["records"])
 type DbDep = Annotated[AsyncSession, Depends(get_db)]
 type SessionDep = Annotated[dict[str, Any], Depends(verify_session)]
 type BearerTokenDep = Annotated[str, Depends(verify_bearer_token)]
+type WriterSessionDep = Annotated[
+    dict[str, Any], Depends(session_role_guard("writer", "admin"))
+]
+type AdminSessionDep = Annotated[dict[str, Any], Depends(session_role_guard("admin"))]
 
 
 # ---------------------------------------------------------------------------
@@ -297,14 +307,15 @@ async def delete_record(record_id: int, db: DbDep) -> None:
 
 
 @router.post("/auth/login", response_model=SessionResponse)
-async def login_session(user_id: str) -> SessionResponse:
+async def login_session(user_id: str, role: str = DEFAULT_ROLE) -> SessionResponse:
     """Create a session (learning example for session-based auth).
 
     In production: verify password hash, check rate limits, use HTTPS only, etc.
     Response includes Set-Cookie header with session_id.
     """
-    session_id, cookie_value = create_session(user_id, {"role": "default"})
-    logger.info("login_success", extra={"user_id": user_id})
+    normalized_role = role.strip().lower() if role.strip() else DEFAULT_ROLE
+    session_id, cookie_value = create_session(user_id, {"role": normalized_role})
+    logger.info("login_success", extra={"user_id": user_id, "role": normalized_role})
 
     # Return token explicitly (FastAPI handles Set-Cookie automatically via Response)
     return SessionResponse(session_id=session_id, message="Session created")
@@ -334,6 +345,51 @@ async def get_record_secured(
             status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
         )
     return RecordResponse.model_validate(record)
+
+
+@router.patch(
+    "/{record_id}/secure/archive",
+    response_model=RecordResponse,
+)
+async def archive_record_secured(
+    record_id: int,
+    db: DbDep,
+    session: WriterSessionDep,
+) -> RecordResponse:
+    """Archive a record with session RBAC (writer/admin)."""
+    logger.info(
+        "record_archive_secure",
+        extra={"id": record_id, "user_id": session.get("user_id")},
+    )
+    record = await soft_delete_record(db, record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record not found or already archived",
+        )
+    return RecordResponse.model_validate(record)
+
+
+@router.delete(
+    "/{record_id}/secure/delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_record_secured(
+    record_id: int,
+    db: DbDep,
+    session: AdminSessionDep,
+) -> None:
+    """Hard-delete a record with session RBAC (admin-only)."""
+    logger.info(
+        "record_delete_secure",
+        extra={"id": record_id, "user_id": session.get("user_id")},
+    )
+    record = await delete_record_op(db, record_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
+    await cache.invalidate_record(record_id)
 
 
 @router.post(

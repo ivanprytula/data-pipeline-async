@@ -49,6 +49,15 @@ Prioritized pillars (scores & immediate steps)
 6) Security, Auth, and RBAC — Score: 7
 - Why: Product safety, multi-tenant readiness, and compliance.
 - Immediate tasks: implement basic user model, role-based access control for API operations, rate-limiting (slowapi/fastapi middleware), and secret management patterns; add security headers and CI dependency scanning.
+- Current status (April 23, 2026): baseline implementation shipped.
+- Implemented in repo:
+  - User model + migration: `users` table with role and active flags
+  - RBAC dependencies: session/JWT role guards (`viewer`/`writer`/`admin`)
+  - Role-protected API operations for secure archive/delete and JWT-protected writes
+  - Security headers middleware on all responses
+  - Production secret guardrails (startup fail-fast on weak defaults)
+  - CI dependency scanning already active (`security-full.yml`: pip-audit + Trivy)
+- Next: move session state to Redis, add persisted user auth endpoints, and expand RBAC coverage across more routes.
 - Timeframe: 30–90 days
 
 7) Admin UI & User Workflows — Score: 6

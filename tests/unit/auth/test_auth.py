@@ -17,8 +17,12 @@ from fastapi.security import HTTPBasicCredentials
 
 import ingestor.auth as auth_module
 from ingestor.auth import (
+    _extract_roles,
     create_jwt_token,
     create_session,
+    jwt_role_guard,
+    require_roles,
+    session_role_guard,
     verify_bearer_token,
     verify_docs_credentials,
     verify_jwt_token,
@@ -116,6 +120,36 @@ class TestBearerToken:
             mock_settings.api_v1_bearer_token = None
             result = await verify_bearer_token(None)
         assert result == "public"
+
+
+@pytest.mark.unit
+class TestRbacHelpers:
+    """RBAC helper unit tests for role extraction and permission checks."""
+
+    def test_extract_roles_from_role_and_roles_fields(self) -> None:
+        """`role` and `roles` payloads normalize into a single lowercase role set."""
+        claims = {"role": "Admin", "roles": ["Writer", "viewer"]}
+        assert _extract_roles(claims) == {"admin", "writer", "viewer"}
+
+    def test_require_roles_raises_403_when_missing(self) -> None:
+        """require_roles rejects auth contexts lacking required role membership."""
+        with pytest.raises(HTTPException) as exc:
+            require_roles({"admin"}, {"viewer"})
+        assert exc.value.status_code == 403
+
+    async def test_session_role_guard_allows_admin(self) -> None:
+        """session_role_guard allows sessions with matching roles."""
+        guard = session_role_guard("admin")
+        session_data = {"user_id": "u1", "role": "admin"}
+        result = await guard(session_data)
+        assert result["user_id"] == "u1"
+
+    async def test_jwt_role_guard_denies_viewer_for_writer_route(self) -> None:
+        """jwt_role_guard blocks insufficient roles with 403."""
+        guard = jwt_role_guard("writer", "admin")
+        with pytest.raises(HTTPException) as exc:
+            await guard({"sub": "u2", "roles": ["viewer"]})
+        assert exc.value.status_code == 403
 
 
 # ---------------------------------------------------------------------------
