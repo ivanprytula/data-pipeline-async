@@ -64,6 +64,7 @@
 | Job Scheduling | APScheduler | Recurring tasks (daily rollups, cleanup) |
 | Metrics | Prometheus | Performance monitoring (job duration, throughput) |
 | Tracing | OpenTelemetry + Jaeger | Distributed request tracing |
+| Error Tracking | Sentry SDK | Exception aggregation, release-level error visibility |
 
 **Example flow**: Client POST batch → API returns 202 (accepted) → Worker pool processes → Metrics updated → Client polls status
 
@@ -119,7 +120,7 @@ Implemented admin workflow endpoints (dashboard):
 |-----------|------------|---------|
 | Backup & Recovery | pg_dump + S3 | Data durability |
 | Chaos Testing | network partitions, latency injection | Resilience validation |
-| Observability | Prometheus + Grafana + Loki | Production monitoring |
+| Observability | Prometheus + Grafana + Sentry | Production monitoring + exception triage |
 | Security Scanning | Trivy + Snyk | Vulnerability detection |
 
 ---

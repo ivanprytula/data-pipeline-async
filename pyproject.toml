@@ -45,6 +45,7 @@ dependencies = [
     "opentelemetry-sdk>=1.25.0",
     "opentelemetry-instrumentation-fastapi>=0.46b0",
     "opentelemetry-exporter-otlp>=1.25.0",
+    "sentry-sdk[fastapi]>=2.19.2",
     # Dashboard (Phase 6) — HTMX + Jinja2 server-rendered UI
     "jinja2>=3.1",
     "python-multipart>=0.0.9",

@@ -89,6 +89,20 @@ logger.info("request_end", extra={
 
 ## Senior (🔴)
 
+### Error Tracking (Sentry)
+
+**What it is**:
+
+- Automatic capture of unhandled exceptions and stack traces
+- Error grouping, regression detection, and release correlation
+- Alert routing to team channels (Slack/Telegram) and ticketing automation
+
+**Why it complements metrics/traces**:
+
+- Metrics show that something is wrong
+- Traces show where latency/calls happen
+- Sentry shows exactly which exception happened, with stack context
+
 ### OpenTelemetry (Distributed Tracing)
 
 **What it is**:
@@ -139,6 +153,7 @@ Spans appear in **Jaeger UI** with full trace graph
 ✅ Instrument FastAPI with Prometheus metrics
 ✅ Build Grafana dashboard (error rate, latency P95)
 ✅ Trace requests across service boundaries with OpenTelemetry
+✅ Use Sentry for error triage and release-aware exception tracking
 ✅ Write alerting rules for error rate + latency
 ✅ Explain why you log (debugging), metrics (SLOs), traces (dependencies)
 

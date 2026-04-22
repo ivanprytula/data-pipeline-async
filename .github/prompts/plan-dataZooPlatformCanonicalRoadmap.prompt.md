@@ -31,7 +31,12 @@ Prioritized pillars (scores & immediate steps)
 
 4) Observability & Monitoring — Score: 8
 - Why: Operability and SLO measurement depend on metrics, traces, and logs.
-- Immediate tasks: integrate Prometheus metrics (request counters, latencies, job success/failure), structured JSON logging, and OpenTelemetry traces for key flows; add dashboards for ingestion health and job backlog.
+- Immediate tasks: integrate Prometheus metrics (request counters, latencies, job success/failure), structured JSON logging, OpenTelemetry traces for key flows, and Sentry error tracking; add dashboards for ingestion health and job backlog.
+- Current status (April 23, 2026): baseline Sentry integration shipped.
+- Implemented in repo:
+  - Environment-gated Sentry SDK init (`SENTRY_ENABLED`, `SENTRY_DSN`)
+  - FastAPI/SQLAlchemy/logging integrations for centralized exception capture
+  - Release/environment tagging for faster production triage
 - Timeframe: 14–45 days
 
 5) Background Processing & Scaling — Score: 7
@@ -77,6 +82,14 @@ Prioritized pillars (scores & immediate steps)
 8) Notifications & Emailing — Score: 5
 - Why: Operational convenience (alerts, processed notifications) — not critical to core ingestion.
 - Immediate tasks: add notification abstraction and a transactional email provider integration for alerts and user notifications.
+- Current status (April 23, 2026): baseline implementation shipped.
+- Implemented in repo:
+  - Notification abstraction supporting Slack, Telegram, webhook, and email (Resend)
+  - Background worker failure alerts wired to notification dispatch
+  - Manual dispatch endpoint: `POST /api/v1/notifications/test`
+  - Env-based configuration for providers (no hardcoded secrets)
+  - Unit/integration tests for dispatch and endpoint behavior
+- Next: add Jira issue automation for critical alerts and user-level notification preferences.
 - Timeframe: 60–150 days
 
 9) Embeddings & LLM Features (Vector Search) — Score: 4

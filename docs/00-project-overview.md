@@ -97,7 +97,7 @@ Data Zoo progresses through **8 phases**, each adding one architectural layer:
 | **Streaming** | Redpanda (Kafka-compatible) |
 | **Background Jobs** | APScheduler + in-process worker queue |
 | **Admin UI** | HTMX + Jinja2 dashboard workflows |
-| **Observability** | Prometheus + OpenTelemetry + structured JSON logging |
+| **Observability** | Prometheus + OpenTelemetry + Sentry + structured JSON logging |
 | **Security/Auth** | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
 | **Testing** | pytest + aiosqlite (in-memory for fast unit tests) |
 | **CI/CD** | GitHub Actions (split unit/integration workflows) |
@@ -118,14 +118,14 @@ This project is documented in **numbered reading order**. Start at **00** and pr
 
 ### Deep Dive (Architecture & Decisions)
 
-4. **[04 — Architecture Overview](04-architecture-overview.md)** — System design, components, phase-by-phase details
-5. **[Cloud Deployment](cloud-deployment.md)** — Production deployment, Kubernetes, infrastructure guidance
-6. **[Dev Commands](dev/commands.md)** — Test and CI-related daily workflows
+1. **[04 — Architecture Overview](04-architecture-overview.md)** — System design, components, phase-by-phase details
+2. **[Cloud Deployment](cloud-deployment.md)** — Production deployment, Kubernetes, infrastructure guidance
+3. **[Dev Commands](dev/commands.md)** — Test and CI-related daily workflows
 
 ### Reference
 
-7. **[Design Decisions](design/decisions.md)** — Key decisions with rationale across all layers
-8. **[Knowledge Base](design/be-learning-knowledge-base.md)** — Patterns, anti-patterns, learning resources
+1. **[Design Decisions](design/decisions.md)** — Key decisions with rationale across all layers
+2. **[Knowledge Base](design/be-learning-knowledge-base.md)** — Patterns, anti-patterns, learning resources
 
 ---
 
@@ -176,6 +176,7 @@ For component-level architecture and data flow, see **[04 — Architecture Overv
 - **API Docs:** Automatically generated at `/api/docs` (Swagger UI) when server is running
 - **Metrics Dashboard:** Prometheus at `http://localhost:9090` (if running locally)
 - **Tracing:** Jaeger UI at `http://localhost:16686` (if running locally)
+- **Error Tracking:** Sentry (when `SENTRY_ENABLED=true` and `SENTRY_DSN` configured)
 
 ---
 

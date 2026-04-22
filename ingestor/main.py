@@ -24,6 +24,7 @@ from ingestor.constants import HEALTH_RATE_LIMIT
 from ingestor.core.background_workers import BackgroundWorkerPool
 from ingestor.core.logging import set_cid, setup_logging
 from ingestor.core.scheduler import JobScheduler
+from ingestor.core.sentry import setup_sentry
 from ingestor.core.tracing import setup_tracing
 from ingestor.database import engine, get_db
 from ingestor.fetch import close_http_client
@@ -41,11 +42,13 @@ from ingestor.metrics import (  # noqa: F401 — imported to register metrics at
     records_created_total,
     records_upsert_conflicts_total,
 )
+from ingestor.notifications import notify_background_task_failed
 from ingestor.rate_limiting import limiter
 from ingestor.routers import (
     analytics,
     background_processing,
     health_ingestion_jobs,
+    notifications,
     records,
     records_v2,
     scraper,
@@ -181,6 +184,9 @@ async def lifespan(app: FastAPI):
     # ========================================================================
 
     # Init distributed tracing first (trace_id available for all subsequent logs)
+    setup_sentry()
+
+    # Init distributed tracing (trace_id available for all subsequent logs)
     if settings.otel_enabled:
         setup_tracing(
             app,
@@ -205,6 +211,11 @@ async def lifespan(app: FastAPI):
                 worker_count=settings.background_worker_count,
                 queue_size=settings.background_worker_queue_size,
                 max_tracked_tasks=settings.background_max_tracked_tasks,
+                on_task_failed=lambda task: notify_background_task_failed(
+                    task_id=task.task_id,
+                    batch_size=task.batch_size,
+                    error=task.error or "unknown",
+                ),
             )
             await _background_workers.start()
             background_processing.set_worker_pool(_background_workers)
@@ -383,6 +394,7 @@ app.include_router(records_v2.router)
 app.include_router(scraper.router)
 app.include_router(analytics.router)
 app.include_router(background_processing.router)
+app.include_router(notifications.router)
 
 
 app.include_router(health_ingestion_jobs.router)

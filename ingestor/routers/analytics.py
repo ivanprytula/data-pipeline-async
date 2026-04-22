@@ -295,7 +295,7 @@ async def _compute_stats_from_base(
         hour = record.timestamp.replace(minute=0, second=0, microsecond=0)
         hourly[hour].append(record)
 
-    materialized_at = datetime.utcnow().isoformat()
+    materialized_at = datetime.now(UTC).isoformat()
     stats = []
     for hour, hour_records in sorted(hourly.items(), reverse=True)[:limit]:
         record_count = len(hour_records)

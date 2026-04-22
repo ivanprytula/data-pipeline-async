@@ -7,6 +7,7 @@ from ingestor.constants import (
     BACKGROUND_MAX_TRACKED_TASKS_DEFAULT,
     BACKGROUND_WORKER_COUNT_DEFAULT,
     BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT,
+    NOTIFICATION_HTTP_TIMEOUT_SECONDS_DEFAULT,
 )
 
 
@@ -167,6 +168,36 @@ class Settings(BaseSettings):
         description="Service name shown in Jaeger / OTel collector UI.",
     )
 
+    # ============ Sentry (error tracking) ============
+    sentry_dsn: str | None = Field(
+        default=None,
+        description="Sentry DSN for application error tracking.",
+    )
+
+    sentry_enabled: bool = Field(
+        default=False,
+        description="Enable Sentry SDK initialization.",
+    )
+
+    sentry_traces_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Sentry performance trace sampling rate (0.0-1.0).",
+    )
+
+    sentry_profiles_sample_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Sentry profiling sample rate (0.0-1.0).",
+    )
+
+    sentry_send_default_pii: bool = Field(
+        default=False,
+        description="Whether Sentry should send default PII context.",
+    )
+
     # ============ Background workers (Pillar 5) ============
     background_workers_enabled: bool = Field(
         default=False,
@@ -192,6 +223,64 @@ class Settings(BaseSettings):
         ge=10,
         le=50000,
         description="Maximum completed task statuses kept in memory for status lookups.",
+    )
+
+    # ============ Notifications & emailing (Pillar 8) ============
+    notifications_enabled: bool = Field(
+        default=False,
+        description="Enable notification dispatching for operational events.",
+    )
+
+    notification_default_channels: str = Field(
+        default="slack,telegram",
+        description="Comma-separated default channels: slack, telegram, webhook, email.",
+    )
+
+    notification_http_timeout_seconds: int = Field(
+        default=NOTIFICATION_HTTP_TIMEOUT_SECONDS_DEFAULT,
+        ge=1,
+        le=60,
+        description="HTTP timeout (seconds) for notification provider calls.",
+    )
+
+    # Slack incoming webhook
+    notification_slack_webhook_url: str | None = Field(
+        default=None,
+        description="Slack incoming webhook URL for channel alerts.",
+    )
+
+    # Telegram bot alerts
+    notification_telegram_bot_token: str | None = Field(
+        default=None,
+        description="Telegram bot token for chat notifications.",
+    )
+    notification_telegram_chat_id: str | None = Field(
+        default=None,
+        description="Telegram chat ID for target channel/group/user.",
+    )
+
+    # Generic webhook integration (can be Jira automation/webhooks)
+    notification_webhook_url: str | None = Field(
+        default=None,
+        description="Generic webhook destination for alert payloads.",
+    )
+
+    # Transactional email provider (Resend API)
+    notification_email_provider: str = Field(
+        default="resend",
+        description="Transactional email provider. Currently supported: resend.",
+    )
+    notification_resend_api_key: str | None = Field(
+        default=None,
+        description="Resend API key for email delivery.",
+    )
+    notification_email_from: str | None = Field(
+        default=None,
+        description="Sender email address for notification emails.",
+    )
+    notification_email_to: str | None = Field(
+        default=None,
+        description="Comma-separated recipient emails for operational alerts.",
     )
 
     model_config = SettingsConfigDict(

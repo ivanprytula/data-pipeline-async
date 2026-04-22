@@ -85,3 +85,12 @@ CACHE_TTL_RECORD: int = 3600  # 1 hour — single records are stable
 BACKGROUND_WORKER_COUNT_DEFAULT: int = 2
 BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT: int = 200
 BACKGROUND_MAX_TRACKED_TASKS_DEFAULT: int = 500
+
+# ---------------------------------------------------------------------------
+# Notifications & emailing (Pillar 8)
+# ---------------------------------------------------------------------------
+NOTIFICATION_HTTP_TIMEOUT_SECONDS_DEFAULT: int = 5
+NOTIFICATION_EVENT_BACKGROUND_TASK_FAILED: str = "background_task_failed"
+NOTIFICATION_SEVERITY_INFO: str = "info"
+NOTIFICATION_SEVERITY_WARNING: str = "warning"
+NOTIFICATION_SEVERITY_CRITICAL: str = "critical"

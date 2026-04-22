@@ -119,7 +119,7 @@ Then access:
 | **Cache**           | Redis                                     |
 | **Streaming**       | Redpanda (Kafka)                          |
 | **Background Jobs** | APScheduler + in-process workers          |
-| **Observability**   | Prometheus + OpenTelemetry + JSON logging |
+| **Observability**   | Prometheus + OpenTelemetry + Sentry + JSON logging |
 | **Testing**         | pytest + aiosqlite                        |
 | **CI/CD**           | GitHub Actions                            |
 | **IaC**             | Terraform (AWS)                           |
@@ -172,6 +172,7 @@ pyproject.toml         # Python dependencies
 | [docs/progress/pillar-5-security.md](docs/progress/pillar-5-security.md)                           | Pillar 5: Security                                                      |
 | [docs/progress/pillar-6-ai-llm.md](docs/progress/pillar-6-ai-llm.md)                               | Pillar 6: AI / LLM                                                      |
 | [docs/progress/pillar-7-data-etl.md](docs/progress/pillar-7-data-etl.md)                           | Pillar 7: Data / ETL                                                    |
+| [docs/progress/pillar-8-notifications-emailing.md](docs/progress/pillar-8-notifications-emailing.md) | Pillar 8: Notifications / Emailing                                       |
 | [docs/progress/portfolio-phase-2-scrapers.md](docs/progress/portfolio-phase-2-scrapers.md)         | Phase 2 portfolio item                                                  |
 | [docs/progress/portfolio-phase-3-ai-gateway.md](docs/progress/portfolio-phase-3-ai-gateway.md)     | Phase 3 portfolio item                                                  |
 | [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md)     | Phase 4 portfolio item                                                  |

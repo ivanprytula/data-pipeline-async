@@ -1,7 +1,7 @@
 """Pydantic v2 schemas (same for both stacks)."""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -333,3 +333,36 @@ class BackgroundTaskStatusResponse(BaseModel):
     finished_at: datetime | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Notifications schemas (Pillar 8)
+# ---------------------------------------------------------------------------
+
+
+class NotificationTestRequest(BaseModel):
+    """Request payload for notification test endpoint."""
+
+    message: str = Field(..., min_length=1, max_length=2000)
+    severity: str = Field(default="info")
+    event: str = Field(default="notification_test")
+    channels: list[Literal["slack", "telegram", "webhook", "email"]] | None = None
+
+
+class NotificationDispatchResult(BaseModel):
+    """One channel dispatch result for notification test endpoint."""
+
+    channel: str
+    status: str
+    detail: str
+
+
+class NotificationTestResponse(BaseModel):
+    """Response payload for notification test endpoint."""
+
+    event: str
+    severity: str
+    sent: int
+    failed: int
+    results: list[NotificationDispatchResult] = Field(default_factory=list)
+    detail: str | None = None

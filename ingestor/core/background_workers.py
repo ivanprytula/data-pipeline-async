@@ -55,6 +55,7 @@ class BackgroundWorkerPool:
         max_tracked_tasks: int,
         processor: Callable[[list[RecordRequest]], Awaitable[dict[str, Any]]]
         | None = None,
+        on_task_failed: Callable[[BackgroundTaskStatus], Awaitable[None]] | None = None,
     ) -> None:
         self._worker_count = worker_count
         self._queue: asyncio.Queue[tuple[str, list[RecordRequest]]] = asyncio.Queue(
@@ -66,6 +67,7 @@ class BackgroundWorkerPool:
         self._max_tracked_tasks = max_tracked_tasks
         self._running = False
         self._processor = processor or self._default_processor
+        self._on_task_failed = on_task_failed
 
     @property
     def running(self) -> bool:
@@ -198,6 +200,17 @@ class BackgroundWorkerPool:
                 background_jobs_processed_total.labels(
                     kind="batch_ingest", status="failed"
                 ).inc()
+                if self._on_task_failed is not None:
+                    try:
+                        await self._on_task_failed(status)
+                    except Exception as callback_exc:
+                        logger.warning(
+                            "background_task_failed_callback_error",
+                            extra={
+                                "task_id": task_id,
+                                "error": str(callback_exc),
+                            },
+                        )
                 logger.error(
                     "background_task_failed",
                     extra={

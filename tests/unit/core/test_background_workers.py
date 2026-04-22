@@ -86,6 +86,34 @@ async def test_background_worker_pool_marks_failed_task() -> None:
         await pool.stop()
 
 
+async def test_background_worker_pool_invokes_failure_callback() -> None:
+    callback_calls: list[str] = []
+
+    async def processor(records: list[RecordRequest]) -> dict[str, Any]:
+        raise RuntimeError(f"boom-{len(records)}")
+
+    async def on_failed(task_status) -> None:
+        callback_calls.append(task_status.task_id)
+
+    pool = BackgroundWorkerPool(
+        worker_count=1,
+        queue_size=10,
+        max_tracked_tasks=10,
+        processor=processor,
+        on_task_failed=on_failed,
+    )
+    await pool.start()
+
+    try:
+        submitted = await pool.submit_batch_ingest([_record("bg-callback")])
+        terminal_status = await _wait_for_terminal_state(pool, submitted.task_id)
+
+        assert terminal_status == "failed"
+        assert callback_calls == [submitted.task_id]
+    finally:
+        await pool.stop()
+
+
 async def test_background_worker_pool_trims_old_statuses() -> None:
     async def processor(records: list[RecordRequest]) -> dict[str, Any]:
         return {"inserted": len(records), "errors": 0, "first_error": None}

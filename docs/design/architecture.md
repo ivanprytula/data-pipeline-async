@@ -1,6 +1,6 @@
 # System Architecture — Data Zoo Platform
 
-**Last Updated**: April 22, 2026
+**Last Updated**: April 23, 2026
 **Scope**: Phase 0 (Foundation) → Phase 8 (Production)
 **Status**: Active Implementation (Phases 1-5 partially implemented)
 
@@ -21,6 +21,14 @@
   - `GET /api/v1/background/tasks/{task_id}`
   - `GET /api/v1/background/workers/health`
   - feature flags: `BACKGROUND_WORKERS_ENABLED`, `BACKGROUND_WORKER_COUNT`, `BACKGROUND_WORKER_QUEUE_SIZE`, `BACKGROUND_MAX_TRACKED_TASKS`
+- Pillar 8 notifications and emailing baseline is implemented:
+  - notification abstraction in `ingestor/notifications.py`
+  - channels: Slack, Telegram, webhook (Jira automation), email (Resend)
+  - test dispatch endpoint: `POST /api/v1/notifications/test`
+  - background task failure alerts routed through the notification service
+- Sentry baseline is integrated for centralized exception tracking:
+  - startup integration via `ingestor/core/sentry.py`
+  - env flags: `SENTRY_ENABLED`, `SENTRY_DSN`
 
 ### Pillar 5 Runtime Flow (Current Prototype)
 
@@ -123,7 +131,7 @@ data-pipeline-async/
 
 ---
 
-## High-Level Data Flow (Phase 8 complete)
+## High-Level Data Flow (Through Pillar 8 Notifications & Emailing)
 
 ```mermaid
 graph TB
@@ -137,6 +145,7 @@ graph TB
         AIGateway["🤖 AI Gateway<br/>(embeddings)"]
         QueryAPI["📊 Query API<br/>(analytics)"]
         Dashboard["🎨 Dashboard<br/>(HTMX + Jinja2)"]
+      Notifier["🔔 Notification Service<br/>(ingestor/notifications.py)"]
     end
 
     subgraph Data["AWS Data Layer"]
@@ -154,6 +163,14 @@ graph TB
         Prometheus["📈 Prometheus"]
         Grafana["📊 Grafana"]
         Jaeger["🔍 Jaeger"]
+      Sentry["🚨 Sentry"]
+    end
+
+    subgraph Notifications["Team Notifications"]
+      Slack["💬 Slack"]
+      Telegram["📲 Telegram"]
+      Jira["📌 Jira Automation<br/>(webhook)"]
+      Resend["✉️ Resend Email"]
     end
 
     Client -->|HTTPS| ALB
@@ -171,17 +188,26 @@ graph TB
     QueryAPI -->|listen| Topics
     Dashboard -->|query| QueryAPI
     Dashboard -->|search| AIGateway
+    Ingestor -->|failure alert event| Notifier
+    Notifier -->|send| Slack
+    Notifier -->|send| Telegram
+    Notifier -->|webhook| Jira
+    Notifier -->|email| Resend
     Ingestor -->|metrics| Prometheus
     Processor -->|metrics| Prometheus
     QueryAPI -->|metrics| Prometheus
     Prometheus -->|visualize| Grafana
     Ingestor -->|trace| Jaeger
     Processor -->|trace| Jaeger
+    Ingestor -->|exceptions| Sentry
+    Notifier -->|provider failures| Sentry
+    Sentry -->|alerts (optional)| Slack
 
     style Compute fill:#e3f2fd,stroke:#1976d2
     style Data fill:#fff3e0,stroke:#e65100
     style Messaging fill:#f3e5f5,stroke:#6a1b9a
     style Observability fill:#e8f5e9,stroke:#2e7d32
+    style Notifications fill:#fff8e1,stroke:#f9a825
 ```
 
 ---
