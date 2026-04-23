@@ -12,7 +12,7 @@ terraform {
   # Apply backend config:
   #   terraform init -backend-config="bucket=<your-state-bucket>" \
   #                  -backend-config="key=data-zoo/dev/terraform.tfstate" \
-  #                  -backend-config="region=us-east-1" \
+  #                  -backend-config="region=eu-central-1" \
   #                  -backend-config="dynamodb_table=<your-lock-table>"
   backend "s3" {}
 }

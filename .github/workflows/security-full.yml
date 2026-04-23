@@ -1,4 +1,4 @@
-name: Security Scan (Full Pipeline)
+name: Security Full Scan (Scheduled and Manual)
 
 'on':
   workflow_dispatch:

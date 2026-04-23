@@ -76,7 +76,9 @@ jobs:
         run: |
           short_sha="${GITHUB_SHA::7}"
           image_uri="${{ inputs.ecr-registry }}/${{ inputs.image-name }}:sha-${short_sha}"
+          artifact_stem="$(echo "${{ inputs.image-name }}" | tr '/:' '--')"
           echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
+          echo "artifact_stem=${artifact_stem}" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         if: ${{ inputs.push-image && inputs.aws-role-arn != '' }}
@@ -136,12 +138,12 @@ jobs:
         with:
           image-ref: ${{ steps.meta.outputs.image_uri }}
           format: cyclonedx
-          output: sbom-${{ inputs.image-name }}.json
+          output: sbom-${{ steps.meta.outputs.artifact_stem }}.json
           scanners: image,config
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: sbom-${{ inputs.image-name }}
-          path: sbom-${{ inputs.image-name }}.json
+          name: sbom-${{ steps.meta.outputs.artifact_stem }}
+          path: sbom-${{ steps.meta.outputs.artifact_stem }}.json
           retention-days: 30

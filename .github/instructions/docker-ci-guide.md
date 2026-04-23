@@ -203,7 +203,7 @@ GitHub Actions (ci.yml) triggers
           with:
             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws-region: us-east-1
+            aws-region: eu-central-1
         - uses: docker/setup-buildx-action@v2
         - uses: aws-actions/amazon-ecr-login@v1
           id: login-ecr

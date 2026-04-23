@@ -90,7 +90,7 @@ finally:
 ### 2. Migration Verification CI Job ✅
 
 **What**: New GitHub Actions workflow to validate migrations
-**File Created**: [.github/workflows/ci-migrations-verify.yml](.github/workflows/ci-migrations-verify.yml)
+**Current File**: [CI workflow](../../.github/workflows/ci.yml)
 **Tests**:
 
 - Fresh migrations from scratch (base → head)
@@ -102,7 +102,7 @@ finally:
 **Run Command**:
 
 ```bash
-gh workflow run ci-migrations-verify.yml
+gh workflow run ci.yml
 # Or triggered on PR automatically
 ```
 
@@ -202,7 +202,7 @@ pytest tests/integration/schema/ -v --tb=short
 
 ### New Files (6)
 
-1. [.github/workflows/ci-migrations-verify.yml](.github/workflows/ci-migrations-verify.yml) — Migration verification CI job
+1. [CI workflow](../../.github/workflows/ci.yml) — Migration verification is now part of the main CI job chain
 2. [docs/design/data-retention-archival.md](../../docs/design/data-retention-archival.md) — 3-tier retention strategy
 3. [docs/design/index-optimization.md](../../docs/design/index-optimization.md) — Hotspot analysis & recommendations
 4. [docs/design/pillar-2-core-model-migrations.md](../../docs/design/pillar-2-core-model-migrations.md) — Master implementation guide
@@ -222,7 +222,7 @@ pytest tests/integration/schema/ -v --tb=short
 
 ```bash
 # 1. Migration verification across PostgreSQL versions
-gh workflow run ci-migrations-verify.yml
+gh workflow run ci.yml
 
 # 2. Schema integrity tests (locally or in CI)
 pytest tests/integration/schema/ -v

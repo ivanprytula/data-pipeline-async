@@ -3,6 +3,17 @@ name: Release Promote
 on:
   workflow_dispatch:
     inputs:
+      service:
+        description: Service repository to promote
+        required: true
+        type: choice
+        options:
+          - all
+          - ingestor
+          - ai_gateway
+          - query_api
+          - processor
+          - dashboard
       source-ref:
         description: Source image tag (for example sha-abc1234) or digest (sha256:...)
         required: true
@@ -15,7 +26,7 @@ on:
         description: ECR repository path (for example data-zoo/ingestor)
         required: false
         type: string
-        default: data-zoo/ingestor
+        default: ""
       environment:
         description: Target environment context for role/approvals
         required: true
@@ -32,10 +43,66 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  prepare:
+    name: Resolve promotion targets
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    steps:
+      - name: Resolve image repositories
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          service="${{ inputs.service }}"
+          image_repository_override="${{ inputs.image-repository }}"
+
+          if [[ -n "$image_repository_override" && "$service" != "all" ]]; then
+            matrix=$(jq -cn --arg repo "$image_repository_override" '[{"repository": $repo}]')
+          else
+            case "$service" in
+              all)
+                matrix='[
+                  {"repository":"data-zoo/ingestor"},
+                  {"repository":"data-zoo/ai_gateway"},
+                  {"repository":"data-zoo/query_api"},
+                  {"repository":"data-zoo/processor"},
+                  {"repository":"data-zoo/dashboard"}
+                ]'
+                ;;
+              ingestor)
+                matrix='[{"repository":"data-zoo/ingestor"}]'
+                ;;
+              ai_gateway)
+                matrix='[{"repository":"data-zoo/ai_gateway"}]'
+                ;;
+              query_api)
+                matrix='[{"repository":"data-zoo/query_api"}]'
+                ;;
+              processor)
+                matrix='[{"repository":"data-zoo/processor"}]'
+                ;;
+              dashboard)
+                matrix='[{"repository":"data-zoo/dashboard"}]'
+                ;;
+              *)
+                echo "Unsupported service: $service" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "matrix=$(echo "$matrix" | jq -c '.')" >> "$GITHUB_OUTPUT"
+
   promote:
     name: Promote by Digest
+    needs: prepare
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.prepare.outputs.matrix) }}
     permissions:
       contents: read
       id-token: write
@@ -57,7 +124,7 @@ jobs:
 
           source_ref="${{ inputs.source-ref }}"
           target_tag="${{ inputs.target-tag }}"
-          repo_name="${{ inputs.image-repository }}"
+          repo_name="${{ matrix.target.repository }}"
           registry="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
 
           if [[ "${source_ref}" == sha256:* ]]; then
@@ -93,6 +160,8 @@ jobs:
       - name: Promotion summary
         run: |
           echo "### Release Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service selection: ${{ inputs.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repository: ${{ matrix.target.repository }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Source ref: ${{ inputs.source-ref }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target tag: ${{ inputs.target-tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Promoted digest: ${{ steps.promote.outputs.promoted_digest }}" >> "$GITHUB_STEP_SUMMARY"

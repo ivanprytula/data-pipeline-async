@@ -117,17 +117,17 @@ data-pipeline-async/
 
 ## Phase Progression
 
-| Phase | Focus                | Services            | Components Added                                    |
-| ----- | -------------------- | ------------------- | --------------------------------------------------- |
-| **0** | Docs & Planning      | —                   | ADRs, architecture, ACTION_PLAN, monorepo structure |
-| **1** | Event Streaming      | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events |
-| **2** | Data Scraping        | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client          |
-| **3** | AI + Vector DB       | ai_gateway          | Qdrant, sentence-transformers, embeddings           |
-| **4** | Resilience Patterns  | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger         |
+| Phase | Focus                     | Services            | Components Added                                                          |
+| ----- | ------------------------- | ------------------- | ------------------------------------------------------------------------- |
+| **0** | Docs & Planning           | —                   | ADRs, architecture, ACTION_PLAN, monorepo structure                       |
+| **1** | Event Streaming           | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events                       |
+| **2** | Data Scraping             | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client                                |
+| **3** | AI + Vector DB            | ai_gateway          | Qdrant, sentence-transformers, embeddings                                 |
+| **4** | Resilience Patterns       | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger                               |
 | **5** | Background Workers + CQRS | ingestor, query_api | In-process worker queue prototype, task status APIs, analytics read layer |
-| **6** | Dashboard            | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI              |
-| **7** | Cloud Deployment ✅   | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache   |
-| **8** | Production Hardening | (all services)      | Prometheus, Grafana, backups, chaos testing         |
+| **6** | Dashboard                 | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI                                    |
+| **7** | Cloud Deployment ✅       | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache                         |
+| **8** | Production Hardening      | (all services)      | Prometheus, Grafana, backups, chaos testing                               |
 
 ---
 
@@ -1168,66 +1168,61 @@ Location: `infra/terraform/`
 
 **Service modules** (`infra/terraform/modules/`):
 
-| Module | Responsibility | Key Resources |
-|--------|----------------|----------------|
-| `network/` | VPC, subnets, IGW, NAT, security groups | 2 public + 2 private subnets (2 AZs), 5 security groups |
-| `ecr/` | Container image registry | ECR repos for all 5 services |
-| `iam/` | GitHub Actions OIDC provider, roles | `github-actions-role` (OIDC trust), ECR push policy |
-| `database/` | RDS PostgreSQL 17 | Encrypted gp3, managed password (Secrets Manager), Multi-AZ toggle |
-| `cache/` | ElastiCache Redis 7.1 | TLS + AUTH token, automatic failover (prod), snapshots |
-| `messaging/` | MSK Serverless (Kafka) | IAM auth (no passwords), private subnets |
-| `compute/` | ECS cluster, ALB, task definitions, services | ALB, target group, ingestor + 4 service task defs, ECS service with circuit breaker |
+| Module       | Responsibility                               | Key Resources                                                                       |
+| ------------ | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `network/`   | VPC, subnets, IGW, NAT, security groups      | 2 public + 2 private subnets (2 AZs), 5 security groups                             |
+| `ecr/`       | Container image registry                     | ECR repos for all 5 services                                                        |
+| `iam/`       | GitHub Actions OIDC provider, roles          | `github-actions-role` (OIDC trust), ECR push policy                                 |
+| `database/`  | RDS PostgreSQL 17                            | Encrypted gp3, managed password (Secrets Manager), Multi-AZ toggle                  |
+| `cache/`     | ElastiCache Redis 7.1                        | TLS + AUTH token, automatic failover (prod), snapshots                              |
+| `messaging/` | MSK Serverless (Kafka)                       | IAM auth (no passwords), private subnets                                            |
+| `compute/`   | ECS cluster, ALB, task definitions, services | ALB, target group, ingestor + 4 service task defs, ECS service with circuit breaker |
 
 **Environment configurations** (`infra/terraform/environments/`):
 
-| Config | Dev | Prod |
-|--------|-----|------|
-| Fargate capacity | Spot (cost $10–20/mo) | Reserved (reliability $30–50/mo) |
-| DB instance | `db.t3.micro` | `db.t3.medium` Multi-AZ |
-| Cache instance | `cache.t3.micro` | `cache.t3.small` + replica |
-| NAT Gateways | 1 (shared, cost-optimized) | 3 (one per AZ, HA) |
-| ECS replicas | 1 task per service | 2 tasks per service |
-| Log retention | 14 days | 90 days |
+| Config           | Dev                        | Prod                             |
+| ---------------- | -------------------------- | -------------------------------- |
+| Fargate capacity | Spot (cost $10–20/mo)      | Reserved (reliability $30–50/mo) |
+| DB instance      | `db.t3.micro`              | `db.t3.medium` Multi-AZ          |
+| Cache instance   | `cache.t3.micro`           | `cache.t3.small` + replica       |
+| NAT Gateways     | 1 (shared, cost-optimized) | 3 (one per AZ, HA)               |
+| ECS replicas     | 1 task per service         | 2 tasks per service              |
+| Log retention    | 14 days                    | 90 days                          |
 
-### CI/CD: GitHub Actions → ECR → ECS
+### CI/CD: queued CI + manual promotion/deploy
 
-**Workflow**: `.github/workflows/docker-build.yml`
+**Active workflows**:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/docker-build.yml`
+- `.github/workflows/release-promote.yml`
+- `.github/workflows/cd-deploy.yml`
 
 ```text
-Push to main/develop
-        ↓
-Trigger docker-build.yml
-        ↓
-┌───────────────────────────────────────┐
-│ 1. Build Docker image (uv sync, test) │
-│    Tag: <sha> + env tag (latest/dev)  │
-└───────────────────────────────────────┘
-        ↓
-┌───────────────────────────────────────┐
-│ 2. Assume AWS role (OIDC, no keys)    │
-│    Role trust policy: only main/dev   │
-└───────────────────────────────────────┘
-        ↓
-┌───────────────────────────────────────┐
-│ 3. Push to ECR (multi-tag)            │
-│    Tags: short-sha + env_tag          │
-│    Only on push (not on PR)           │
-└───────────────────────────────────────┘
-        ↓
-┌───────────────────────────────────────┐
-│ 4. Update ECS service (COMMENTED OUT) │
-│    → Uncomment when CD ready          │
-│    Prerequisites:                     │
-│    - ECS deploy policy enabled        │
-│    - ALB_URL secret configured        │
-└───────────────────────────────────────┘
-        ↓
-┌───────────────────────────────────────┐
-│ 5. Verify rollout (COMMENTED OUT)     │
-│    → wait services-stable             │
-│    → health check ALB                 │
-│    → smoke tests (COMMENTED OUT)      │
-└───────────────────────────────────────┘
+Push / PR
+    ↓
+CI workflow
+    01 Quality
+    02 Unit
+    03 Migrations
+    04 Integration
+    05 E2E
+    06 Dependency Audit (PR only)
+    07 Build all service images on push
+    ↓
+Manual docker-build.yml
+    - select one service or all services
+    - optional ECR push
+    - optional cosign signing
+    ↓
+Manual release-promote.yml
+    - promote digest/tag for one service or all services
+    - apply target tag: dev / staging / prod
+    ↓
+Manual cd-deploy.yml
+    - select environment
+    - select service
+    - update ECS service using environment-specific vars
 ```
 
 **Authentication**: GitHub OIDC provider (no AWS access keys in GitHub Secrets)
@@ -1236,12 +1231,12 @@ Trigger docker-build.yml
 - Provides audit trail (role assumption logged in CloudTrail)
 - Role trust policy restricted to `main` and `develop` branches
 
-**CD Enablement** (when ready for auto-deployment):
+**Current CD model**:
 
-1. Uncomment the ECS deploy policy in `modules/iam/main.tf`
-2. Re-run `terraform apply` to update role permissions
-3. Uncomment the deployment steps in `.github/workflows/docker-build.yml`
-4. Next push to `develop` will auto-deploy to AWS
+1. Enable ECS deploy permissions in IAM/Terraform
+2. Push and sign the desired image manually when needed
+3. Promote the digest to the environment tag manually
+4. Deploy the exact service to the exact environment manually
 
 ### Local Development → AWS: First Deploy
 
@@ -1252,7 +1247,7 @@ Trigger docker-build.yml
 3. GitHub Actions secrets: `AWS_ACCOUNT_ID`, `AWS_ROLE_ARN`, `DEV_ALB_URL` (post-apply)
 4. ACM certificate ARN (if using custom domain)
 
-**Manual deployment (while CD is commented out)**:
+**Manual deployment example**:
 
 ```bash
 cd infra/terraform/environments/dev
@@ -1261,7 +1256,7 @@ cd infra/terraform/environments/dev
 terraform init \
   -backend-config="bucket=data-zoo-terraform-state-dev" \
   -backend-config="key=data-zoo/dev/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
+  -backend-config="region=eu-central-1" \
   -backend-config="dynamodb_table=data-zoo-terraform-locks"
 
 # Plan
@@ -1281,35 +1276,35 @@ curl https://<alb-dns>/api/v1/records  # 401 (unauthenticated for now)
 
 ### Phase 7 Design Patterns
 
-**Infrastructure as Code (IaC)**
+Infrastructure as Code (IaC)
 
 - Modules are reusable, parameterized
 - No hardcoded values; all via `variables.tf` and `terraform.tfvars`
 - State stored in S3 with DynamoDB locking (team-safe)
 
-**Secrets Management**
+Secrets Management
 
 - Sensitive values (`acm_certificate_arn`, `redis_auth_token`) via environment variables, never in code or state
 - RDS password managed by AWS Secrets Manager (auto-rotated)
 - ElastiCache AUTH token stored in SSM Parameter Store
 
-**Resilience**
+Resilience
 
 - ALB health check: `/health` endpoint (5s interval, 3 failures to mark unhealthy)
 - ECS circuit breaker: stops deployments if too many tasks fail to reach running state
 - Rolling update: 100% minimum healthy, 200% maximum → zero-downtime deploys
 - DLQ for Kafka failures: processor routes bad messages instead of crashing
 
-**Cost Optimization** (dev vs prod)
+Cost Optimization (dev vs prod)
 
-| Resource | Dev | Prod | Savings |
-|----------|-----|------|----------|
-| Fargate | Spot ($0.009/hr) | On-Demand ($0.045/hr) | 80% cheaper on-demand |
-| RDS | db.t3.micro | db.t3.medium Multi-AZ | Less compute, HA tradeoff |
-| NAT GW | 1 (shared) | 3 (HA) | 1/3 of prod cost |
-| **Monthly** | ~$85 | ~$280 | 70% savings in dev |
+| Resource    | Dev              | Prod                  | Savings                   |
+| ----------- | ---------------- | --------------------- | ------------------------- |
+| Fargate     | Spot ($0.009/hr) | On-Demand ($0.045/hr) | 80% cheaper on-demand     |
+| RDS         | db.t3.micro      | db.t3.medium Multi-AZ | Less compute, HA tradeoff |
+| NAT GW      | 1 (shared)       | 3 (HA)                | 1/3 of prod cost          |
+| **Monthly** | ~$85             | ~$280                 | 70% savings in dev        |
 
-**Security by Default**
+Security by Default
 
 - VPC: all resources in private subnets (ALB in public, NAT for outbound)
 - Security groups: least-privilege (app ← ALB only, DB ← app only)
@@ -1357,27 +1352,27 @@ CMD ["uvicorn", "ingestor.main:app"]
 
 ### Why This Architecture?
 
-| Feature | Benefit |
-|---------|---------|
-| **BuildKit + syntax directive** | `# syntax=docker/dockerfile:1.4` enables cache mounts |
-| **Cache mounts on apt** | 2nd build 3-5x faster (apt cache reused) |
-| **Digest pinning** | `python:3.14-slim@sha256:...` ensures reproducible builds across all developers |
-| **Multi-stage builder** | Final image ~300MB (no build tools, compilers, git); builder stage discarded |
-| **SHELL pipefail** | `set -o pipefail` catches errors in piped commands (e.g., `apt-get ... \| grep`) |
-| **Non-root user** | `USER 1001` (appuser) prevents container escape escalation |
-| **uv.lock pinning** | `uv sync --frozen` guarantees identical dependencies in dev/CI/prod |
-| **Health checks** | `HEALTHCHECK` endpoints enable Kubernetes/ECS readiness probes |
+| Feature                         | Benefit                                                                          |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| **BuildKit + syntax directive** | `# syntax=docker/dockerfile:1.4` enables cache mounts                            |
+| **Cache mounts on apt**         | 2nd build 3-5x faster (apt cache reused)                                         |
+| **Digest pinning**              | `python:3.14-slim@sha256:...` ensures reproducible builds across all developers  |
+| **Multi-stage builder**         | Final image ~300MB (no build tools, compilers, git); builder stage discarded     |
+| **SHELL pipefail**              | `set -o pipefail` catches errors in piped commands (e.g., `apt-get ... \| grep`) |
+| **Non-root user**               | `USER 1001` (appuser) prevents container escape escalation                       |
+| **uv.lock pinning**             | `uv sync --frozen` guarantees identical dependencies in dev/CI/prod              |
+| **Health checks**               | `HEALTHCHECK` endpoints enable Kubernetes/ECS readiness probes                   |
 
 ### Services & Image Sizes
 
-| Service | Base | Build Time (cached) | Final Size | Notes |
-|---------|------|-------------------|-----------|-------|
-| Ingestor | 3.14-slim | 30s | 280MB | FastAPI REST, Playwright browser |
-| Processor | 3.14-slim | 15s | 250MB | Async consumer, simple deps |
-| AI Gateway | 3.14-slim | 45s | 480MB | sentence-transformers (large model) |
-| Query API | 3.14-slim | 20s | 260MB | Analytics + CQRS read model |
-| Dashboard | 3.14-slim | 15s | 240MB | Jinja2 templates, minimal deps |
-| Database | postgres:17 | 90s | 150MB | pgvector extension compiled from source |
+| Service    | Base        | Build Time (cached) | Final Size | Notes                                   |
+| ---------- | ----------- | ------------------- | ---------- | --------------------------------------- |
+| Ingestor   | 3.14-slim   | 30s                 | 280MB      | FastAPI REST, Playwright browser        |
+| Processor  | 3.14-slim   | 15s                 | 250MB      | Async consumer, simple deps             |
+| AI Gateway | 3.14-slim   | 45s                 | 480MB      | sentence-transformers (large model)     |
+| Query API  | 3.14-slim   | 20s                 | 260MB      | Analytics + CQRS read model             |
+| Dashboard  | 3.14-slim   | 15s                 | 240MB      | Jinja2 templates, minimal deps          |
+| Database   | postgres:17 | 90s                 | 150MB      | pgvector extension compiled from source |
 
 **Total stack**: ~1.7GB across 6 images (compressed in registry: ~400MB)
 
@@ -1429,9 +1424,9 @@ See [ADR 004: Docker BuildKit & Security Scanning](../adr/004-docker-buildkit-an
 | ECS Fargate (not EKS)         | Simpler ops (no nodes), lower cost, still production-grade (Phase 7)       |
 | Terraform modules             | Reusable, parameterized IaC for repeatability and team collaboration       |
 | S3 backend + DynamoDB locks   | Team-safe Terraform state management (no local state conflicts)            |
-| GitHub OIDC (no access keys)  | Eliminates credential rotation burden, provides CloudTrail audit trail      |
+| GitHub OIDC (no access keys)  | Eliminates credential rotation burden, provides CloudTrail audit trail     |
 | dev/prod environment split    | Different sizing (Spot vs Reserved, 1 vs 3 NAT GWs) to optimize costs      |
-| Rolling updates (0% downtime) | ALB health checks + circuit breaker ensure smooth deployments             |
+| Rolling updates (0% downtime) | ALB health checks + circuit breaker ensure smooth deployments              |
 
 ## Related Documents
 

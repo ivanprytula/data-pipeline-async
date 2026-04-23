@@ -213,11 +213,11 @@ jobs:
       "secrets": [
         {
           "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789:secret:prod/db-url"
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:123456789:secret:prod/db-url"
         },
         {
           "name": "REDIS_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789:secret:prod/redis-url"
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:123456789:secret:prod/redis-url"
         }
       ]
     }

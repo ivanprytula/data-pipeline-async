@@ -28,31 +28,38 @@ Use this cadence to keep fast feedback on every commit while running heavy secur
 ```text
 Push/PR update (main, develop, feature/*)
   |
-  +--> CI 01 - Unit + Quality
-  +--> CI 02 - Integration & E2E
-  +--> CI 03 - Migrations Verification
-  +--> Security (Dependency Review) on PRs
+  +--> CI
+       01 Quality
+       02 Unit
+       03 Migrations
+       04 Integration
+       05 E2E
+       06 Dependency Audit (PR only)
+       06 Docker Build (push/manual only after all checks pass)
 
 Nightly / Weekly
   |
-  +--> Security Scan (Full Pipeline)
-  +--> Security (CodeQL Analyze)
+  +--> Security Full Scan (Scheduled and Manual)
+  +--> Scheduled CodeQL / CodeQL Analyze
 
 Manual dispatch
   |
-  +--> Docker Build (feature branch validation)
-  +--> Security Scan (Full Pipeline)
-  +--> Security (CodeQL Analyze)
+  +--> CI
+      01 Quality -> 02 Unit -> 03 Migrations -> 04 Integration -> 05 E2E -> 06 Dependency Audit (PR only) -> 06 Docker Build
+  +--> Manual Docker Build (standalone validation)
+  +--> Security Full Scan (Scheduled and Manual)
+    +--> Scheduled CodeQL / CodeQL Analyze
   +--> Release Promote / CD Deploy
 ```
 
 Policy summary:
 
-- Run quality, unit, integration/e2e, and migrations on every push and PR update
-- Run full security scanning on schedule and manual dispatch
-- Run deep CodeQL scanning on schedule and manual dispatch
-- Keep dependency review on PR updates
-- Use manual Docker build for ad hoc feature branch checks
+- Run one queued CI workflow on every push and PR update
+- Run migrations before integration/e2e so schema failures stop the pipeline early
+- Run dependency audit inside the main PR CI chain instead of as a separate workflow
+- Run the full security scan on schedule and manual dispatch for broad security coverage
+- Run scheduled/manual CodeQL from the separate lightweight security workflow
+- Run Docker build only after prior CI checks pass, with standalone manual Docker build kept for ad hoc validation
 
 ---
 
@@ -303,6 +310,8 @@ repo="ivanprytula/data-pipeline-async"
 
 # Rotate/update environment variable values
 scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME ingestor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_AI_GATEWAY ai-gateway --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY ai-gateway --env dev --repo "$repo"
 
 # Update signer identity policy used by CD verification
 scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \

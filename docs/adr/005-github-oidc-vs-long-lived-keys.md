@@ -143,13 +143,13 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::123456789012:role/data-zoo-github-actions
-          aws-region: us-east-1
+          aws-region: eu-central-1
 
       - name: Login to ECR
-        run: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+        run: aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.eu-central-1.amazonaws.com
 
       - name: Build and push
-        run: docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/data-zoo:${{ github.sha }}
+        run: docker push 123456789012.dkr.ecr.eu-central-1.amazonaws.com/data-zoo:${{ github.sha }}
 ```
 
 ### GitHub Secrets Required
@@ -162,6 +162,7 @@ Only **non-sensitive** values:
 | `AWS_ROLE_ARN` | `arn:aws:iam::123456789012:role/data-zoo-github-actions` | Role name is deployment detail; no credentials |
 
 **NO secrets needed:**
+
 - ❌ `AWS_ACCESS_KEY_ID`
 - ❌ `AWS_SECRET_ACCESS_KEY`
 
@@ -200,6 +201,7 @@ Only **non-sensitive** values:
 ## Alternatives Considered
 
 ### 1. AWS IAM User with Long-Lived Keys
+
 - ✅ Simpler setup (5 min)
 - ❌ No audit trail (generic "user")
 - ❌ Manual rotation burden
@@ -207,16 +209,19 @@ Only **non-sensitive** values:
 - ❌ If exposed, entire AWS account at risk
 
 ### 2. AWS Temporary Credentials (STS via CLI)
+
 - ❌ Requires human to pre-generate credentials
 - ❌ Still need to store in GitHub Secrets
 - ❌ Defeats the purpose
 
 ### 3. GitHub Environments with Manual Approval
+
 - ❌ Slows down deployment (wait for approval)
 - ❌ Still needs credentials for approval context
 - ✅ Good for prod (require approval before deploying)
 
 ### 4. AWS CloudFormation Service Role
+
 - ❌ More complex than OIDC
 - ❌ Requires service-linked role creation
 - ✅ Useful if deploying CloudFormation instead of Terraform

@@ -102,12 +102,12 @@ fi
 checks_json="$(gh pr checks "$selector" "${repo_args[@]}" --json name,bucket,state,workflow)"
 
 default_required_json='[
-  "Quality checks — Python 3.14",
-  "Unit tests — Python 3.14",
-  "Integration/E2E — integration (Python 3.14)",
-  "Integration/E2E — e2e (Python 3.14)",
-  "Verify Alembic migrations (PostgreSQL 17)",
-  "Dependency Review"
+  "01 Quality checks — Python 3.14",
+  "02 Unit tests — Python 3.14",
+  "03 Verify Alembic migrations (PostgreSQL 17)",
+  "04 Integration tests — Python 3.14",
+  "05 E2E tests — Python 3.14",
+  "06 Dependency Audit"
 ]'
 
 required_json="$default_required_json"
@@ -117,12 +117,12 @@ if [[ "$discover_required" == "true" ]]; then
     [
       .[]
       | select(
-          .name == "Quality checks — Python 3.14"
-          or .name == "Unit tests — Python 3.14"
-          or .name == "Integration/E2E — integration (Python 3.14)"
-          or .name == "Integration/E2E — e2e (Python 3.14)"
-          or .name == "Verify Alembic migrations (PostgreSQL 17)"
-          or .name == "Dependency Review"
+          .name == "01 Quality checks — Python 3.14"
+          or .name == "02 Unit tests — Python 3.14"
+          or .name == "03 Verify Alembic migrations (PostgreSQL 17)"
+          or .name == "04 Integration tests — Python 3.14"
+          or .name == "05 E2E tests — Python 3.14"
+            or .name == "06 Dependency Audit"
       )
       | .name
     ]
