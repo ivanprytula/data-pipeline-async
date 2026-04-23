@@ -18,7 +18,41 @@ bash scripts/daily/03-run-tests.sh integration # Run integration tests only
 uv run alembic upgrade head                   # Apply migrations
 uv run alembic downgrade -1                   # Rollback migration
 bash scripts/daily/04-quality-checks.sh   # Lint, format, type-check
+bash scripts/daily/06-guarded-merge.sh --discover-required --pr <pr-number-or-branch>  # Validate required checks before merge
 ```
+
+## Practical Cadence
+
+Use this cadence to keep fast feedback on every commit while running heavy security scans less often.
+
+```text
+Push/PR update (main, develop, feature/*)
+  |
+  +--> CI 01 - Unit + Quality
+  +--> CI 02 - Integration & E2E
+  +--> CI 03 - Migrations Verification
+  +--> Security (Dependency Review) on PRs
+
+Nightly / Weekly
+  |
+  +--> Security Scan (Full Pipeline)
+  +--> Security (CodeQL Analyze)
+
+Manual dispatch
+  |
+  +--> Docker Build (feature branch validation)
+  +--> Security Scan (Full Pipeline)
+  +--> Security (CodeQL Analyze)
+  +--> Release Promote / CD Deploy
+```
+
+Policy summary:
+
+- Run quality, unit, integration/e2e, and migrations on every push and PR update
+- Run full security scanning on schedule and manual dispatch
+- Run deep CodeQL scanning on schedule and manual dispatch
+- Keep dependency review on PR updates
+- Use manual Docker build for ad hoc feature branch checks
 
 ---
 

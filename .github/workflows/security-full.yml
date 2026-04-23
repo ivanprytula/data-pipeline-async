@@ -1,33 +1,9 @@
 name: Security Scan (Full Pipeline)
 
 'on':
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - .github/workflows/*.yml
-      - .github/workflows/*.yaml
-      - pyproject.toml
-      - uv.lock
-      - Dockerfile
-      - services/*/Dockerfile
-      - infra/database/Dockerfile
-      - .dockerignore
-      - .github/workflows/security-full.yml
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - .github/workflows/*.yml
-      - .github/workflows/*.yaml
-      - pyproject.toml
-      - uv.lock
-      - Dockerfile
-      - services/*/Dockerfile
-      - infra/database/Dockerfile
-      - .dockerignore
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read

@@ -1,11 +1,18 @@
 name: CI 02 — Integration & E2E
 
 on:
-  workflow_run:
-    workflows:
-      - "CI 01 — Unit"
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - develop
     types:
-      - completed
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
   workflow_dispatch:
 
 concurrency:
@@ -20,7 +27,6 @@ env:
 
 jobs:
   tests:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     name: Integration/E2E — ${{ matrix.test-type }} (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 90

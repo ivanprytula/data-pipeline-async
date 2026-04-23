@@ -6,8 +6,7 @@ name: Docker Build
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   # One run per branch at a time; cancel in-flight on new push

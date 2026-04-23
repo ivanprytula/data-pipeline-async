@@ -1,11 +1,18 @@
 name: CI 03 — Migrations Verification
 
 on:
-  workflow_run:
-    workflows:
-      - "CI 02 — Integration & E2E"
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - develop
     types:
-      - completed
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
   workflow_dispatch:
 
 concurrency:
@@ -20,7 +27,6 @@ env:
 
 jobs:
   verify-migrations:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     name: Verify Alembic migrations (PostgreSQL 17)
     runs-on: ubuntu-latest
     timeout-minutes: 15
