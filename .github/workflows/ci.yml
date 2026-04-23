@@ -342,6 +342,7 @@ jobs:
           print(f"✓ Successfully inserted processed_event (id={event_id})")
 
           try:
+            cur.execute("SAVEPOINT records_unique_check")
             cur.execute("""
               INSERT INTO records (source, timestamp, raw_data, tags, processed, created_at)
               VALUES (%s, %s, %s, %s, %s, %s)
@@ -349,9 +350,13 @@ jobs:
             print("✗ FAILED: Unique constraint not enforced on (source, timestamp)")
             raise AssertionError("Unique constraint not enforced")
           except psycopg.IntegrityError:
+            cur.execute("ROLLBACK TO SAVEPOINT records_unique_check")
             print("✓ Unique constraint enforced on records (source, timestamp)")
+          finally:
+            cur.execute("RELEASE SAVEPOINT records_unique_check")
 
           try:
+            cur.execute("SAVEPOINT processed_events_unique_check")
             cur.execute("""
               INSERT INTO processed_events (
                 kafka_topic, kafka_partition, kafka_offset, idempotency_key,
@@ -363,7 +368,10 @@ jobs:
             print("✗ FAILED: idempotency_key unique constraint not enforced")
             raise AssertionError("idempotency_key constraint not enforced")
           except psycopg.IntegrityError:
+            cur.execute("ROLLBACK TO SAVEPOINT processed_events_unique_check")
             print("✓ Unique constraint enforced on processed_events (idempotency_key)")
+          finally:
+            cur.execute("RELEASE SAVEPOINT processed_events_unique_check")
 
           conn.commit()
           cur.close()
