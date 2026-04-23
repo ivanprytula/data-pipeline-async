@@ -50,6 +50,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   deploy:
     name: Deploy to ECS
@@ -80,7 +83,7 @@ jobs:
           cosign verify "${verify_args[@]}" "${{ inputs.image-uri }}" >/dev/null
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@5f0e8e11c7ad15b18e5f5fa5b80487b85c6cc2bc # v4.0.2
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6
         with:
           role-to-assume: ${{ inputs.aws-role-arn }}
           aws-region: ${{ inputs.aws-region }}

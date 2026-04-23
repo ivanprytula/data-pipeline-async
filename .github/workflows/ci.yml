@@ -1,10 +1,7 @@
-name: CI
+name: CI 00 — Orchestrator (Manual)
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

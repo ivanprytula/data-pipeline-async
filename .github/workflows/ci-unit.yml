@@ -1,4 +1,4 @@
-name: CI — Unit
+name: CI 01 — Unit
 
 on:
   push:
@@ -14,6 +14,9 @@ concurrency:
 permissions:
   contents: read  # Read repo for checkout; no other permissions needed
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   unit:
     name: Unit tests — Python ${{ matrix.python-version }}
@@ -24,16 +27,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python
-        uses: actions/setup-python@3235b876344d2a9aa001b8d1453c930bba69e610 # v3.9.1
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
       - name: Cache pip / uv wheel (keyed by uv.lock)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4.0.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cache/pip
@@ -51,7 +54,7 @@ jobs:
           uv sync --frozen
 
       - name: Cache pytest results
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4.0.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .pytest_cache
           key: ${{ runner.os }}-pytest-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
@@ -62,7 +65,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4.5.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-unit-py${{ matrix.python-version }}
           path: htmlcov
