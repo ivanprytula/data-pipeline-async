@@ -197,8 +197,8 @@ jobs:
 
           cur.execute("""
             SELECT EXISTS(
-              SELECT 1 FROM information_schema.views
-              WHERE table_name = 'records_hourly_stats'
+              SELECT 1 FROM pg_matviews
+              WHERE matviewname = 'records_hourly_stats'
             )
           """)
           has_view = cur.fetchone()[0]
@@ -332,11 +332,12 @@ jobs:
           cur.execute("""
             INSERT INTO processed_events (
               kafka_topic, kafka_partition, kafka_offset, idempotency_key,
-              event_type, payload, status, processing_attempts, created_at
+              event_type, payload, status, processing_attempts,
+              dead_letter_queue, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-          """, ("test-topic", 0, 0, "test-key-1", "test.event", '{}', "pending", 0, now))
+          """, ("test-topic", 0, 0, "test-key-1", "test.event", '{}', "pending", 0, False, now))
           event_id = cur.fetchone()[0]
           print(f"✓ Successfully inserted processed_event (id={event_id})")
 
@@ -354,10 +355,11 @@ jobs:
             cur.execute("""
               INSERT INTO processed_events (
                 kafka_topic, kafka_partition, kafka_offset, idempotency_key,
-                event_type, payload, status, processing_attempts, created_at
+                event_type, payload, status, processing_attempts,
+                dead_letter_queue, created_at
               )
-              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, ("topic2", 0, 0, "test-key-1", "test.event", '{}', "pending", 0, now))
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, ("topic2", 0, 0, "test-key-1", "test.event", '{}', "pending", 0, False, now))
             print("✗ FAILED: idempotency_key unique constraint not enforced")
             raise AssertionError("idempotency_key constraint not enforced")
           except psycopg.IntegrityError:
@@ -571,6 +573,9 @@ jobs:
       - integration
       - e2e
     if: ${{ github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
       image-name: ${{ matrix.image.image_name }}

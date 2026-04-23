@@ -38,9 +38,9 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
   - SDK initialization gated by environment (`SENTRY_ENABLED`, `SENTRY_DSN`)
   - FastAPI/SQLAlchemy/logging integrations enabled for exception capture
   - release/environment tagging for production triage
-   - Timeframe: 14–45 days
+  - Timeframe: 14–45 days
 
-5. Background Processing & Scaling — **Score: 7**
+1. Background Processing & Scaling — **Score: 7**
    - Why: For scale and reliability (parallel workers, retries, visibility) a task broker may be needed.
    - Immediate tasks: start with scheduled tasks + lightweight workers; evaluate Celery (Redis/RabbitMQ), `arq` (Redis), and serverless job approaches; prototype with one workflow (e.g., large batch ingest) to validate operational model.
    - Current status (April 22, 2026): lightweight worker prototype implemented and running behind feature flags.
@@ -52,7 +52,7 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
    - Next: evaluate broker-backed execution (Celery/arq) using the same API contract and add persistence for task status beyond process memory.
    - Timeframe: 45–120 days
 
-6. Security, Auth, and RBAC — **Score: 7**
+2. Security, Auth, and RBAC — **Score: 7**
    - Why: Product safety, multi-tenant readiness, and compliance.
    - Immediate tasks: implement basic user model, role-based access control for API operations, rate-limiting (slowapi/fastapi middleware), and secret management patterns; add security headers and CI dependency scanning.
    - Current status (April 23, 2026): baseline implementation shipped.
@@ -66,7 +66,7 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
    - Next: migrate session store from in-memory to Redis, add persisted user CRUD/auth endpoints, and enforce RBAC on additional production routes.
    - Timeframe: 30–90 days
 
-7. Admin UI & User Workflows — **Score: 6**
+3. Admin UI & User Workflows — **Score: 6**
    - Why: Admin tooling reduces friction (job control, user management, visibility).
    - Immediate tasks: implement a minimal admin UI (static React or server-side templates) for job status, manual re-run, and user management; iterate after API stabilization.
    - Current status (April 23, 2026): baseline dashboard admin workflows shipped.
@@ -80,7 +80,7 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
    - Next: add persisted user CRUD flows in ingestor and expose role/user management in admin UI.
    - Timeframe: 60–180 days
 
-8. Notifications & Emailing — **Score: 5**
+4. Notifications & Emailing — **Score: 5**
    - Why: Operational convenience (alerts, processed notifications) — not critical to core ingestion.
    - Immediate tasks: add notification abstraction and a transactional email provider integration for alerts and user notifications.
    - Current status (April 23, 2026): baseline implementation shipped.
@@ -93,7 +93,7 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
    - Next: add Jira issue/ticket automation for critical alerts and wire notification preferences per user/team.
    - Timeframe: 60–150 days
 
-9. Embeddings & LLM Features (Vector Search) — **Score: 4**
+5. Embeddings & LLM Features (Vector Search) — **Score: 4**
    - Why: Strategic differentiation but high effort, dependent on data shape and query patterns.
    - Immediate tasks: define use cases, prototype small PoC with pgvector or Qdrant; defer large investment until core product stabilizes.
    - Timeframe: 120+ days (after stabilization)
@@ -101,18 +101,22 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
 ## Phases & milestones
 
 ### Phase 0 — Stabilize (0–30 days)
+
 - Runbook: Tests & CI stabilization, Alembic + migrations, core model reviews, limited observability (basic metrics + logging).
 - Milestone: Green CI across unit and integration suites; reproducible local dev environment; documented test lifecycle.
 
 ### Phase 1 — Foundation (30–90 days)
+
 - Runbook: scheduling abstraction, idempotent ingestion jobs, role-based auth, richer observability dashboards, small admin UI.
 - Milestone: Scheduled jobs running in production-like environment; onboarding doc for new jobs; basic RBAC in API.
 
 ### Phase 2 — Scale & Reliability (90–180 days)
+
 - Runbook: background worker architecture (broker selection + runbook), alerting/SLIs, horizontal scaling of ingestion, admin UX polish.
 - Milestone: Successful load test at expected traffic; worker autoscaling policy defined and tested.
 
 ### Phase 3 — Productization & Advanced Capabilities (180+ days)
+
 - Runbook: notification workflows, ML/LLM features (vector search, similarity), marketplace integrations, hardened security controls for production tenants.
 - Milestone: Public-facing admin UI and stable LLM POC in production sandbox.
 
@@ -146,13 +150,24 @@ This is the canonical, prioritized roadmap for the Data Zoo Platform. It consoli
 - Risk: Data model changes cause downtime or long migrations
   - Mitigation: Use online-safe migration patterns, zero-downtime migration docs, and migration previews in CI.
 
-## Next actions (immediate)
+## Next actions (as of April 24, 2026)
 
-1. Persist this plan: `docs/progress/roadmap.md` (this file).
-2. Create PR with the roadmap and link relevant pillar docs for traceability.
-3. Tag owners and schedule a short planning review to align 30/60/90-day commitments.
-4. Add CI job(s): migrations verification and PostgreSQL integration tests.
-5. Iterate this prompt/file with stakeholders and lock the canonical roadmap in `docs/progress/roadmap.md`.
+### Immediate (unblock CI — hours)
+
+1. **Push CI workflow fix to `develop`**: commit and push the three updated workflow files (`.github/workflows/ci.yml`, `docker-build.yml`, `docker-build-reusable.yml`). The `aws_account_id` secret-naming fix is applied locally but not yet pushed; all current CI runs are `startup_failure`.
+2. **Re-run branch protection after first green CI run**: execute `./scripts/tools/set-branch-protection-gh.sh --apply` once the new required-check job names (`CI / 01 Code quality`, `CI / 02 Unit tests`, etc.) appear on the protected branches.
+
+### Short-term (Phase 1 gaps — days to weeks)
+
+1. **Migrate session store to Redis**: replace the in-memory `dict` in `ingestor/auth.py` with Redis-backed sessions using `ingestor/cache.py`; adds TTL, survives restarts, and removes the single-process limitation.
+2. **Persisted user CRUD endpoints**: add `POST /api/v1/users/register`, `GET /api/v1/users`, `PATCH /api/v1/users/{id}` routes; wire to the existing `users` table and expose role/active management in the admin UI.
+3. **Wire Alertmanager rules for job failures**: populate `infra/monitoring/rules/` with alert rules for background-job failure rate, high-latency ingestion, and worker starvation; validate end-to-end with Alertmanager in `docker-compose.dev.yml`.
+
+### Medium-term (Phase 2 — weeks)
+
+1. **Celery/arq broker prototype**: implement a thin execution-backend adapter over `BackgroundWorkerPool`; run the same batch-ingest integration test against both in-process and Redis-backed arq to compare latency, failure visibility, and operational cost.
+2. **Worker runbook**: document manual recovery steps for stuck/failed background jobs — how to inspect task state, force-retry, drain the queue, and roll back a bad ingestion batch.
+3. **Jira automation for critical alerts**: extend the notification abstraction (`ingestor/notifications.py`) with a Jira channel; auto-create issues on repeated worker failures or Sentry high-severity events.
 
 ## Notes
 

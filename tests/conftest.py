@@ -504,17 +504,20 @@ async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
         return
 
     # Connect to Docker PostgreSQL
-    db_url = f"postgresql+asyncpg://{pg_config['user']}:{pg_config['password']}@{pg_config['host']}:{pg_config['port']}/{pg_config['db']}"
+    db_url = (
+        f"postgresql+asyncpg://{pg_config['user']}:{pg_config['password']}"
+        f"@{pg_config['host']}:{pg_config['port']}/{pg_config['db']}"
+    )
+    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
 
     pg_engine = create_async_engine(db_url, echo=False)
     pg_sessionmaker = async_sessionmaker(
         bind=pg_engine, autocommit=False, autoflush=False, expire_on_commit=False
     )
 
-    # Create session against the already-migrated test database schema.
+    # Ensure PostgreSQL-only objects created by Alembic exist for these tests.
     try:
-        async with pg_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        _alembic_upgrade(sync_url)
 
         async with pg_sessionmaker() as cleanup_session:
             await _clear_records(cleanup_session)
@@ -527,6 +530,7 @@ async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
         # views and other dependent objects.
         async with pg_sessionmaker() as cleanup_session:
             await _clear_records(cleanup_session)
+        _alembic_downgrade(sync_url)
         await pg_engine.dispose()
 
 

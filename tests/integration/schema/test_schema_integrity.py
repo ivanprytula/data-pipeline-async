@@ -208,14 +208,17 @@ class TestProcessedEventsConstraints:
             text("""
                 INSERT INTO processed_events (
                   kafka_topic, kafka_partition, kafka_offset, idempotency_key,
-                  event_type, payload, status, processing_attempts, created_at
+                                 event_type, payload, status, processing_attempts,
+                                 dead_letter_queue, created_at
                 ) VALUES (
                   :kafka_topic, :kafka_partition, :kafka_offset, :idempotency_key,
-                  :event_type, :payload, :status, :processing_attempts, :created_at
+                                 :event_type, :payload, :status, :processing_attempts,
+                                 :dead_letter_queue, :created_at
                 )
             """),
             {
                 "kafka_topic": "test-topic",
+                "dead_letter_queue": False,
                 "kafka_partition": 0,
                 "kafka_offset": 100,
                 "idempotency_key": "unique-key-123",
@@ -234,10 +237,12 @@ class TestProcessedEventsConstraints:
                 text("""
                     INSERT INTO processed_events (
                       kafka_topic, kafka_partition, kafka_offset, idempotency_key,
-                      event_type, payload, status, processing_attempts, created_at
+                                         event_type, payload, status, processing_attempts,
+                                         dead_letter_queue, created_at
                     ) VALUES (
                       :kafka_topic, :kafka_partition, :kafka_offset, :idempotency_key,
-                      :event_type, :payload, :status, :processing_attempts, :created_at
+                                         :event_type, :payload, :status, :processing_attempts,
+                                         :dead_letter_queue, :created_at
                     )
                 """),
                 {
@@ -249,6 +254,7 @@ class TestProcessedEventsConstraints:
                     "payload": "{}",
                     "status": "pending",
                     "processing_attempts": 0,
+                    "dead_letter_queue": False,
                     "created_at": now,
                 },
             )
@@ -270,8 +276,8 @@ class TestMaterializedViews:
         result = await postgresql_async_session.execute(
             text("""
                 SELECT EXISTS(
-                  SELECT 1 FROM information_schema.views
-                  WHERE table_name = 'records_hourly_stats'
+                  SELECT 1 FROM pg_matviews
+                  WHERE matviewname = 'records_hourly_stats'
                 )
             """)
         )
@@ -294,9 +300,14 @@ class TestMaterializedViews:
         """Verify records_hourly_stats has expected columns."""
         result = await postgresql_async_session.execute(
             text("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'records_hourly_stats'
-                ORDER BY ordinal_position
+                SELECT a.attname AS column_name
+                FROM pg_attribute AS a
+                JOIN pg_class AS c ON a.attrelid = c.oid
+                WHERE c.relname = 'records_hourly_stats'
+                  AND c.relkind = 'm'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+                ORDER BY a.attnum
             """)
         )
         columns = [row[0] for row in result.fetchall()]
