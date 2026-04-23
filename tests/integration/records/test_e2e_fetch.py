@@ -104,7 +104,7 @@ class TestFetchWithRetry:
         assert result["id"] == 1
 
     @pytest.mark.e2e
-    async def test_retry_success_after_simulated_failures(self, caplog) -> None:
+    async def test_retry_success_after_simulated_failures(self) -> None:
         """Retry eventually succeeds after 2 simulated failures."""
         url = "https://jsonplaceholder.typicode.com/posts/1"
         attempt_count = [0]  # Mutable container to track calls
@@ -118,16 +118,23 @@ class TestFetchWithRetry:
                 raise Exception(f"Simulated failure #{attempt_count[0]}")
             return await original_fetch(url, simulate_failures=False)
 
-        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
-            result = await fetch_with_retry(url, max_retries=4, simulate_failures=False)
+        with (
+            patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch),
+            patch("ingestor.fetch.logger.warning") as warning_mock,
+        ):
+            result = await fetch_with_retry(
+                url,
+                max_retries=4,
+                simulate_failures=False,
+            )
 
         assert isinstance(result, dict)
         assert result["id"] == 1
         assert attempt_count[0] == 3  # Tried 3 times
 
-        # Verify logs show retry attempts
-        with caplog.at_level(logging.WARNING):
-            assert "fetch_retry" in caplog.text or "Simulated failure" in caplog.text
+        # Verify retry warnings were emitted for simulated failures
+        warning_messages = [call.args[0] for call in warning_mock.call_args_list]
+        assert "fetch_retry" in warning_messages
 
     @pytest.mark.e2e
     async def test_retry_exhaustion_after_max_retries(self) -> None:
@@ -178,7 +185,7 @@ class TestFetchWithRetry:
         )
 
     @pytest.mark.e2e
-    async def test_retry_logging_attempt_numbers(self, caplog) -> None:
+    async def test_retry_logging_attempt_numbers(self) -> None:
         """Verify logs show correct attempt numbers and retry messages."""
         url = "https://example.invalid/api"
 
@@ -190,18 +197,20 @@ class TestFetchWithRetry:
                 raise Exception("First attempt fails")
             return await fetch_from_external_api(url, simulate_failures=False)
 
-        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
-            with caplog.at_level(logging.INFO):
-                with pytest.raises(httpx.ConnectError):
-                    await fetch_with_retry(
-                        url,
-                        max_retries=3,
-                        simulate_failures=False,
-                    )
+        with (
+            patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch),
+            patch("ingestor.fetch.logger.info") as info_mock,
+        ):
+            with pytest.raises(httpx.ConnectError):
+                await fetch_with_retry(
+                    url,
+                    max_retries=3,
+                    simulate_failures=False,
+                )
 
-        # Check that logs contain attempt information
-        log_output = caplog.text
-        assert "fetch_attempt" in log_output or "attempt" in log_output
+        # Check that attempt logging was emitted
+        info_messages = [call.args[0] for call in info_mock.call_args_list]
+        assert "fetch_attempt" in info_messages
 
 
 class TestHttpClientLifecycle:
