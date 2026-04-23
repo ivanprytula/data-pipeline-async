@@ -68,7 +68,7 @@ jobs:
       push-image: ${{ inputs.push_image }}
       sign-image: ${{ inputs.sign_image }}
     secrets:
-      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
 
   build-summary:
     name: Build Summary

@@ -580,7 +580,7 @@ jobs:
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
       push-image: false
     secrets:
-      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
 
   build-summary:
     name: 07 Docker build summary
