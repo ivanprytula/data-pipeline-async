@@ -101,7 +101,7 @@ class TestApiIngestion:
             id=1,
             source="test_source",
             timestamp=datetime.now(UTC),
-            data={"test": "data"},
+            raw_data={"test": "data"},
             tags=["test"],
         )
 
@@ -155,7 +155,7 @@ class TestApiIngestion:
                 id=i,
                 source="test_source",
                 timestamp=datetime.now(UTC),
-                data={"index": i},
+                raw_data={"index": i},
                 tags=["batch"],
             )
             for i in range(1, 4)

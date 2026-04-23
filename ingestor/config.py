@@ -8,6 +8,8 @@ from ingestor.constants import (
     BACKGROUND_WORKER_COUNT_DEFAULT,
     BACKGROUND_WORKER_QUEUE_SIZE_DEFAULT,
     NOTIFICATION_HTTP_TIMEOUT_SECONDS_DEFAULT,
+    VECTOR_SEARCH_DEFAULT_COLLECTION,
+    VECTOR_SEARCH_HTTP_TIMEOUT_SECONDS_DEFAULT,
 )
 
 
@@ -281,6 +283,24 @@ class Settings(BaseSettings):
     notification_email_to: str | None = Field(
         default=None,
         description="Comma-separated recipient emails for operational alerts.",
+    )
+
+    # ============ Embeddings & vector search (Pillar 9) ============
+    ai_gateway_url: str = Field(
+        default="http://localhost:8001",
+        description="Base URL for the AI gateway service that handles embeddings/semantic search.",
+    )
+
+    vector_search_collection: str = Field(
+        default=VECTOR_SEARCH_DEFAULT_COLLECTION,
+        description="Default AI gateway collection used for semantic record search.",
+    )
+
+    vector_search_http_timeout_seconds: int = Field(
+        default=VECTOR_SEARCH_HTTP_TIMEOUT_SECONDS_DEFAULT,
+        ge=1,
+        le=60,
+        description="HTTP timeout (seconds) for AI gateway index and search requests.",
     )
 
     model_config = SettingsConfigDict(

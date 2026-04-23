@@ -72,19 +72,32 @@ Data Zoo runs perfectly on `docker-compose` locally. Now it needs to run on AWS 
 
 ### 3. CI/CD Integration
 
-**Workflow**: `.github/workflows/docker-build.yml`
+**Workflows**:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/docker-build.yml`
+- `.github/workflows/release-promote.yml`
+- `.github/workflows/cd-deploy.yml`
 
 ```text
-Commit to develop/main
-    ↓
-Build Docker image (uv sync, tests)
-    ↓
-Authenticate via GitHub OIDC (no AWS keys)
-    ↓
-Push to ECR with multi-tags (SHA + env_tag)
-    ↓
-[COMMENTED OUT: Update ECS service]
-    └─ Ready to uncomment when deployment desired
+Commit / PR
+  ↓
+Queued CI workflow
+  Quality → Unit → Migrations → Integration → E2E
+  PR-only dependency audit
+  Push-only image build validation for all 5 services
+  ↓
+Manual Docker build workflow
+  - select one service or all services
+  - optional ECR push
+  - optional signing
+  ↓
+Manual release promotion workflow
+  - promote one service or all services by digest/tag
+  ↓
+Manual CD deploy workflow
+  - select environment + service
+  - deploy to ECS via environment-specific variables
 ```
 
 **Key innovation**: GitHub OIDC provider replaces long-lived AWS access keys
@@ -97,7 +110,7 @@ Push to ECR with multi-tags (SHA + env_tag)
 
 ### 4. Comprehensive Documentation
 
-**Main guide**: [docs/cloud-deployment.md](../cloud-deployment.md) (293 lines)
+**Main guide**: [docs/cloud-deployment.md](../cloud-deployment.md)
 
 Covers:
 - Why ECS Fargate (with cost/ops comparison table)
@@ -105,7 +118,7 @@ Covers:
 - Terraform module structure and parameterization
 - Secrets management strategy (Secrets Manager vs SSM Parameter Store)
 - Manual deployment commands
-- CD enablement checklist (when ready for auto-deployment)
+- Manual build / promote / deploy workflow model
 - Cost breakdown and teardown procedures
 
 **Architecture doc**: [docs/design/architecture.md](../design/architecture.md)
@@ -166,7 +179,7 @@ backup_retention_days   = 14
 backend "s3" {
   bucket         = "data-zoo-terraform-state-dev"
   key            = "data-zoo/dev/terraform.tfstate"
-  region         = "us-east-1"
+  region         = "eu-central-1"
   dynamodb_table = "data-zoo-terraform-locks"
   encrypt        = true
 }
@@ -186,11 +199,11 @@ backend "s3" {
   "secrets": [
     {
       "name": "DATABASE_PASSWORD",
-      "valueFrom": "arn:aws:secretsmanager:us-east-1:123456:secret:data-zoo/rds-password"
+      "valueFrom": "arn:aws:secretsmanager:eu-central-1:123456:secret:data-zoo/rds-password"
     },
     {
       "name": "REDIS_AUTH_TOKEN",
-      "valueFrom": "arn:aws:ssm:us-east-1:123456:parameter:/data-zoo/dev/redis-token"
+      "valueFrom": "arn:aws:ssm:eu-central-1:123456:parameter:/data-zoo/dev/redis-token"
     }
   ]
 }
@@ -319,8 +332,10 @@ deployment_configuration {
 | `infra/terraform/modules/compute/*` | Created | ECS cluster, ALB, task definitions |
 | `infra/terraform/environments/dev/*` | Created | Dev environment variables and tfvars example |
 | `infra/terraform/environments/prod/*` | Created | Prod environment variables and tfvars example |
-| `.github/workflows/docker-build.yml` | Modified | Build + push to ECR on push/PR; CD steps commented out |
-| `.github/workflows/ci.yml` | Modified | Added `develop` branch to triggers |
+| `.github/workflows/ci.yml` | Modified | Queued CI gates plus build validation for all service images |
+| `.github/workflows/docker-build.yml` | Modified | Manual per-service or all-service build, optional push/sign |
+| `.github/workflows/release-promote.yml` | Created | Manual digest/tag promotion for one service or all services |
+| `.github/workflows/cd-deploy.yml` | Modified | Manual per-service deploy target resolution |
 | `docs/cloud-deployment.md` | Created | Comprehensive Phase 7 guide (setup, secrets, costs) |
 | `docs/design/architecture.md` | Modified | Added Phase 7 section with infrastructure diagrams |
 | `docs/design/decisions.md` | Modified | Added 7 Phase 7 decision entries + matrix |
@@ -337,7 +352,7 @@ cd infra/terraform/environments/dev
 terraform init \
   -backend-config="bucket=data-zoo-terraform-state-dev" \
   -backend-config="key=data-zoo/dev/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
+  -backend-config="region=eu-central-1" \
   -backend-config="dynamodb_table=data-zoo-terraform-locks"
 
 cp terraform.tfvars.example terraform.tfvars
@@ -349,17 +364,15 @@ aws-vault exec data-zoo-dev -- terraform apply
 
 ### Deploying Code Changes
 
-Until CD is enabled (steps commented out), deploy manually:
+Current deployment model is manual by design:
 
 ```bash
-aws ecs update-service \
-  --cluster data-zoo-dev \
-  --service ingestor \
-  --force-new-deployment \
-  --region us-east-1
+gh workflow run docker-build.yml
+gh workflow run release-promote.yml
+gh workflow run cd-deploy.yml
 ```
 
-Once CD is enabled, just push to `develop` branch — GitHub Actions handles the rest.
+For direct AWS CLI rollout, `aws ecs update-service` still works, but GitHub Actions is now the primary manual delivery path.
 
 ### Teardown (when done)
 

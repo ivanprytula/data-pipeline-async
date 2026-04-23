@@ -168,16 +168,24 @@ Practical budget controls:
 
 ## Setup Checklist (One-Time)
 
-1. Create GitHub organization/repository governance baseline.
-2. Create AWS accounts (or at minimum isolate environments by policy and tags).
-3. Configure IAM Identity Center and least-privilege permission sets.
-4. Configure GitHub OIDC trust and deploy roles.
-5. Create ECR repos and enable immutable image-tag strategy in CI/CD.
-6. Configure Terraform backend (S3 + DynamoDB lock table).
-7. Configure DNS + ACM certificates.
-8. Configure environments dev/staging/prod in GitHub with approvals.
-9. Configure monitoring, error tracking, and incident routing.
-10. Define budget alerts and ownership rotations.
+| Setup Item | Create Now | Can Defer | Free Tier / Low Cost | Owner | Current Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GitHub repository governance baseline | Yes | No | Partial | Platform/Admin | Partial | Workflows, required-check scripts, and environment scaffolding exist. Branch protection is not fully applied yet. |
+| AWS account structure for dev/staging/prod | Yes if deploying to cloud soon | Yes if staying local-only | No | Cloud/Admin | Partial | Repo assumes `dev`, `staging`, and `prod`, but actual AWS account separation is not verified from the repo. |
+| IAM Identity Center and permission sets | No | Yes | Yes for service itself | Cloud/Admin | Not started / not verified | No repo evidence of Identity Center setup. Needed once multiple human operators need controlled AWS access. |
+| GitHub OIDC trust and deploy roles | Yes before push/promote/deploy | No once cloud deploy starts | Yes for OIDC itself | Platform/Admin + Cloud/Admin | Partial | Workflows are wired for OIDC, but AWS auth inputs are still incomplete in GitHub configuration. |
+| ECR repositories for all service images | Yes before image push/promotion | Yes if only building locally | No | Platform/Admin | Partial | CI/build/promotion now support `ingestor`, `ai_gateway`, `query_api`, `processor`, and `dashboard`, but ECR presence is not verified from the repo. |
+| Terraform backend (S3 + DynamoDB lock table) | Yes before shared Terraform use | Yes if Terraform is not being applied yet | Low cost | Platform/Admin | Not verified | Documented in cloud setup docs, but live backend provisioning is not visible from this repo alone. |
+| DNS and ACM certificates | Yes before public environment exposure | Yes for local-only or private dev | ACM public certs are low/no direct cost; DNS is paid | Cloud/Admin | Not started / not verified | Needed for public HTTPS endpoints, ALB routing, and stable domains. |
+| GitHub environments `dev` / `staging` / `prod` | Yes | No | Yes | Platform/Admin | Partial | Environments exist and now contain per-service ECS variable names, but approval rules and deploy secrets are still incomplete. |
+| Monitoring, error tracking, and incident routing | No for initial local-only development | Yes | Mixed | SRE/Platform | Partial | CloudWatch, Prometheus/Grafana, and security workflows are represented in repo docs/workflows; Sentry/PagerDuty/Slack setup is not verified. |
+| Budget alerts and ownership rotation | No for earliest prototype stage | Yes | Yes / low cost | Cloud/Admin + Platform/Admin | Not started / not verified | Should be added before sustained cloud usage to prevent silent spend growth. |
+
+Status legend:
+
+- `Not started / not verified`: no reliable repo evidence that the external setup exists yet
+- `Partial`: repo wiring or docs exist, but the external account/service setup is still incomplete
+- `Ready`: both repo wiring and external setup are in place
 
 ## Optional but High-Value Services
 

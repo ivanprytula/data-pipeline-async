@@ -14,7 +14,7 @@ Build a highly automated delivery model with:
 - GitHub Actions workflows for unit, integration/e2e, migration checks, and Docker build
 - Terraform module-based infrastructure under `infra/terraform`
 - GitHub OIDC role scaffolding in Terraform IAM module
-- CI currently hardcoded mostly for `us-east-1`
+- CI and deployment examples now target `eu-central-1`
 - Docker build workflow still has push/deploy steps disabled
 
 ## Recommended Target Architecture
@@ -67,18 +67,17 @@ Runtime options:
 
 1. Availability zones in tfvars/examples:
 
-- Replace `us-east-1*` with `eu-central-1a`, `eu-central-1b`, `eu-central-1c` as needed
+- Use `eu-central-1a`, `eu-central-1b`, `eu-central-1c` as needed
 
 ## CI/CD Design for Portability and Automation
 
 ### Implementation Status (2026-04-23)
 
-- Implemented: reusable workflow foundations
-  - `.github/workflows/ci-reusable.yml`
+- Implemented: queued CI and reusable deployment foundations
+  - `.github/workflows/ci.yml` (single ordered CI pipeline)
   - `.github/workflows/docker-build-reusable.yml`
   - `.github/workflows/deploy-reusable.yml`
 - Implemented: caller workflows with CI/CD split
-  - `.github/workflows/ci.yml` (CI entrypoint)
   - `.github/workflows/cd-deploy.yml` (event-driven deploy entrypoint)
 - Implemented: security hardening baseline
   - immutable SHA-pinned action refs
@@ -94,11 +93,10 @@ Runtime options:
 - CI (always on PR and push): build, test, security checks, produce signed artifacts
 - CD (event-driven): deploy only from approved environment and immutable image digest
 
-## 2. Use reusable GitHub workflows
+## 2. Use reusable GitHub workflows where they reduce duplication
 
 Create reusable workflows via `workflow_call`:
 
-- `ci-reusable.yml` for tests and quality gates
 - `docker-build-reusable.yml` for image build/scan/sign/push
 - `deploy-reusable.yml` for environment deployment
 
@@ -316,7 +314,7 @@ Trust policy condition should match branch/environment to enforce least privileg
 
 ## Recommended Next Changes in This Repository
 
-1. Switch all region defaults and examples from `us-east-1` to `eu-central-1`
+1. Keep all new AWS examples and defaults aligned to `eu-central-1`
 2. Pin all GitHub Actions to full commit SHA (supply chain hardening)
 3. Add explicit workflow-level permissions with `id-token: write` only where needed
 4. Enable OIDC auth and ECR push in Docker workflow

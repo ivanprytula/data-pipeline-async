@@ -144,7 +144,7 @@ Instances
     backend "s3" {
       bucket         = "data-pipeline-tfstate"
       key            = "terraform.tfstate"
-      region         = "us-east-1"
+      region         = "eu-central-1"
       dynamodb_table = "terraform-lock"
       encrypt        = true
     }
@@ -307,7 +307,7 @@ Instances
   ```hcl
   # infra/dev.tfvars
   environment           = "dev"
-  aws_region            = "us-east-1"
+  aws_region            = "eu-central-1"
   vpc_cidr              = "10.0.0.0/16"
   db_instance_class     = "db.t3.micro"
   db_storage            = 20
@@ -318,7 +318,7 @@ Instances
 
   # infra/prod.tfvars
   environment           = "prod"
-  aws_region            = "us-east-1"
+  aws_region            = "eu-central-1"
   vpc_cidr              = "10.0.0.0/16"
   db_instance_class     = "db.r5.xlarge"  # More resources
   db_storage            = 500
@@ -341,7 +341,7 @@ Instances
 
   env:
     TF_VERSION: 1.6.0
-    AWS_REGION: us-east-1
+    AWS_REGION: eu-central-1
 
   jobs:
     plan:

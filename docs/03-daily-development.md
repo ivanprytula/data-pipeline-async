@@ -18,7 +18,48 @@ bash scripts/daily/03-run-tests.sh integration # Run integration tests only
 uv run alembic upgrade head                   # Apply migrations
 uv run alembic downgrade -1                   # Rollback migration
 bash scripts/daily/04-quality-checks.sh   # Lint, format, type-check
+bash scripts/daily/06-guarded-merge.sh --discover-required --pr <pr-number-or-branch>  # Validate required checks before merge
 ```
+
+## Practical Cadence
+
+Use this cadence to keep fast feedback on every commit while running heavy security scans less often.
+
+```text
+Push/PR update (main, develop, feature/*)
+  |
+  +--> CI
+       01 Quality
+       02 Unit
+       03 Migrations
+       04 Integration
+       05 E2E
+       06 Dependency Audit (PR only)
+       06 Docker Build (push/manual only after all checks pass)
+
+Nightly / Weekly
+  |
+  +--> Security Full Scan (Scheduled and Manual)
+  +--> Scheduled CodeQL / CodeQL Analyze
+
+Manual dispatch
+  |
+  +--> CI
+      01 Quality -> 02 Unit -> 03 Migrations -> 04 Integration -> 05 E2E -> 06 Dependency Audit (PR only) -> 06 Docker Build
+  +--> Manual Docker Build (standalone validation)
+  +--> Security Full Scan (Scheduled and Manual)
+    +--> Scheduled CodeQL / CodeQL Analyze
+  +--> Release Promote / CD Deploy
+```
+
+Policy summary:
+
+- Run one queued CI workflow on every push and PR update
+- Run migrations before integration/e2e so schema failures stop the pipeline early
+- Run dependency audit inside the main PR CI chain instead of as a separate workflow
+- Run the full security scan on schedule and manual dispatch for broad security coverage
+- Run scheduled/manual CodeQL from the separate lightweight security workflow
+- Run Docker build only after prior CI checks pass, with standalone manual Docker build kept for ad hoc validation
 
 ---
 
@@ -269,6 +310,8 @@ repo="ivanprytula/data-pipeline-async"
 
 # Rotate/update environment variable values
 scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME ingestor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_AI_GATEWAY ai-gateway --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY ai-gateway --env dev --repo "$repo"
 
 # Update signer identity policy used by CD verification
 scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \

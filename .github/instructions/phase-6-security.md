@@ -66,7 +66,7 @@ Master application security (authentication, authorization, secrets) and infrast
 **Talking Points:**
 
 - State lock timeout: If lock stuck (apply crashed), use `terraform force-unlock`
-- Workspace naming: `dev`, `staging`, `prod` + region suffix (`dev-us-east-1`) for multi-region
+- Workspace naming: `dev`, `staging`, `prod` + region suffix (`dev-eu-central-1`) for multi-region
 - Modules: Shared code for networking, RDS, ALB → reused across environments
 
 ---
@@ -277,7 +277,7 @@ Logout
     backend "s3" {
       bucket         = "data-pipeline-tfstate"
       key            = "terraform.tfstate"
-      region         = "us-east-1"
+      region         = "eu-central-1"
       dynamodb_table = "terraform-lock"
       encrypt        = true
     }

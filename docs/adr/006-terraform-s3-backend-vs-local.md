@@ -69,7 +69,7 @@ Where should Terraform state be stored?
 # Create S3 bucket for state
 aws s3api create-bucket \
   --bucket data-zoo-terraform-state-dev \
-  --region us-east-1
+  --region eu-central-1
 
 # Enable versioning (can revert to previous state)
 aws s3api put-bucket-versioning \
@@ -108,7 +108,7 @@ terraform {
     # These values passed via init flags (not hardcoded)
     # bucket         = "data-zoo-terraform-state-dev"
     # key            = "data-zoo/dev/terraform.tfstate"
-    # region         = "us-east-1"
+    # region         = "eu-central-1"
     # dynamodb_table = "data-zoo-terraform-locks"
     # encrypt        = true
   }
@@ -129,7 +129,7 @@ cd infra/terraform/environments/dev
 terraform init \
   -backend-config="bucket=data-zoo-terraform-state-dev" \
   -backend-config="key=data-zoo/dev/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
+  -backend-config="region=eu-central-1" \
   -backend-config="dynamodb_table=data-zoo-terraform-locks" \
   -backend-config="encrypt=true"
 

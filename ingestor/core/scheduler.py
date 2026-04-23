@@ -41,6 +41,7 @@ Example usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
@@ -177,7 +178,8 @@ class JobScheduler:
     async def stop(self) -> None:
         """Stop the scheduler and shut down all jobs."""
         if self._scheduler.running:
-            self._scheduler.shutdown(wait=True)
+            self._scheduler.shutdown(wait=False)
+            await asyncio.sleep(0)
             logger.info("scheduler_stopped")
 
     def get_job_health(self, job_name: str) -> JobHealthMetrics | None:

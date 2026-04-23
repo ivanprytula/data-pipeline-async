@@ -145,13 +145,31 @@ Risks & mitigations
 - Risk: Data model changes cause downtime or long migrations
   - Mitigation: Use online-safe migration patterns, zero-downtime migration docs, and migration previews in CI.
 
-Next actions (immediate)
+Next actions (as of April 24, 2026)
 
-1. Persist this plan: create `docs/progress/roadmap.md` (this file is an editable prompt — convert to repo doc once confirmed).
-2. Create PR with the roadmap and link relevant pillar docs for traceability.
-3. Tag owners and schedule a short planning review to align 30/60/90-day commitments.
-4. Add CI job(s): migrations verification and PostgreSQL integration tests.
-5. Iterate this prompt/file with stakeholders and lock the canonical roadmap in `docs/progress/roadmap.md`.
+Immediate — unblock CI (hours):
+1. Push CI workflow fix to `develop`: the `aws_account_id` secret-naming fix is applied locally but not yet pushed. All current CI runs are `startup_failure`. Push `.github/workflows/ci.yml`, `docker-build.yml`, `docker-build-reusable.yml`.
+2. Re-run branch protection after first green CI run: `./scripts/tools/set-branch-protection-gh.sh --apply` once the new required-check job names appear on protected branches.
+
+Short-term — Phase 1 gaps (days to weeks):
+3. Migrate session store to Redis: replace in-memory `dict` in `ingestor/auth.py` with Redis-backed sessions using `ingestor/cache.py`; adds TTL and multi-process support.
+4. Persisted user CRUD endpoints: add register/list/update user routes; wire to existing `users` table; expose in admin UI.
+5. Wire Alertmanager rules: populate `infra/monitoring/rules/` with alert rules for job failures, high-latency ingestion, and worker starvation.
+
+Medium-term — Phase 2 (weeks):
+6. Celery/arq broker prototype: thin adapter over `BackgroundWorkerPool`; compare in-process vs arq on the same batch-ingest integration test.
+7. Worker runbook: document manual recovery steps for stuck/failed background jobs.
+8. Jira automation for critical alerts: extend notification abstraction with a Jira channel.
+
+Already completed (previously listed as "Next actions"):
+- docs/progress/roadmap.md persisted ✓
+- CI migrations job + PostgreSQL integration tests added ✓
+- Prometheus metrics, Sentry, structured logging integrated ✓
+- Core model reviews + 8 Alembic migrations finalized ✓
+- Scheduling abstraction implemented (ingestor/core/scheduler.py + jobs_registry.py) ✓
+- RBAC + rate-limiting middleware shipped ✓
+- Admin endpoints (job status, manual rerun, worker health) shipped ✓
+- Grafana dashboards (infra/monitoring/grafana/) provisioned ✓
 
 Notes
 

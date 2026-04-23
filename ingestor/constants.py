@@ -94,3 +94,13 @@ NOTIFICATION_EVENT_BACKGROUND_TASK_FAILED: str = "background_task_failed"
 NOTIFICATION_SEVERITY_INFO: str = "info"
 NOTIFICATION_SEVERITY_WARNING: str = "warning"
 NOTIFICATION_SEVERITY_CRITICAL: str = "critical"
+
+# ---------------------------------------------------------------------------
+# Vector search / AI gateway (Pillar 9)
+# ---------------------------------------------------------------------------
+VECTOR_SEARCH_MIN_RECORD_IDS: int = 1
+VECTOR_SEARCH_MAX_RECORD_IDS: int = 100
+VECTOR_SEARCH_DEFAULT_TOP_K: int = 5
+VECTOR_SEARCH_MAX_TOP_K: int = 25
+VECTOR_SEARCH_HTTP_TIMEOUT_SECONDS_DEFAULT: int = 10
+VECTOR_SEARCH_DEFAULT_COLLECTION: str = "records"

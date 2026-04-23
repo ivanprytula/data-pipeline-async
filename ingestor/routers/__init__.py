@@ -8,4 +8,5 @@ from . import (  # noqa: F401
     records,
     records_v2,
     scraper,
+    vector_search,
 )

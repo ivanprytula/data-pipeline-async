@@ -15,6 +15,10 @@ from ingestor.constants import (
     TAGS_MAX_COUNT,
     UPSERT_MODE_IDEMPOTENT,
     UPSERT_MODE_STRICT,
+    VECTOR_SEARCH_DEFAULT_TOP_K,
+    VECTOR_SEARCH_MAX_RECORD_IDS,
+    VECTOR_SEARCH_MAX_TOP_K,
+    VECTOR_SEARCH_MIN_RECORD_IDS,
 )
 
 
@@ -366,3 +370,98 @@ class NotificationTestResponse(BaseModel):
     failed: int
     results: list[NotificationDispatchResult] = Field(default_factory=list)
     detail: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Vector search schemas (Pillar 9)
+# ---------------------------------------------------------------------------
+
+
+class VectorSearchIndexRequest(BaseModel):
+    """Request payload for indexing records into the AI gateway collection."""
+
+    record_ids: list[int] = Field(
+        ...,
+        min_length=VECTOR_SEARCH_MIN_RECORD_IDS,
+        max_length=VECTOR_SEARCH_MAX_RECORD_IDS,
+        description="Record IDs to embed and index into the vector collection.",
+    )
+    collection: str | None = Field(
+        default=None,
+        description="Optional AI gateway collection override.",
+    )
+
+
+class VectorSearchIndexResponse(BaseModel):
+    """Response from indexing records into the AI gateway."""
+
+    requested_count: int
+    indexed_count: int
+    missing_record_ids: list[int] = Field(default_factory=list)
+    collection: str
+
+
+class VectorSearchReindexRecentRequest(BaseModel):
+    """Request payload for indexing a recent window of active records."""
+
+    source: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Optional source filter for recent records.",
+    )
+    limit: int = Field(
+        default=VECTOR_SEARCH_MAX_RECORD_IDS,
+        ge=1,
+        le=VECTOR_SEARCH_MAX_RECORD_IDS,
+        description="Maximum number of recent records to index.",
+    )
+    collection: str | None = Field(
+        default=None,
+        description="Optional AI gateway collection override.",
+    )
+
+
+class VectorSearchQueryRequest(BaseModel):
+    """Request payload for semantic search over indexed records."""
+
+    query: str = Field(..., min_length=1, description="Semantic search query text.")
+    top_k: int = Field(
+        default=VECTOR_SEARCH_DEFAULT_TOP_K,
+        ge=1,
+        le=VECTOR_SEARCH_MAX_TOP_K,
+        description="Maximum number of nearest-neighbour matches to return.",
+    )
+    collection: str | None = Field(
+        default=None,
+        description="Optional AI gateway collection override.",
+    )
+    filters: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional metadata filters forwarded to the AI gateway.",
+    )
+
+
+class VectorSearchResult(BaseModel):
+    """One semantic-search match returned by the AI gateway."""
+
+    id: int
+    score: float
+    metadata: dict[str, Any]
+
+
+class VectorSearchQueryResponse(BaseModel):
+    """Semantic-search response for indexed records."""
+
+    results: list[VectorSearchResult]
+    count: int
+    query: str
+    collection: str
+
+
+class VectorSearchHealthResponse(BaseModel):
+    """Health status of the AI gateway bridge used by Pillar 9."""
+
+    status: str
+    ai_gateway_connected: bool
+    collection: str

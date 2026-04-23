@@ -52,6 +52,7 @@ from ingestor.routers import (
     records,
     records_v2,
     scraper,
+    vector_search,
 )
 from ingestor.services_lifecycle import (
     cleanup_external_services,
@@ -395,6 +396,7 @@ app.include_router(scraper.router)
 app.include_router(analytics.router)
 app.include_router(background_processing.router)
 app.include_router(notifications.router)
+app.include_router(vector_search.router)
 
 
 app.include_router(health_ingestion_jobs.router)

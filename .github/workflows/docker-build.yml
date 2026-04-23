@@ -1,13 +1,29 @@
-name: Docker Build
+name: Manual Docker Build
 
-# Triggers:
-#   push to main/develop → build only (ECR push disabled until CD is enabled)
-#   PR to main/develop   → build only (validates Dockerfile)
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service image to build
+        required: true
+        type: choice
+        options:
+          - all
+          - ingestor
+          - ai_gateway
+          - query_api
+          - processor
+          - dashboard
+      push_image:
+        description: Push built image(s) to ECR
+        required: true
+        type: boolean
+        default: false
+      sign_image:
+        description: Sign pushed image(s) with cosign
+        required: true
+        type: boolean
+        default: true
 
 concurrency:
   # One run per branch at a time; cancel in-flight on new push
@@ -19,28 +35,52 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
 
 jobs:
-  build-ingestor:
-    name: Build Ingestor
+  build-images:
+    name: Build ${{ matrix.image.name }}
+    strategy:
+      matrix:
+        image:
+          - name: ingestor
+            image_name: data-zoo/ingestor
+            dockerfile: Dockerfile
+          - name: ai_gateway
+            image_name: data-zoo/ai_gateway
+            dockerfile: services/ai_gateway/Dockerfile
+          - name: query_api
+            image_name: data-zoo/query_api
+            dockerfile: services/query_api/Dockerfile
+          - name: processor
+            image_name: data-zoo/processor
+            dockerfile: services/processor/Dockerfile
+          - name: dashboard
+            image_name: data-zoo/dashboard
+            dockerfile: services/dashboard/Dockerfile
+    if: ${{ inputs.service == 'all' || inputs.service == matrix.image.name }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
-      image-name: data-zoo/ingestor
-      dockerfile: Dockerfile
+      image-name: ${{ matrix.image.image_name }}
+      dockerfile: ${{ matrix.image.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
-      ecr-registry: ${{ env.ECR_REGISTRY }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
-      push-image: false
+      push-image: ${{ inputs.push_image }}
+      sign-image: ${{ inputs.sign_image }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
 
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: build-ingestor
+    needs: build-images
     steps:
-      - name: Report image uri
+      - name: Report build matrix
         run: |
           echo "### Docker Build Result" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image: ${{ needs.build-ingestor.outputs.image-uri }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Selected service scope: ${{ inputs.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Push mode: ${{ inputs.push_image && 'enabled' || 'disabled' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Signing mode: ${{ inputs.sign_image && 'enabled' || 'disabled' }}" >> "$GITHUB_STEP_SUMMARY"

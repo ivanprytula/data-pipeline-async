@@ -11,26 +11,124 @@ on:
           - dev
           - staging
           - prod
+      service:
+        description: Service to deploy
+        required: true
+        type: choice
+        options:
+          - ingestor
+          - ai_gateway
+          - query_api
+          - processor
+          - dashboard
       image-uri:
         description: Immutable image URI (tag or digest)
         required: true
+        type: string
+      ecs_service_override:
+        description: Optional ECS service override
+        required: false
+        type: string
+      task_definition_family_override:
+        description: Optional ECS task definition family override
+        required: false
+        type: string
+      container_name_override:
+        description: Optional container name override
+        required: false
         type: string
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
+  prepare:
+    name: Resolve deploy target
     if: ${{ inputs.environment == 'dev' || inputs.environment == 'staging' || inputs.environment == 'prod' }}
+    runs-on: ubuntu-latest
+    outputs:
+      ecs_service: ${{ steps.resolve.outputs.ecs_service }}
+      task_definition_family: ${{ steps.resolve.outputs.task_definition_family }}
+      container_name: ${{ steps.resolve.outputs.container_name }}
+    env:
+      ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
+      ECS_TASK_DEFINITION_FAMILY: ${{ vars.ECS_TASK_DEFINITION_FAMILY }}
+      ECS_SERVICE_NAME_AI_GATEWAY: ${{ vars.ECS_SERVICE_NAME_AI_GATEWAY }}
+      ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY: ${{ vars.ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY }}
+      ECS_SERVICE_NAME_QUERY_API: ${{ vars.ECS_SERVICE_NAME_QUERY_API }}
+      ECS_TASK_DEFINITION_FAMILY_QUERY_API: ${{ vars.ECS_TASK_DEFINITION_FAMILY_QUERY_API }}
+      ECS_SERVICE_NAME_PROCESSOR: ${{ vars.ECS_SERVICE_NAME_PROCESSOR }}
+      ECS_TASK_DEFINITION_FAMILY_PROCESSOR: ${{ vars.ECS_TASK_DEFINITION_FAMILY_PROCESSOR }}
+      ECS_SERVICE_NAME_DASHBOARD: ${{ vars.ECS_SERVICE_NAME_DASHBOARD }}
+      ECS_TASK_DEFINITION_FAMILY_DASHBOARD: ${{ vars.ECS_TASK_DEFINITION_FAMILY_DASHBOARD }}
+    steps:
+      - name: Resolve service configuration
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          service="${{ inputs.service }}"
+          ecs_service_override="${{ inputs.ecs_service_override }}"
+          task_definition_family_override="${{ inputs.task_definition_family_override }}"
+          container_name_override="${{ inputs.container_name_override }}"
+
+          case "$service" in
+            ingestor)
+              default_ecs_service="$ECS_SERVICE_NAME"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY"
+              default_container_name="ingestor"
+              ;;
+            ai_gateway)
+              default_ecs_service="$ECS_SERVICE_NAME_AI_GATEWAY"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY"
+              default_container_name="ai_gateway"
+              ;;
+            query_api)
+              default_ecs_service="$ECS_SERVICE_NAME_QUERY_API"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_QUERY_API"
+              default_container_name="query_api"
+              ;;
+            processor)
+              default_ecs_service="$ECS_SERVICE_NAME_PROCESSOR"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_PROCESSOR"
+              default_container_name="processor"
+              ;;
+            dashboard)
+              default_ecs_service="$ECS_SERVICE_NAME_DASHBOARD"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_DASHBOARD"
+              default_container_name="dashboard"
+              ;;
+            *)
+              echo "Unsupported service: $service" >&2
+              exit 1
+              ;;
+          esac
+
+          ecs_service="${ecs_service_override:-$default_ecs_service}"
+          task_definition_family="${task_definition_family_override:-$default_task_definition_family}"
+          container_name="${container_name_override:-$default_container_name}"
+
+          if [[ -z "$ecs_service" || -z "$task_definition_family" || -z "$container_name" ]]; then
+            echo "Missing ECS deploy configuration for service '$service'." >&2
+            echo "Set the service-specific GitHub environment vars or pass manual overrides." >&2
+            exit 1
+          fi
+
+          echo "ecs_service=$ecs_service" >> "$GITHUB_OUTPUT"
+          echo "task_definition_family=$task_definition_family" >> "$GITHUB_OUTPUT"
+          echo "container_name=$container_name" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: prepare
     environment: ${{ inputs.environment }}
     uses: ./.github/workflows/deploy-reusable.yml
     with:
       aws-region: ${{ vars.AWS_REGION }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
       ecs-cluster: ${{ vars.ECS_CLUSTER_NAME }}
-      ecs-service: ${{ vars.ECS_SERVICE_NAME }}
-      task-definition-family: ${{ vars.ECS_TASK_DEFINITION_FAMILY }}
-      container-name: ingestor
+      ecs-service: ${{ needs.prepare.outputs.ecs_service }}
+      task-definition-family: ${{ needs.prepare.outputs.task_definition_family }}
+      container-name: ${{ needs.prepare.outputs.container_name }}
       image-uri: ${{ inputs.image-uri }}
       verify-signature: true
       cosign-certificate-identity: ${{ vars.COSIGN_CERTIFICATE_IDENTITY }}

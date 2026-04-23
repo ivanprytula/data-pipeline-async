@@ -125,6 +125,18 @@ scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-dev --env
 scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-staging --env staging --repo "$repo"
 scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-prod --env prod --repo "$repo"
 
+# Per-service ECS deploy targets (repeat for each environment you use)
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME ingestor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY ingestor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_AI_GATEWAY ai-gateway --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY ai-gateway --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_QUERY_API query-api --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_QUERY_API query-api --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_PROCESSOR processor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_PROCESSOR processor --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_DASHBOARD dashboard --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_DASHBOARD dashboard --env dev --repo "$repo"
+
 # Example secret
 scripts/ops/01-gh-actions-config.sh secrets set AWS_ACCOUNT_ID "123456789012" --repo "$repo"
 

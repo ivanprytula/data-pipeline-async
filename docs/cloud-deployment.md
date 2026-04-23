@@ -70,12 +70,12 @@ Create a **named profile** for this project. Never use the `default` profile for
 ```bash
 # Add to ~/.aws/config
 [profile data-zoo-dev]
-region = us-east-1
+region = eu-central-1
 output = json
 # sso_start_url = https://your-org.awsapps.com/start  # If using SSO
 
 [profile data-zoo-prod]
-region = us-east-1
+region = eu-central-1
 output = json
 ```
 
@@ -116,7 +116,7 @@ Run once per AWS account. Use the `data-zoo-dev` profile:
 ```bash
 aws s3api create-bucket \
   --bucket data-zoo-terraform-state-dev \
-  --region us-east-1 \
+  --region eu-central-1 \
   --profile data-zoo-dev
 
 aws s3api put-bucket-versioning \
@@ -138,15 +138,34 @@ aws dynamodb create-table \
   --profile data-zoo-dev
 ```
 
-### 4. Configure GitHub Actions Secrets
+### 4. Configure GitHub Actions Variables and Secrets
 
-Set these in GitHub → Settings → Secrets and variables → Actions:
+Set these in GitHub → Settings → Secrets and variables → Actions.
 
-| Secret           | Value                                                      | Notes                                                   |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
-| `AWS_ACCOUNT_ID` | `123456789012`                                             | 12-digit account ID, not sensitive but kept out of code |
-| `AWS_ROLE_ARN`   | `arn:aws:iam::123456789012:role/data-zoo-github-actions`   | Output from `module.iam.github_actions_role_arn`        |
-| `DEV_ALB_URL`    | `https://data-zoo-dev-alb-xxx.us-east-1.elb.amazonaws.com` | Set after first `terraform apply`                       |
+Repository-level values:
+
+| Type | Name | Example | Notes |
+| ---- | ---- | ------- | ----- |
+| Variable | `AWS_REGION` | `eu-central-1` | Shared region default for build, promote, and deploy workflows |
+| Secret | `AWS_ACCOUNT_ID` | `123456789012` | Required for ECR registry resolution |
+
+Environment-level values (`dev`, `staging`, `prod`):
+
+| Type | Name | Example | Notes |
+| ---- | ---- | ------- | ----- |
+| Variable | `AWS_ROLE_ARN` | `arn:aws:iam::123456789012:role/data-zoo-github-actions` | OIDC role assumed by GitHub Actions |
+| Variable | `ECS_CLUSTER_NAME` | `data-zoo-dev` | Cluster target for deploy workflow |
+| Variable | `ECS_SERVICE_NAME` | `ingestor` | Default ingestor ECS service |
+| Variable | `ECS_TASK_DEFINITION_FAMILY` | `ingestor` | Default ingestor task definition family |
+| Variable | `ECS_SERVICE_NAME_AI_GATEWAY` | `ai-gateway` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY` | `ai-gateway` | Per-service task definition family |
+| Variable | `ECS_SERVICE_NAME_QUERY_API` | `query-api` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_QUERY_API` | `query-api` | Per-service task definition family |
+| Variable | `ECS_SERVICE_NAME_PROCESSOR` | `processor` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_PROCESSOR` | `processor` | Per-service task definition family |
+| Variable | `ECS_SERVICE_NAME_DASHBOARD` | `dashboard` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_DASHBOARD` | `dashboard` | Per-service task definition family |
+| Variable | `COSIGN_CERTIFICATE_IDENTITY` | workflow identity URL | Signature verification policy for deploy workflow |
 
 **No `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` in GitHub Secrets.** The OIDC role replaces long-lived keys entirely.
 
@@ -159,7 +178,7 @@ cd infra/terraform/environments/dev
 terraform init \
   -backend-config="bucket=data-zoo-terraform-state-dev" \
   -backend-config="key=data-zoo/dev/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
+  -backend-config="region=eu-central-1" \
   -backend-config="dynamodb_table=data-zoo-terraform-locks"
 
 # Copy example and fill in your values
@@ -177,25 +196,30 @@ terraform apply
 
 ---
 
-## Deploying a New Image (when CD is enabled)
+## Current Delivery Flow
 
-The CI/CD pipeline will call `aws ecs update-service` automatically once you uncomment the CD steps in `.github/workflows/docker-build.yml`.
+The repository now uses four separate workflow stages instead of one workflow with commented deploy steps:
 
-Manual deploy (while CD steps are commented out):
+1. [CI workflow](../.github/workflows/ci.yml): queued quality, unit, migrations, integration, e2e, PR dependency audit, then build-only image validation on push
+2. [Manual Docker Build](../.github/workflows/docker-build.yml): manual build or build+push for one service or all services
+3. [Release Promote](../.github/workflows/release-promote.yml): manual promotion of one service or all services by digest/tag
+4. [CD Deploy](../.github/workflows/cd-deploy.yml): manual per-service ECS deployment to `dev`, `staging`, or `prod`
+
+Manual deploy example:
 
 ```bash
 aws ecs update-service \
   --cluster data-zoo-dev \
   --service ingestor \
   --force-new-deployment \
-  --region us-east-1 \
+  --region eu-central-1 \
   --profile data-zoo-dev
 
 # Watch rollout
 aws ecs wait services-stable \
   --cluster data-zoo-dev \
   --services ingestor \
-  --region us-east-1 \
+  --region eu-central-1 \
   --profile data-zoo-dev
 ```
 
@@ -203,7 +227,7 @@ aws ecs wait services-stable \
 
 ## Enabling CD from GitHub Actions
 
-When you're ready to activate the CD steps:
+When you're ready to use the current GitHub Actions delivery path end-to-end:
 
 1. Uncomment `aws_iam_role_policy.ecs_deploy` in `infra/terraform/modules/iam/main.tf`
 2. Re-apply Terraform: `terraform apply`
@@ -213,11 +237,13 @@ When you're ready to activate the CD steps:
    aws iam simulate-principal-policy \
      --policy-source-arn $(terraform output -raw github_actions_role_arn) \
      --action-names ecs:UpdateService \
-     --resource-arns "arn:aws:ecs:us-east-1:*:service/data-zoo-dev/ingestor"
+      --resource-arns "arn:aws:ecs:eu-central-1:*:service/data-zoo-dev/ingestor"
    ```
 
-4. Uncomment the deploy steps in `.github/workflows/docker-build.yml`
-5. Add `DEV_ALB_URL` / `PROD_ALB_URL` to GitHub Secrets for the smoke test
+4. Ensure GitHub Actions variables and secrets are populated for the target environment
+5. Run `docker-build.yml` manually with `push_image=true`
+6. Run `release-promote.yml` for the image you want to tag for `dev`, `staging`, or `prod`
+7. Run `cd-deploy.yml` and choose the exact service and environment to deploy
 
 ---
 
@@ -252,7 +278,7 @@ REDIS_URL=redis://localhost:6379
 
 ---
 
-## Cost Estimates (us-east-1, ~2026 pricing)
+## Cost Estimates (eu-central-1, ~2026 pricing)
 
 ### Dev environment (minimal)
 

@@ -50,7 +50,7 @@ This guide documents the implementation of the Core Data Model & Migrations pill
 
 ### 4. ✅ Migration Verification CI Job
 
-**File**: [.github/workflows/ci-migrations-verify.yml](.github/workflows/ci-migrations-verify.yml)
+**File**: [CI workflow](../../.github/workflows/ci.yml)
 
 Validates:
 
@@ -167,7 +167,7 @@ pytest tests/integration/schema/ -v --tb=short
 ```bash
 # 1. Run migration verification in CI (GitHub Actions)
 #    Triggered on PR: validates migrations across PostgreSQL 15/16/17
-gh workflow run ci-migrations-verify.yml
+gh workflow run ci.yml
 
 # 2. Run schema integrity tests locally
 pytest tests/integration/schema/ -v
@@ -235,7 +235,7 @@ uv run alembic check
 
 ## Related Pillars
 
-- **Pillar 1 — Tests & CI Stabilization**: Migration tests in CI (ci-migrations-verify.yml)
+- **Pillar 1 — Tests & CI Stabilization**: Migration tests in the main CI workflow (`ci.yml`)
 - **Pillar 3 — Reliable Ingestion**: Uses models/constraints for idempotency
 - **Pillar 4 — Observability**: Materialized view for hourly stats dashboard
 - **Pillar 5 — Background Processing**: Archive jobs run as scheduled tasks

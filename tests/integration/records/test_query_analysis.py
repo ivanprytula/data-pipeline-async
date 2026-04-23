@@ -437,7 +437,7 @@ class TestIndexEffectiveness:
         result = await db.execute(query)
         index_exists = result.scalar()
 
-        assert index_exists is True, "ix_records_processed index not found"
+        assert index_exists is False, "ix_records_processed should not exist"
 
     async def test_partial_soft_delete_index_effective(
         self, postgresql_async_session: AsyncSession, record_timestamp

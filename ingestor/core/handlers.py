@@ -90,7 +90,7 @@ def wrap_job_handler(
             # Record timeout in health metrics
             job_obj._health.last_run_at = datetime.now(UTC)
             job_obj._health.failure_count += 1
-            job_obj._health.last_error = str(e)
+            job_obj._health.last_error = str(e) or "timeout exceeded"
 
             job_executions_total.labels(job_name=job_obj.name, status="timeout").inc()
 
@@ -99,7 +99,7 @@ def wrap_job_handler(
                 extra={
                     "job_name": job_obj.name,
                     "timeout_seconds": job_obj.timeout_seconds,
-                    "error": str(e),
+                    "error": str(e) or "timeout exceeded",
                 },
             )
             raise
