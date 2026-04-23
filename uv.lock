@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-04-15T23:37:59.752601571Z"
+exclude-newer = "2026-04-16T23:36:27.659042264Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -576,7 +576,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = ">=0.20.0" },
-    { name = "fakeredis", extras = ["aioredis"], specifier = ">=2.22.0" },
+    { name = "fakeredis", specifier = ">=2.22.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "locust", specifier = ">=2.32.0" },
     { name = "pre-commit", specifier = ">=4.1.1" },

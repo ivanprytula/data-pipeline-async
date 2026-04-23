@@ -60,7 +60,7 @@ dev = [
     "pygments>=2.20.0",
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
-    "fakeredis[aioredis]>=2.22.0",  # in-memory redis for tests
+    "fakeredis>=2.22.0",  # in-memory redis for tests
     # Pre-commit hooks & linting
     "pre-commit>=4.1.1",
     "ruff>=0.15.10",
