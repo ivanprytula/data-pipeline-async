@@ -1,0 +1,96 @@
+name: Release Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      source-ref:
+        description: Source image tag (for example sha-abc1234) or digest (sha256:...)
+        required: true
+        type: string
+      target-tag:
+        description: Target promotion tag (for example dev, staging, prod)
+        required: true
+        type: string
+      image-repository:
+        description: ECR repository path (for example data-zoo/ingestor)
+        required: false
+        type: string
+        default: data-zoo/ingestor
+      environment:
+        description: Target environment context for role/approvals
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote by Digest
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      promoted-digest: ${{ steps.promote.outputs.promoted_digest }}
+      promoted-uri: ${{ steps.promote.outputs.promoted_uri }}
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@5f0e8e11c7ad15b18e5f5fa5b80487b85c6cc2bc # v4.0.2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Resolve and promote image by digest
+        id: promote
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_ref="${{ inputs.source-ref }}"
+          target_tag="${{ inputs.target-tag }}"
+          repo_name="${{ inputs.image-repository }}"
+          registry="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
+
+          if [[ "${source_ref}" == sha256:* ]]; then
+            source_digest="${source_ref}"
+          else
+            source_digest=$(aws ecr describe-images \
+              --repository-name "${repo_name}" \
+              --image-ids imageTag="${source_ref}" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)
+          fi
+
+          if [[ -z "${source_digest}" || "${source_digest}" == "None" ]]; then
+            echo "Source image not found for ref: ${source_ref}" >&2
+            exit 1
+          fi
+
+          manifest=$(aws ecr batch-get-image \
+            --repository-name "${repo_name}" \
+            --image-ids imageDigest="${source_digest}" \
+            --query 'images[0].imageManifest' \
+            --output text)
+
+          aws ecr put-image \
+            --repository-name "${repo_name}" \
+            --image-tag "${target_tag}" \
+            --image-manifest "${manifest}" >/dev/null
+
+          promoted_uri="${registry}/${repo_name}@${source_digest}"
+          echo "promoted_digest=${source_digest}" >> "$GITHUB_OUTPUT"
+          echo "promoted_uri=${promoted_uri}" >> "$GITHUB_OUTPUT"
+
+      - name: Promotion summary
+        run: |
+          echo "### Release Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source ref: ${{ inputs.source-ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target tag: ${{ inputs.target-tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Promoted digest: ${{ steps.promote.outputs.promoted_digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Digest URI: ${{ steps.promote.outputs.promoted_uri }}" >> "$GITHUB_STEP_SUMMARY"

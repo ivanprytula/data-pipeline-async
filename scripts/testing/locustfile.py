@@ -12,24 +12,24 @@ Two user classes represent two pagination strategies running concurrently:
 
 Usage:
     # Headless (terminal stats only)
-    uv run locust -f scripts/locustfile.py \\
+    uv run locust -f scripts/testing/locustfile.py \\
         --headless -u 20 -r 5 --run-time 60s \\
         --host http://localhost:8000
 
     # Web UI at http://localhost:8089 (interactive control)
-    uv run locust -f scripts/locustfile.py --host http://localhost:8000
+    uv run locust -f scripts/testing/locustfile.py --host http://localhost:8000
 
     # Run only one strategy
-    uv run locust -f scripts/locustfile.py --headless -u 20 -r 5 \\
+    uv run locust -f scripts/testing/locustfile.py --headless -u 20 -r 5 \\
         --run-time 60s --host http://localhost:8000 OffsetPaginationUser
 
     # Compare strategies side-by-side — each with 10 users, 60s run
-    uv run locust -f scripts/locustfile.py --headless \\
+    uv run locust -f scripts/testing/locustfile.py --headless \\
         -u 20 -r 5 --run-time 60s --host http://localhost:8000
 
 Prerequisites:
     uv add --dev locust
-    uv run python scripts/seed_data.py 10000
+    uv run python scripts/testing/seed_data.py 10000
     docker compose up -d app   # app must be running
 """
 

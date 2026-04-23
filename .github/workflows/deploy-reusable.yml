@@ -1,0 +1,130 @@
+name: Deploy Reusable
+
+on:
+  workflow_call:
+    inputs:
+      aws-region:
+        description: AWS region.
+        required: true
+        type: string
+      aws-role-arn:
+        description: IAM role ARN for OIDC auth.
+        required: true
+        type: string
+      ecs-cluster:
+        description: ECS cluster name.
+        required: true
+        type: string
+      ecs-service:
+        description: ECS service name.
+        required: true
+        type: string
+      task-definition-family:
+        description: ECS task definition family name.
+        required: true
+        type: string
+      container-name:
+        description: Container name in task definition to update.
+        required: true
+        type: string
+      image-uri:
+        description: Immutable image URI (ideally digest-based).
+        required: true
+        type: string
+      verify-signature:
+        description: Verify cosign signature before deployment.
+        required: false
+        type: boolean
+        default: true
+      cosign-certificate-identity:
+        description: Optional expected signing identity (workflow identity) for cosign verification.
+        required: false
+        type: string
+        default: ""
+      cosign-certificate-oidc-issuer:
+        description: Expected OIDC issuer for keyless cosign verification.
+        required: false
+        type: string
+        default: https://token.actions.githubusercontent.com
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Install cosign
+        if: ${{ inputs.verify-signature }}
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Verify image signature
+        if: ${{ inputs.verify-signature }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          set -euo pipefail
+
+          verify_args=(
+            --certificate-oidc-issuer "${{ inputs.cosign-certificate-oidc-issuer }}"
+          )
+
+          if [[ -n "${{ inputs.cosign-certificate-identity }}" ]]; then
+            verify_args+=(--certificate-identity "${{ inputs.cosign-certificate-identity }}")
+          fi
+
+          cosign verify "${verify_args[@]}" "${{ inputs.image-uri }}" >/dev/null
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@5f0e8e11c7ad15b18e5f5fa5b80487b85c6cc2bc # v4.0.2
+        with:
+          role-to-assume: ${{ inputs.aws-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Prepare new task definition
+        id: taskdef
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws ecs describe-task-definition \
+            --task-definition "${{ inputs.task-definition-family }}" \
+            --query taskDefinition > taskdef.json
+
+          jq --arg cname "${{ inputs.container-name }}" --arg image "${{ inputs.image-uri }}" '
+            .containerDefinitions |= map(if .name == $cname then .image = $image else . end)
+            | del(
+                .taskDefinitionArn,
+                .revision,
+                .status,
+                .registeredAt,
+                .registeredBy,
+                .compatibilities,
+                .requiresAttributes
+              )
+          ' taskdef.json > taskdef-updated.json
+
+          new_taskdef_arn=$(aws ecs register-task-definition \
+            --cli-input-json file://taskdef-updated.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "new_taskdef_arn=${new_taskdef_arn}" >> "$GITHUB_OUTPUT"
+
+      - name: Update service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ inputs.ecs-cluster }}" \
+            --service "${{ inputs.ecs-service }}" \
+            --task-definition "${{ steps.taskdef.outputs.new_taskdef_arn }}" \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ inputs.ecs-cluster }}" \
+            --services "${{ inputs.ecs-service }}"

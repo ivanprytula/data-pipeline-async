@@ -8,16 +8,16 @@
 
 ## Quick Reference
 
-All workflows are available as bash scripts:
+Most workflows are available as bash scripts:
 
 ```bash
-bash scripts/dev-env.sh          # Start all dev services
-bash scripts/test.sh all         # Run all tests
-bash scripts/test.sh unit        # Run unit tests only
-bash scripts/test.sh integration # Run integration tests only
-bash scripts/migrate.sh up       # Apply migrations
-bash scripts/migrate.sh down     # Rollback migration
-bash scripts/quality-checks.sh   # Lint, format, type-check
+bash scripts/daily/01-start-dev-services.sh          # Start all dev services
+bash scripts/daily/03-run-tests.sh all         # Run all tests
+bash scripts/daily/03-run-tests.sh unit        # Run unit tests only
+bash scripts/daily/03-run-tests.sh integration # Run integration tests only
+uv run alembic upgrade head                   # Apply migrations
+uv run alembic downgrade -1                   # Rollback migration
+bash scripts/daily/04-quality-checks.sh   # Lint, format, type-check
 ```
 
 ---
@@ -31,12 +31,12 @@ Starts all services (PostgreSQL, Redis, Kafka, MongoDB, Jaeger) in the backgroun
 ### Command
 
 ```bash
-bash scripts/dev-env.sh
+bash scripts/daily/01-start-dev-services.sh
 ```
 
 ### Expected Output
 
-```
+```text
 ✓ PostgreSQL ready (localhost:5432)
 ✓ PostgreSQL test ready (localhost:5433)
 ✓ Redis ready (localhost:6379)
@@ -70,7 +70,7 @@ docker compose down     # Stop and remove containers
 Runs unit tests (in-memory SQLite) first, then integration tests (PostgreSQL):
 
 ```bash
-bash scripts/test.sh all
+bash scripts/daily/03-run-tests.sh all
 ```
 
 Expected: ~100+ tests passing
@@ -80,17 +80,17 @@ Expected: ~100+ tests passing
 In-memory SQLite, no external services needed:
 
 ```bash
-bash scripts/test.sh unit
+bash scripts/daily/03-run-tests.sh unit
 ```
 
 Expected: ~50 tests, <5 seconds
 
 ### Integration Tests Only (PostgreSQL)
 
-Requires dev environment running (`bash scripts/dev-env.sh`):
+Requires dev environment running (`bash scripts/daily/01-start-dev-services.sh`):
 
 ```bash
-bash scripts/test.sh integration
+bash scripts/daily/03-run-tests.sh integration
 ```
 
 Expected: ~50 tests, 10–30 seconds
@@ -121,7 +121,7 @@ open htmlcov/index.html  # View coverage report
 ### Show Current Schema Version
 
 ```bash
-bash scripts/migrate.sh status
+uv run alembic current
 ```
 
 Returns the current migration head applied to the database.
@@ -129,7 +129,7 @@ Returns the current migration head applied to the database.
 ### Apply All Pending Migrations
 
 ```bash
-bash scripts/migrate.sh up
+uv run alembic upgrade head
 ```
 
 Applies all new migrations from `alembic/versions/` to the database.
@@ -137,7 +137,7 @@ Applies all new migrations from `alembic/versions/` to the database.
 ### Rollback One Step
 
 ```bash
-bash scripts/migrate.sh down
+uv run alembic downgrade -1
 ```
 
 Reverts the most recent migration.
@@ -147,7 +147,7 @@ Reverts the most recent migration.
 After modifying `ingestor/models.py`:
 
 ```bash
-bash scripts/migrate.sh auto -m "add_user_status_field"
+uv run alembic revision --autogenerate -m "add_user_status_field"
 ```
 
 This generates a new migration file in `alembic/versions/` based on model diffs.
@@ -174,7 +174,7 @@ uv run alembic upgrade head
 ### Format & Lint
 
 ```bash
-bash scripts/quality-checks.sh
+bash scripts/daily/04-quality-checks.sh
 ```
 
 This runs:
@@ -258,6 +258,52 @@ Expected: `403` unless session role is `admin`.
 
 ### JWT Write Route (v2)
 
+## Workflow 7: Manage GitHub Actions Config (Daily Ops)
+
+Use `scripts/ops/01-gh-actions-config.sh` for day-to-day CI/CD configuration updates.
+
+### Common Tasks
+
+```bash
+repo="ivanprytula/data-pipeline-async"
+
+# Rotate/update environment variable values
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME ingestor --env dev --repo "$repo"
+
+# Update signer identity policy used by CD verification
+scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \
+  "https://github.com/${repo}/.github/workflows/docker-build-reusable.yml@refs/heads/main" \
+  --env prod --repo "$repo"
+
+# Rotate secret value
+scripts/ops/01-gh-actions-config.sh secrets set SENTRY_AUTH_TOKEN "$SENTRY_AUTH_TOKEN" --env prod --repo "$repo"
+
+# Inspect current settings
+scripts/ops/01-gh-actions-config.sh vars list --env prod --repo "$repo"
+scripts/ops/01-gh-actions-config.sh secrets list --env prod --repo "$repo"
+```
+
+### OIDC Template Operations
+
+```bash
+repo="ivanprytula/data-pipeline-async"
+
+# View current OIDC subject template
+scripts/ops/01-gh-actions-config.sh oidc get --repo "$repo"
+
+# Set custom claims list
+scripts/ops/01-gh-actions-config.sh oidc set --claims repo,context,job_workflow_ref --repo "$repo"
+
+# Reset to GitHub default subject template
+scripts/ops/01-gh-actions-config.sh oidc reset --repo "$repo"
+```
+
+### Safety Notes
+
+- Prefer environment-scoped updates (`--env`) for deploy-related values.
+- Update production values via protected branches and approved change windows.
+- Keep all script usage in terminal history for auditability.
+
 ```bash
 TOKEN=$(curl -k -s -X POST "https://localhost:8000/api/v2/records/auth/token" | jq -r '.access_token')
 
@@ -312,7 +358,7 @@ curl -X GET 'https://localhost:8000/api/v1/records?limit=10&offset=0' -k
 ### Using HTTP Client Script
 
 ```bash
-python scripts/http_clients_demo.py
+python scripts/tools/http-clients-demo.py
 ```
 
 This script demonstrates various API calls (create, read, update, delete).
@@ -429,7 +475,7 @@ docker compose exec db psql -U postgres data_pipeline < backup.sql
 ### Run Load Test
 
 ```bash
-bash scripts/load_test.sh
+bash scripts/testing/03-load-test.sh
 ```
 
 This script runs k6 load tests with:
@@ -445,7 +491,7 @@ Alternative load testing tool with web dashboard:
 
 ```bash
 # Start Locust
-uv run locust -f scripts/locustfile.py --host=https://localhost:8000
+uv run locust -f scripts/testing/locustfile.py --host=https://localhost:8000
 
 # Visit: http://localhost:8089
 ```
@@ -461,7 +507,7 @@ uv run locust -f scripts/locustfile.py --host=https://localhost:8000
 docker compose ps
 
 # If not running, start them
-bash scripts/dev-env.sh
+bash scripts/daily/01-start-dev-services.sh
 
 # If stuck, restart
 docker compose restart db
@@ -493,7 +539,7 @@ docker compose exec db_test psql -U postgres -c "DROP DATABASE test_database;"
 uv sync
 
 # Then re-run tests
-bash scripts/test.sh unit
+bash scripts/daily/03-run-tests.sh unit
 ```
 
 ---

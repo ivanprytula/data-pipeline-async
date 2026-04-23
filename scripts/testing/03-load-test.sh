@@ -17,12 +17,12 @@
 #   RUNTIME       Locust run time         (default: 60s)
 #
 # Examples:
-#   ./scripts/load_test.sh seed 10000
-#   ./scripts/load_test.sh k6
-#   VUS=20 DURATION=60s ./scripts/load_test.sh k6
-#   ./scripts/load_test.sh locust
-#   ./scripts/load_test.sh locust --web
-#   USERS=50 RUNTIME=120s ./scripts/load_test.sh locust
+#   ./scripts/testing/03-load-test.sh seed 10000
+#   ./scripts/testing/03-load-test.sh k6
+#   VUS=20 DURATION=60s ./scripts/testing/03-load-test.sh k6
+#   ./scripts/testing/03-load-test.sh locust
+#   ./scripts/testing/03-load-test.sh locust --web
+#   USERS=50 RUNTIME=120s ./scripts/testing/03-load-test.sh locust
 
 set -euo pipefail
 

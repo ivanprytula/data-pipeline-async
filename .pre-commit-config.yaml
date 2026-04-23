@@ -32,7 +32,7 @@
     hooks:
       - id: private-docs-safeguard
         name: private-docs-safeguard
-        entry: ./scripts/pre-commit-private-docs.sh
+        entry: ./scripts/ci/02-pre-commit-private-docs.sh
         language: script
         types: [file]
         pass_filenames: false

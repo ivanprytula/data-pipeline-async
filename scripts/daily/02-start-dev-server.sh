@@ -1,5 +1,5 @@
 #!/bin/bash
-# scripts/dev.sh
+# scripts/daily/02-start-dev-server.sh
 
 # Start DB
 docker compose up -d db

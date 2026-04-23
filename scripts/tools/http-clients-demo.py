@@ -1,7 +1,7 @@
 """
 Demo: Side-by-Side httpx vs aiohttp Usage
 
-Run with: uv run python scripts/http_clients_demo.py
+Run with: uv run python scripts/tools/http-clients-demo.py
 (or add to your startup for visual comparison)
 """
 
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     Run the demo:
 
     $ cd /home/ivanp/PersonalProjects/data-pipeline-async
-    $ uv run python scripts/http_clients_demo.py
+    $ uv run python scripts/tools/http-clients-demo.py
 
     This requires the app to have working fetch modules and access to:
     - https://jsonplaceholder.typicode.com (httpx demo)

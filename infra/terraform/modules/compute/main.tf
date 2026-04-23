@@ -1,37 +1,31 @@
-# ── ECS Cluster ───────────────────────────────────────────────────────────────
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project}-${var.environment}"
+# ══════════════════════════════════════════════════════════════════════════════
+# Compute Module — Swappable Container Runtime Backends
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# This module supports multiple container runtime backends via the compute_type
+# variable:
+#   - ecs-fargate: Serverless container runtime (default, low-ops)
+#   - ecs-ec2: ECS with EC2 instances (cost-optimized)
+#   - eks: Kubernetes (full portability, higher ops burden)
+#
+# All backends expose the same output interface (cluster_id, cluster_arn, etc.),
+# allowing seamless switching without changing the calling module code.
+#
+# ══════════════════════════════════════════════════════════════════════════════
 
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
-
-  tags = { Name = "${var.project}-${var.environment}-ecs" }
-}
-
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name       = aws_ecs_cluster.main.name
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 1
-    capacity_provider = var.environment == "prod" ? "FARGATE" : "FARGATE_SPOT"
-  }
-}
-
-# ── CloudWatch Log Group ──────────────────────────────────────────────────────
+# ── Shared: CloudWatch Log Group ───────────────────────────────────────────────
+# Used by all backends for application logs
 resource "aws_cloudwatch_log_group" "ingestor" {
+  count             = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
   name              = "/ecs/${var.project}/${var.environment}/ingestor"
   retention_in_days = var.log_retention_days
   tags              = { Service = "ingestor" }
 }
 
-# ── IAM — ECS Task Execution Role ────────────────────────────────────────────
-# Used by the ECS agent to pull images from ECR and send logs to CloudWatch.
+# ── Shared: IAM Roles (ECS Task Execution + Task) ──────────────────────────────
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "${var.project}-${var.environment}-ecs-task-execution"
+  count = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  name  = "${var.project}-${var.environment}-ecs-task-execution"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -44,14 +38,15 @@ resource "aws_iam_role" "ecs_task_execution" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
-  role       = aws_iam_role.ecs_task_execution.name
+  count      = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  role       = aws_iam_role.ecs_task_execution[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Grant task execution role access to read the DB password secret
 resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
-  name   = "read-app-secrets"
-  role   = aws_iam_role.ecs_task_execution.id
+  count = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  name  = "read-app-secrets"
+  role  = aws_iam_role.ecs_task_execution[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -62,10 +57,9 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
   })
 }
 
-# ── IAM — ECS Task Role ───────────────────────────────────────────────────────
-# Runtime permissions for the app code itself (MSK IAM auth, SSM reads, etc.)
 resource "aws_iam_role" "ecs_task" {
-  name = "${var.project}-${var.environment}-ecs-task"
+  count = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  name  = "${var.project}-${var.environment}-ecs-task"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -78,8 +72,9 @@ resource "aws_iam_role" "ecs_task" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_msk" {
-  name   = "msk-produce-consume"
-  role   = aws_iam_role.ecs_task.id
+  count = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) && var.msk_cluster_arn != "" ? 1 : 0
+  name  = "msk-produce-consume"
+  role  = aws_iam_role.ecs_task[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -103,8 +98,9 @@ resource "aws_iam_role_policy" "ecs_task_msk" {
   })
 }
 
-# ── ALB ───────────────────────────────────────────────────────────────────────
+# ── ECS: ALB (Fargate + EC2) ───────────────────────────────────────────────────
 resource "aws_lb" "main" {
+  count              = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
   name               = "${var.project}-${var.environment}-alb"
   internal           = false
   load_balancer_type = "application"
@@ -123,11 +119,12 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "ingestor" {
-  name        = "${var.project}-${var.environment}-ingestor"
-  port        = var.app_port
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"  # Required for Fargate (awsvpc network mode)
+  count        = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  name         = "${var.project}-${var.environment}-ingestor"
+  port         = var.app_port
+  protocol     = "HTTP"
+  vpc_id       = var.vpc_id
+  target_type  = var.compute_type == "ecs-fargate" ? "ip" : "instance"
 
   health_check {
     path                = "/health"
@@ -139,14 +136,14 @@ resource "aws_lb_target_group" "ingestor" {
     matcher             = "200"
   }
 
-  deregistration_delay = 30  # Drain connections quickly for fast deploys
+  deregistration_delay = 30
 
   tags = { Service = "ingestor" }
 }
 
-# HTTP → HTTPS redirect
 resource "aws_lb_listener" "http_redirect" {
-  load_balancer_arn = aws_lb.main.arn
+  count             = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  load_balancer_arn = aws_lb.main[0].arn
   port              = 80
   protocol          = "HTTP"
 
@@ -160,10 +157,9 @@ resource "aws_lb_listener" "http_redirect" {
   }
 }
 
-# HTTPS listener — routes to ingestor target group
-# NOTE: Requires an ACM certificate. Set var.acm_certificate_arn before applying.
 resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.main.arn
+  count             = contains(["ecs-fargate", "ecs-ec2"], var.compute_type) ? 1 : 0
+  load_balancer_arn = aws_lb.main[0].arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -171,28 +167,47 @@ resource "aws_lb_listener" "https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.ingestor.arn
+    target_group_arn = aws_lb_target_group.ingestor[0].arn
   }
 }
 
-# ── ECS Task Definition — Ingestor (Reference Pattern) ───────────────────────
-#
-# This is the canonical task definition pattern for all Data Zoo services.
-# Duplicate this block for processor, ai-gateway, query-api, dashboard.
-# Key decisions:
-#   - network_mode = "awsvpc": each task gets its own ENI (required for Fargate)
-#   - Secrets injected via secretsmanager: never in environment vars in plaintext
-#   - readonly_root_filesystem = true: defense-in-depth
-#   - Non-root user: runs as uid 1000 (set in Dockerfile)
+# ══════════════════════════════════════════════════════════════════════════════
+# BACKEND 1: ECS FARGATE (Serverless)
+# ══════════════════════════════════════════════════════════════════════════════
 
-resource "aws_ecs_task_definition" "ingestor" {
+resource "aws_ecs_cluster" "main" {
+  count = var.compute_type == "ecs-fargate" ? 1 : 0
+  name  = "${var.project}-${var.environment}"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = { Name = "${var.project}-${var.environment}-ecs" }
+}
+
+resource "aws_ecs_cluster_capacity_providers" "fargate" {
+  count              = var.compute_type == "ecs-fargate" ? 1 : 0
+  cluster_name       = aws_ecs_cluster.main[0].name
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 1
+    capacity_provider = var.environment == "prod" ? "FARGATE" : "FARGATE_SPOT"
+  }
+}
+
+resource "aws_ecs_task_definition" "ingestor_fargate" {
+  count                    = var.compute_type == "ecs-fargate" ? 1 : 0
   family                   = "${var.project}-${var.environment}-ingestor"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = var.ingestor_cpu
   memory                   = var.ingestor_memory
-  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
+  execution_role_arn       = aws_iam_role.ecs_task_execution[0].arn
+  task_role_arn            = aws_iam_role.ecs_task[0].arn
 
   container_definitions = jsonencode([{
     name      = "ingestor"
@@ -204,8 +219,6 @@ resource "aws_ecs_task_definition" "ingestor" {
       protocol      = "tcp"
     }]
 
-    # Secrets injected at container start from Secrets Manager / SSM.
-    # These are NOT visible in the task definition or CloudWatch logs.
     secrets = [
       {
         name      = "DATABASE_URL"
@@ -225,18 +238,15 @@ resource "aws_ecs_task_definition" "ingestor" {
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.ingestor.name
+        "awslogs-group"         = aws_cloudwatch_log_group.ingestor[0].name
         "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
 
-    # Security hardening
     readonlyRootFilesystem = true
     user                   = "1000:1000"
-
-    # Graceful shutdown: 30s drain window matches deregistration_delay
-    stopTimeout = 30
+    stopTimeout            = 30
 
     healthCheck = {
       command     = ["CMD-SHELL", "curl -sf http://localhost:${var.app_port}/health || exit 1"]
@@ -250,14 +260,13 @@ resource "aws_ecs_task_definition" "ingestor" {
   tags = { Service = "ingestor" }
 }
 
-# ── ECS Service — Ingestor ────────────────────────────────────────────────────
-resource "aws_ecs_service" "ingestor" {
+resource "aws_ecs_service" "ingestor_fargate" {
+  count           = var.compute_type == "ecs-fargate" ? 1 : 0
   name            = "ingestor"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.ingestor.arn
+  cluster         = aws_ecs_cluster.main[0].id
+  task_definition = aws_ecs_task_definition.ingestor_fargate[0].arn
   desired_count   = var.ingestor_desired_count
 
-  # Fargate Spot in dev (cost); Fargate in prod (reliability)
   capacity_provider_strategy {
     capacity_provider = var.environment == "prod" ? "FARGATE" : "FARGATE_SPOT"
     weight            = 1
@@ -271,25 +280,23 @@ resource "aws_ecs_service" "ingestor" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.ingestor.arn
+    target_group_arn = aws_lb_target_group.ingestor[0].arn
     container_name   = "ingestor"
     container_port   = var.app_port
   }
 
   deployment_controller {
-    type = "ECS"  # Rolling update (not CODE_DEPLOY / EXTERNAL)
+    type = "ECS"
   }
 
   deployment_circuit_breaker {
     enable   = true
-    rollback = true  # Auto-rollback on consecutive failed deployments
+    rollback = true
   }
 
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
-  # Ignore task_definition and desired_count in plan after first deploy
-  # (prevents Terraform fighting with auto-scaling or manual rollouts)
   lifecycle {
     ignore_changes = [task_definition, desired_count]
   }
@@ -299,4 +306,24 @@ resource "aws_ecs_service" "ingestor" {
   tags = { Service = "ingestor" }
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# BACKEND 2: ECS EC2 (Cost-Optimized)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# TODO: Implement ECS EC2 backend with launch template, auto-scaling group, and
+# cluster capacity provider for EC2. This will allow cost-optimized deployments
+# using reserved instances or Spot instances.
+#
+# See: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-clusters.html
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BACKEND 3: EKS (Kubernetes — Full Portability)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# TODO: Implement EKS cluster with managed node group. This will enable
+# Kubernetes-native deployments and portability across cloud providers.
+#
+# See: https://docs.aws.amazon.com/eks/latest/userguide/getting-started.html
+
+# ── Data Source ────────────────────────────────────────────────────────────────
 data "aws_caller_identity" "current" {}

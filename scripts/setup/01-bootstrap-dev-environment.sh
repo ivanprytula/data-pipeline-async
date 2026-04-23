@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 echo "Data Pipeline — Complete Development Setup"
@@ -104,9 +104,9 @@ echo ""
 echo "Next steps:"
 echo "1. Start the development server: uv run uvicorn app.main:app --reload"
 echo "2. Open API docs in browser: open http://localhost:8000/docs"
-echo "3. Run tests: ./scripts/quality-checks.sh"
-echo "4. Verify cache layer: ./scripts/verify-cache.sh"
-echo "5. Full validation (all checks): ./scripts/full-validation.sh"
+echo "3. Run tests: ./scripts/daily/04-quality-checks.sh"
+echo "4. Verify cache layer: ./scripts/testing/02-verify-cache-layer.sh"
+echo "5. Full validation (all checks): ./scripts/ci/01-full-validation.sh"
 echo ""
 echo "Services running:"
 docker compose ps

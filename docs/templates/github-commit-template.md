@@ -6,7 +6,7 @@ Save to: `docs/templates/github-commit-template.md`
 
 ## Format
 
-```
+```text
 {type}({scope}): {description}
 
 {body}
@@ -30,7 +30,7 @@ Save to: `docs/templates/github-commit-template.md`
 
 ### Phase 1: Event Streaming
 
-```
+```text
 feat(events): add Redpanda producer with exponential backoff
 
 Added Celery producer in app/events.py. Records trigger event emission
@@ -45,7 +45,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 2: ETL with Async Semaphore
 
-```
+```text
 feat(scrapers): implement GraphQL scraper with rate limiting
 
 Scraper for pricing data via GraphQL. Async semaphore limits to 10
@@ -62,7 +62,7 @@ INTERVIEW CHECKLIST:
 
 ### Docker + CI: Multi-Stage Build
 
-```
+```text
 infra(ci): add GitHub Actions workflow with multi-stage Docker builds
 
 Workflow (ci.yml): linting → unit tests → integration tests → docker build.
@@ -77,7 +77,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 3: Vector DB + LRU Cache
 
-```
+```text
 feat(ai): add LRU cache decorator for embedding API calls
 
 Implemented app/cache.py with @lru_cache_async decorator. Embedding calls
@@ -92,7 +92,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 4: Pytest Fixtures + Mocking
 
-```
+```text
 test(testing): refactor fixtures to support async Celery mocking
 
 Reorganized conftest.py with: async_db_session (SQLite in-mem), mocked_celery
@@ -107,7 +107,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 5: Database Index + Window Function
 
-```
+```text
 perf(database): add composite index on (pipeline_id, created_at), rewrite analytics query
 
 Analytics query was seq scan (5s). Added composite index on (pipeline_id, created_at).
@@ -124,7 +124,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 6: JWT Token Rotation
 
-```
+```text
 feat(security): implement JWT refresh token rotation with rate limiting
 
 Added refresh_token endpoint in app/auth.py. Returns new access + refresh token.
@@ -139,7 +139,7 @@ INTERVIEW CHECKLIST:
 
 ### Phase 7: Terraform Multi-Environment
 
-```
+```text
 infra(terraform): add multi-environment support (dev, staging, prod)
 
 Terraform modules: networking, RDS, ECS cluster, ALB. Variables.tf defines env inputs.

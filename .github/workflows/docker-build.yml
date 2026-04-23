@@ -14,108 +14,33 @@ concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read  # Read repo for checkout and build context
+
 env:
-  AWS_REGION: us-east-1
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
 
 jobs:
-  # ── Build & Push — Ingestor ─────────────────────────────────────────────────
-  # Reference pattern for all Data Zoo services.
-  # To add a new service: duplicate this job, change ECR_REPOSITORY and the
-  # docker build context/Dockerfile path.
-  ingestor:
-    name: Ingestor — build
+  build-ingestor:
+    name: Build Ingestor
+    uses: ./.github/workflows/docker-build-reusable.yml
+    with:
+      image-name: data-zoo/ingestor
+      dockerfile: Dockerfile
+      context: .
+      aws-region: ${{ vars.AWS_REGION }}
+      ecr-registry: ${{ env.ECR_REGISTRY }}
+      aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
+      push-image: false
+
+  build-summary:
+    name: Build Summary
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    env:
-      ECR_REPOSITORY: data-zoo/ingestor
-
+    needs: build-ingestor
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ── Resolve image tags ──────────────────────────────────────────────────
-      - name: Resolve image tags
-        id: tags
+      - name: Report image uri
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "env_tag=latest" >> "$GITHUB_OUTPUT"
-          else
-            echo "env_tag=develop" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ── AWS Auth via OIDC (push events only) ──────────────────────────────
-      # No long-lived access keys. Uses the IAM role created in modules/iam/.
-      # On PRs: this step is skipped — only the build step below runs.
-      # ── Docker Build ───────────────────────────────────────────────────────
-      - name: Build image
-        run: |
-          docker build \
-            --tag "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}" \
-            --tag "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            .
-
-      - name: Image summary
-        run: |
-          echo "### Built images" >> "$GITHUB_STEP_SUMMARY"
-          echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tags.outputs.env_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: ECR push disabled notice
-        run: |
-          echo "ECR push and CD steps are intentionally disabled until AWS infrastructure and OIDC credentials are enabled." >> "$GITHUB_STEP_SUMMARY"
-
-      # ══════════════════════════════════════════════════════════════════════════
-      # CD STEPS — Uncomment when Terraform has been applied and ECS is live.
-      #
-      # Prerequisites before enabling:
-      #   1. Run: cd infra/terraform/environments/dev && terraform apply
-      #   2. Confirm ECS cluster and ingestor service exist:
-      #      aws ecs describe-services --cluster data-zoo-dev --services ingestor
-      #   3. Uncomment the ECS deploy policy in modules/iam/main.tf and re-apply
-      # ══════════════════════════════════════════════════════════════════════════
-
-      # ── Deploy to dev (develop branch) ───────────────────────────────────
-      # - name: Deploy to ECS — dev
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      #   run: |
-      #     aws ecs update-service \
-      #       --cluster data-zoo-dev \
-      #       --service ingestor \
-      #       --force-new-deployment \
-      #       --region ${{ env.AWS_REGION }}
-
-      # ── Deploy to prod (main branch) ──────────────────────────────────────
-      # - name: Deploy to ECS — prod
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      #   run: |
-      #     aws ecs update-service \
-      #       --cluster data-zoo-prod \
-      #       --service ingestor \
-      #       --force-new-deployment \
-      #       --region ${{ env.AWS_REGION }}
-
-      # ── Wait for rollout to stabilise ────────────────────────────────────
-      # - name: Wait for ECS service stability
-      #   if: github.event_name == 'push'
-      #   run: |
-      #     CLUSTER="data-zoo-${{ steps.tags.outputs.env_tag == 'latest' && 'prod' || 'dev' }}"
-      #     aws ecs wait services-stable \
-      #       --cluster "${CLUSTER}" \
-      #       --services ingestor \
-      #       --region ${{ env.AWS_REGION }}
-
-      # ── Health check after deploy ─────────────────────────────────────────
-      # - name: Smoke test deployed service
-      #   if: github.event_name == 'push'
-      #   run: |
-      #     ALB_URL="${{ secrets.DEV_ALB_URL }}"  # or PROD_ALB_URL for main
-      #     curl --fail --retry 3 --retry-delay 5 "${ALB_URL}/health"
+          echo "### Docker Build Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: ${{ needs.build-ingestor.outputs.image-uri }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"

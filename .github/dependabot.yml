@@ -58,5 +58,29 @@ updates:
         registry-url: ghcr.io
     rebase-strategy: auto
 
+  # GitHub Actions updates (automatically pins action refs to full commit SHAs)
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "03:00"  # 3 AM UTC
+    target-branch: develop
+    open-pull-requests-limit: 5
+    reviewers:
+      - ivanp
+    assignees:
+      - ivanp
+    labels:
+      - "type/dependency"
+      - "area/github-actions"
+      - "security"
+    commit-message:
+      prefix: "chore(actions): update"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: auto
+
 # Vulnerability alerts are handled separately by GitHub's Dependabot security tab
 # (no action-based workflow needed; alerts appear in Security tab automatically)

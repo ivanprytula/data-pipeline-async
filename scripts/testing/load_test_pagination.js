@@ -6,8 +6,8 @@
  *   - cursor_pagination: opaque cursor — O(1) cost at any depth
  *
  * Usage:
- *   k6 run scripts/load_test_pagination.js
- *   k6 run --vus 20 --duration 60s scripts/load_test_pagination.js
+ *   k6 run scripts/testing/load_test_pagination.js
+ *   k6 run --vus 20 --duration 60s scripts/testing/load_test_pagination.js
  *
  * Environment overrides:
  *   BASE_URL   - default: http://localhost:8000
@@ -17,7 +17,7 @@
  *
  * Prerequisites:
  *   - App running:  docker compose up app
- *   - Data seeded:  uv run python scripts/seed_data.py 10000
+ *   - Data seeded:  uv run python scripts/testing/seed_data.py 10000
  *   - k6 installed: https://k6.io/docs/get-started/installation/
  *                   brew install k6  |  snap install k6  |  choco install k6
  */

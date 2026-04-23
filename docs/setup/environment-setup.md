@@ -23,7 +23,7 @@ DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_dat
 **Start services + tests:**
 
 ```bash
-bash scripts/dev_services.sh  # Starts all services (services use Docker networking)
+bash scripts/daily/01-start-dev-services.sh  # Starts all services (services use Docker networking)
 uv run pytest tests/ -v       # Tests load .env automatically → uses DATABASE_URL_TEST
 ```
 
@@ -145,7 +145,7 @@ cp .env.example .env
 # Edit .env with local values (db passwords, URLs, etc.)
 
 # Start all services
-bash scripts/dev_services.sh
+bash scripts/daily/01-start-dev-services.sh
 
 # Install dependencies
 uv sync
@@ -275,7 +275,7 @@ spec:
 3. Start test services:
 
    ```bash
-   bash scripts/dev_services.sh
+   bash scripts/daily/01-start-dev-services.sh
    ```
 
 4. Run tests:
@@ -533,16 +533,16 @@ Base image digests must be reviewed monthly for security patches. See [digest-up
 
 ## Environment Variable Reference
 
-| Variable | Local Dev | CI/CD | Deployed | Source |
-|----------|-----------|-------|----------|--------|
-| `DATABASE_URL` | `.env` | GitHub Secrets | Secrets Manager | Primary app DB |
-| `DATABASE_URL_TEST` | `.env` | GitHub Secrets | N/A (tests don't run) | PostgreSQL test DB |
-| `REDIS_URL` | `.env` | GitHub Secrets | Secrets Manager | Redis service |
-| `ENVIRONMENT` | `.env` or override | `development`/`staging`/`production` | Injected by orchestrator | App mode |
-| `LOG_LEVEL` | `.env` | `INFO` (GitHub) | Injected | Logging verbosity |
-| `OTEL_ENDPOINT` | `.env` | GitHub Secrets | Secrets Manager | Tracing endpoint |
-| `DOCKER_BUILDKIT` | `1` (recommended) | `1` (CI default) | N/A | Enable BuildKit for faster builds |
-| `COMPOSE_DOCKER_CLI_BUILD` | `1` (recommended) | `1` (CI default) | N/A | Use BuildKit in docker-compose |
+| Variable                   | Local Dev          | CI/CD                                | Deployed                 | Source                            |
+| -------------------------- | ------------------ | ------------------------------------ | ------------------------ | --------------------------------- |
+| `DATABASE_URL`             | `.env`             | GitHub Secrets                       | Secrets Manager          | Primary app DB                    |
+| `DATABASE_URL_TEST`        | `.env`             | GitHub Secrets                       | N/A (tests don't run)    | PostgreSQL test DB                |
+| `REDIS_URL`                | `.env`             | GitHub Secrets                       | Secrets Manager          | Redis service                     |
+| `ENVIRONMENT`              | `.env` or override | `development`/`staging`/`production` | Injected by orchestrator | App mode                          |
+| `LOG_LEVEL`                | `.env`             | `INFO` (GitHub)                      | Injected                 | Logging verbosity                 |
+| `OTEL_ENDPOINT`            | `.env`             | GitHub Secrets                       | Secrets Manager          | Tracing endpoint                  |
+| `DOCKER_BUILDKIT`          | `1` (recommended)  | `1` (CI default)                     | N/A                      | Enable BuildKit for faster builds |
+| `COMPOSE_DOCKER_CLI_BUILD` | `1` (recommended)  | `1` (CI default)                     | N/A                      | Use BuildKit in docker-compose    |
 
 ---
 

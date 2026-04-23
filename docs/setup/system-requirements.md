@@ -28,23 +28,23 @@ sudo dnf install -y postgresql-contrib redis-tools mongodb-database-tools util-l
 
 ### Required for All Developers
 
-| Package | macOS | Ubuntu/Debian | Fedora/RHEL | Purpose |
-|---------|-------|---------------|------------|---------|
-| **mkcert** | `mkcert` | `mkcert` | `mkcert` | Generate locally-trusted HTTPS certificates for local dev |
-| **Docker** | `docker` or Docker Desktop | `docker.io` | `docker` | Container orchestration for all services |
-| **Docker Compose** | incl. in Docker Desktop | `docker-compose` | `docker-compose` | Multi-service orchestration |
-| **PostgreSQL Client** | `postgresql` | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore`, `psql` (DB backup/restore/queries) |
-| **Redis Tools** | `redis` | `redis-tools` | `redis` | `redis-cli` (cache inspection, cluster management) |
-| **Python 3.14+** | `python@3.14` | `python3.14` | `python3.14` | Runtime for application |
-| **uv** | `uv` | `uv` | `uv` | Fast Python package manager (local dev) |
+| Package               | macOS                      | Ubuntu/Debian       | Fedora/RHEL       | Purpose                                                     |
+| --------------------- | -------------------------- | ------------------- | ----------------- | ----------------------------------------------------------- |
+| **mkcert**            | `mkcert`                   | `mkcert`            | `mkcert`          | Generate locally-trusted HTTPS certificates for local dev   |
+| **Docker**            | `docker` or Docker Desktop | `docker.io`         | `docker`          | Container orchestration for all services                    |
+| **Docker Compose**    | incl. in Docker Desktop    | `docker-compose`    | `docker-compose`  | Multi-service orchestration                                 |
+| **PostgreSQL Client** | `postgresql`               | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore`, `psql` (DB backup/restore/queries) |
+| **Redis Tools**       | `redis`                    | `redis-tools`       | `redis`           | `redis-cli` (cache inspection, cluster management)          |
+| **Python 3.14+**      | `python@3.14`              | `python3.14`        | `python3.14`      | Runtime for application                                     |
+| **uv**                | `uv`                       | `uv`                | `uv`              | Fast Python package manager (local dev)                     |
 
 ### Required for Backup/Restore Operations
 
-| Package | macOS | Ubuntu/Debian | Fedora/RHEL | Purpose | When Used |
-|---------|-------|---------------|------------|---------|-----------|
-| **PostgreSQL Client Tools** | `postgresql` | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore` | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
-| **MongoDB Tools** | `mongodb-database-tools` | `mongodb-tools` | `mongodb-tools` | `mongodump`, `mongorestore` | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
-| **Gzip** | built-in | built-in | built-in | `gzip`, `zcat` | Backup compression (automatic) |
+| Package                     | macOS                    | Ubuntu/Debian       | Fedora/RHEL       | Purpose                     | When Used                                                                          |
+| --------------------------- | ------------------------ | ------------------- | ----------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| **PostgreSQL Client Tools** | `postgresql`             | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore`     | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
+| **MongoDB Tools**           | `mongodb-database-tools` | `mongodb-tools`     | `mongodb-tools`   | `mongodump`, `mongorestore` | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
+| **Gzip**                    | built-in                 | built-in            | built-in          | `gzip`, `zcat`              | Backup compression (automatic)                                                     |
 
 **Installation:**
 
@@ -68,10 +68,10 @@ sudo dnf install -y postgresql-contrib mongodb-tools
 
 ### Required for Chaos Testing (`chaos.sh`)
 
-| Package | macOS | Ubuntu/Debian | Fedora/RHEL | Purpose | When Used |
-|---------|-------|---------------|------------|---------|-----------|
-| **util-linux** | `util-linux` | `util-linux` | `util-linux` | `nsenter` (enter container network ns) | [chaos.sh](../infra/scripts/chaos.sh) network scenarios |
-| **iproute2** | `iproute2` | `iproute2` | `iproute2-utils` | `tc` (traffic control, latency/packet loss) | [chaos.sh](../infra/scripts/chaos.sh) network chaos |
+| Package        | macOS        | Ubuntu/Debian | Fedora/RHEL      | Purpose                                     | When Used                                               |
+| -------------- | ------------ | ------------- | ---------------- | ------------------------------------------- | ------------------------------------------------------- |
+| **util-linux** | `util-linux` | `util-linux`  | `util-linux`     | `nsenter` (enter container network ns)      | [chaos.sh](../infra/scripts/chaos.sh) network scenarios |
+| **iproute2**   | `iproute2`   | `iproute2`    | `iproute2-utils` | `tc` (traffic control, latency/packet loss) | [chaos.sh](../infra/scripts/chaos.sh) network chaos     |
 
 **Note:** `tc` is only used when chaos containers have `iproute2` installed. The chaos script will warn and fall back to graceful degradation if unavailable.
 
@@ -97,12 +97,12 @@ sudo dnf install -y util-linux iproute2-utils
 
 ### Optional: Performance & Debugging
 
-| Package | macOS | Ubuntu/Debian | Fedora/RHEL | Purpose |
-|---------|-------|---------------|------------|---------|
-| **htop** | `htop` | `htop` | `htop` | System resource monitoring |
-| **watch** | `watch` (GNU) | built-in | built-in | Command output polling (e.g., `watch 'docker ps'`) |
-| **jq** | `jq` | `jq` | `jq` | JSON parsing (log inspection) |
-| **curl** | built-in | built-in | built-in | HTTP testing (`curl http://localhost:8000/health`) |
+| Package   | macOS         | Ubuntu/Debian | Fedora/RHEL | Purpose                                            |
+| --------- | ------------- | ------------- | ----------- | -------------------------------------------------- |
+| **htop**  | `htop`        | `htop`        | `htop`      | System resource monitoring                         |
+| **watch** | `watch` (GNU) | built-in      | built-in    | Command output polling (e.g., `watch 'docker ps'`) |
+| **jq**    | `jq`          | `jq`          | `jq`        | JSON parsing (log inspection)                      |
+| **curl**  | built-in      | built-in      | built-in    | HTTP testing (`curl http://localhost:8000/health`) |
 
 ---
 
@@ -295,7 +295,7 @@ bash infra/scripts/chaos.sh gauntlet          # run all scenarios sequentially
 After installation, run the automated verification script:
 
 ```bash
-bash scripts/verify-requirements.sh
+bash scripts/setup/03-verify-system-requirements.sh
 ```
 
 Or manually verify all required tools are present:
@@ -334,10 +334,10 @@ echo ""
 echo "All checks passed! Ready for development."
 ```
 
-Save as `scripts/verify-requirements.sh` and run:
+Save as `scripts/setup/03-verify-system-requirements.sh` and run:
 
 ```bash
-bash scripts/verify-requirements.sh
+bash scripts/setup/03-verify-system-requirements.sh
 ```
 
 ---
@@ -392,15 +392,15 @@ docker ps  # should work now
 
 These images are pulled when you first run `docker compose up`:
 
-| Service | Image | Size | Installed Packages |
-|---------|-------|------|-------------------|
-| PostgreSQL | `postgres:17-alpine` | ~153MB | pg_dump, pg_restore (built-in) |
-| Redis | `redis:7-alpine` | ~40MB | redis-cli (built-in) |
-| MongoDB | `mongodb:7` | ~700MB | mongodump, mongorestore (built-in) |
-| Redpanda | `redpanda/redpanda:latest` | ~1.2GB | Kafka-compatible broker |
-| Nginx | `nginx:1.27-alpine` | ~42MB | Reverse proxy, static files |
-| Prometheus | `prom/prometheus:v2.52.0` | ~300MB | Metrics scraping, alerting |
-| Grafana | `grafana/grafana:10.4.0` | ~300MB | Dashboard, visualization |
+| Service    | Image                      | Size   | Installed Packages                 |
+| ---------- | -------------------------- | ------ | ---------------------------------- |
+| PostgreSQL | `postgres:17-alpine`       | ~153MB | pg_dump, pg_restore (built-in)     |
+| Redis      | `redis:7-alpine`           | ~40MB  | redis-cli (built-in)               |
+| MongoDB    | `mongodb:7`                | ~700MB | mongodump, mongorestore (built-in) |
+| Redpanda   | `redpanda/redpanda:latest` | ~1.2GB | Kafka-compatible broker            |
+| Nginx      | `nginx:1.27-alpine`        | ~42MB  | Reverse proxy, static files        |
+| Prometheus | `prom/prometheus:v2.52.0`  | ~300MB | Metrics scraping, alerting         |
+| Grafana    | `grafana/grafana:10.4.0`   | ~300MB | Dashboard, visualization           |
 
 **Total local development footprint:** ~2.8GB (first download only, reused for subsequent runs)
 
@@ -421,8 +421,8 @@ These images are pulled when you first run `docker compose up`:
 ## Next Steps
 
 1. **Install all packages** using the quick install commands above for your platform
-2. **Verify installation** with `scripts/verify-requirements.sh`
-3. **Start local environment** with `bash scripts/dev_services.sh`
+2. **Verify installation** with `scripts/setup/03-verify-system-requirements.sh`
+3. **Start local environment** with `bash scripts/daily/01-start-dev-services.sh`
 4. **Try backup/restore** with `bash infra/scripts/backup.sh` and `bash infra/scripts/restore.sh`
 5. **Try chaos testing** with `bash infra/scripts/chaos.sh gauntlet`
 

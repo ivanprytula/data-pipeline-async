@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 FAILED=0
@@ -86,12 +86,12 @@ if [ $FAILED -eq 0 ]; then
   echo ""
   echo "Next steps:"
   echo "  • Commit your changes: git add -A && git commit -m 'Add Redis cache layer'"
-  echo "  • Run full validation: ./scripts/full-validation.sh"
+  echo "  • Run full validation: ./scripts/ci/01-full-validation.sh"
   exit 0
 else
   echo "✗ Quality checks failed (see above)" >&2
   echo ""
   echo "Please fix issues and re-run:"
-  echo "  ./scripts/quality-checks.sh"
+  echo "  ./scripts/daily/04-quality-checks.sh"
   exit 1
 fi

@@ -1,6 +1,6 @@
 #!/bin/bash
-# scripts/stats.sh — Monitor container resource usage in real-time
-# Usage: bash scripts/stats.sh
+# scripts/ops/03-container-stats.sh — Monitor container resource usage in real-time
+# Usage: bash scripts/ops/03-container-stats.sh
 
 set -e
 

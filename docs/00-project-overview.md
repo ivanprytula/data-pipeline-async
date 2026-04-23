@@ -74,35 +74,35 @@ Next planned hardening:
 
 Data Zoo progresses through **8 phases**, each adding one architectural layer:
 
-| Phase | Focus | Status | Interview Q |
-|-------|-------|--------|------------|
-| **1** | Event Streaming | ✅ Done | Real-time ETL for 1000+ events/sec |
-| **2** | Data Scraping | ✅ Done | Design scraper for 100K URLs without ban |
-| **3** | AI + Vector DB | ✅ Done | Semantic search over 100K docs |
-| **4** | Resilience Patterns | ✅ Done | Circuit breaker + DLQ for failures |
-| **5** | CQRS + Analytics | 🚀 Active | Read-optimized DB for 10M queries/day |
-| **6** | Dashboard | ✅ Implemented baseline | Server-rendered dashboard with SSE + admin workflows |
-| **7** | Cloud IaC | ✅ Done | Multi-env Terraform (dev/staging/prod) |
-| **8** | Production Hardening | ⏹️ Queued | Backup/chaos/observability strategy |
+| Phase | Focus                | Status                 | Interview Q                                          |
+| ----- | -------------------- | ---------------------- | ---------------------------------------------------- |
+| **1** | Event Streaming      | ✅ Done                | Real-time ETL for 1000+ events/sec                   |
+| **2** | Data Scraping        | ✅ Done                | Design scraper for 100K URLs without ban             |
+| **3** | AI + Vector DB       | ✅ Done                | Semantic search over 100K docs                       |
+| **4** | Resilience Patterns  | ✅ Done                | Circuit breaker + DLQ for failures                   |
+| **5** | CQRS + Analytics     | 🚀 Active              | Read-optimized DB for 10M queries/day                |
+| **6** | Dashboard            | ✅ Implemented baseline| Server-rendered dashboard with SSE + admin workflows |
+| **7** | Cloud IaC            | ✅ Done                | Multi-env Terraform (dev/staging/prod)               |
+| **8** | Production Hardening | ⏹️ Queued              | Backup/chaos/observability strategy                  |
 
 ---
 
 ## Tech Stack Summary
 
-| Layer | Technology |
-|-------|------------|
-| **API** | FastAPI + Pydantic v2 |
-| **Database** | PostgreSQL 17 + SQLAlchemy 2.0 (async) |
-| **Cache** | Redis |
-| **Streaming** | Redpanda (Kafka-compatible) |
-| **Background Jobs** | APScheduler + in-process worker queue |
-| **Admin UI** | HTMX + Jinja2 dashboard workflows |
-| **Observability** | Prometheus + OpenTelemetry + Sentry + structured JSON logging |
-| **Security/Auth** | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
-| **Testing** | pytest + aiosqlite (in-memory for fast unit tests) |
-| **CI/CD** | GitHub Actions (split unit/integration workflows) |
-| **IaC** | Terraform (AWS Fargate + managed services) |
-| **Local Dev** | Docker Compose + uv package manager |
+| Layer               | Technology                                                      |
+| ------------------- | --------------------------------------------------------------- |
+| **API**             | FastAPI + Pydantic v2                                           |
+| **Database**        | PostgreSQL 17 + SQLAlchemy 2.0 (async)                          |
+| **Cache**           | Redis                                                           |
+| **Streaming**       | Redpanda (Kafka-compatible)                                     |
+| **Background Jobs** | APScheduler + in-process worker queue                           |
+| **Admin UI**        | HTMX + Jinja2 dashboard workflows                               |
+| **Observability**   | Prometheus + OpenTelemetry + Sentry + structured JSON logging   |
+| **Security/Auth**   | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
+| **Testing**         | pytest + aiosqlite (in-memory for fast unit tests)              |
+| **CI/CD**           | GitHub Actions (split unit/integration workflows)               |
+| **IaC**             | Terraform (AWS Fargate + managed services)                      |
+| **Local Dev**       | Docker Compose + uv package manager                             |
 
 ---
 
@@ -120,7 +120,8 @@ This project is documented in **numbered reading order**. Start at **00** and pr
 
 1. **[04 — Architecture Overview](04-architecture-overview.md)** — System design, components, phase-by-phase details
 2. **[Cloud Deployment](cloud-deployment.md)** — Production deployment, Kubernetes, infrastructure guidance
-3. **[Dev Commands](dev/commands.md)** — Test and CI-related daily workflows
+3. **[11 — Online/Cloud Services and Accounts](11-online-cloud-services-and-accounts.md)** — Long-term services, ownership, and budget checklist
+4. **[Dev Commands](dev/commands.md)** — Test and CI-related daily workflows
 
 ### Reference
 

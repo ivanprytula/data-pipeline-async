@@ -1,7 +1,6 @@
 variable "aws_region" {
-  description = "AWS region for all resources."
+  description = "AWS region for all resources. Set via TF_VAR_aws_region env var or -var flag. No default to enforce explicit selection."
   type        = string
-  default     = "us-east-1"
 }
 
 variable "project" {
@@ -27,9 +26,9 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "List of AZs to use. Defaults to 2 for dev, 3 for prod."
+  description = "List of AZs to use. Set via TF_VAR_availability_zones env var or -var flag. If not set, will use default AZs for the region."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = null  # When null, AZ selection logic in env-specific terraform.tfvars applies
 }
 
 variable "app_port" {

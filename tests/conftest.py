@@ -5,7 +5,7 @@ Database selection:
   - If DATABASE_URL_TEST env var set: Use PostgreSQL (for concurrent tests)
 
 To run with PostgreSQL:
-    1. Start test DB: bash scripts/dev_services.sh
+    1. Start test DB: bash scripts/daily/01-start-dev-services.sh
     2. Env vars are auto-loaded from .env (DATABASE_URL_TEST set automatically)
     3. Run tests: pytest tests/integration/records/test_concurrency.py -v
 

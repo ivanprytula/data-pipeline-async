@@ -6,6 +6,8 @@ name: Security Scan (Full Pipeline)
       - main
       - develop
     paths:
+      - .github/workflows/*.yml
+      - .github/workflows/*.yaml
       - pyproject.toml
       - uv.lock
       - Dockerfile
@@ -18,6 +20,8 @@ name: Security Scan (Full Pipeline)
       - main
       - develop
     paths:
+      - .github/workflows/*.yml
+      - .github/workflows/*.yaml
       - pyproject.toml
       - uv.lock
       - Dockerfile
@@ -27,12 +31,45 @@ name: Security Scan (Full Pipeline)
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
+  action-ref-validation:
+    name: Validate action refs are immutable
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Fail on mutable action refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t workflow_files < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
+
+          if [ ${#workflow_files[@]} -eq 0 ]; then
+            echo "No workflow files found."
+            exit 0
+          fi
+
+          mutable_refs=$(grep -nE 'uses:\s*[^#]+@(v[0-9]+|latest|main|master|develop)\b' "${workflow_files[@]}" || true)
+
+          if [ -n "$mutable_refs" ]; then
+            echo "Mutable GitHub Action references detected. Pin actions to full commit SHAs."
+            echo "$mutable_refs"
+            exit 1
+          fi
+
+          echo "All action references are pinned to immutable SHAs."
+
   python-deps:
     name: Python Dependencies (pip-audit)
     runs-on: ubuntu-latest
+    needs: action-ref-validation
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -125,8 +162,13 @@ jobs:
   docker-images:
     name: Docker Images (Trivy)
     runs-on: ubuntu-latest
-    needs: python-deps
+    needs:
+      - action-ref-validation
+      - python-deps
     if: github.event_name == 'push' # Only scan on push to main/develop
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       matrix:
         dockerfile:
@@ -197,9 +239,12 @@ jobs:
     name: Security Summary
     runs-on: ubuntu-latest
     needs:
+      - action-ref-validation
       - python-deps
       - docker-images
     if: always()
+    permissions:
+      contents: read
     steps:
       - name: Generate security summary
         run: |

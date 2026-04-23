@@ -5,13 +5,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 OVERALL_SUCCESS=0
 
 echo "=== PHASE 1: Code Quality Checks (lint, format, tests) ==="
-if bash "$SCRIPT_DIR/quality-checks.sh"; then
+if bash "$PROJECT_ROOT/scripts/daily/04-quality-checks.sh"; then
   echo "✓ Quality checks passed"
 else
   echo "✗ Quality checks failed"
@@ -20,7 +20,7 @@ fi
 echo ""
 
 echo "=== PHASE 2: Redis Cache Layer Verification ==="
-if bash "$SCRIPT_DIR/verify-cache.sh"; then
+if bash "$PROJECT_ROOT/scripts/testing/02-verify-cache-layer.sh"; then
   echo "✓ Cache verification passed"
 else
   echo "✗ Cache verification failed"

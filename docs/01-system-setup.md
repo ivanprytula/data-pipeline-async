@@ -10,16 +10,18 @@
 
 Data Zoo requires several system-level packages for development, testing, and operations:
 
-| Package | Purpose | When Used |
-|---------|---------|-----------|
-| **Python 3.14+** | Application runtime | Always |
-| **uv** | Fast Python package manager | Always (replaces pip) |
-| **PostgreSQL Client** | Database access, backups, queries | Development, testing, ops |
-| **Redis CLI** | Cache inspection and debugging | Development, debugging |
-| **Docker + Compose** | Container orchestration | Development, testing, CI/CD |
-| **mkcert** | Local HTTPS certificate generation | Local development (optional but recommended) |
-| **MongoDB Tools** | Database backup/restore | Operations (optional) |
-| **util-linux + iproute2** | Chaos testing (network delays, packet loss) | Advanced testing (optional) |
+| Package                   | Purpose                                        | When Used                                    |
+| ------------------------- | ---------------------------------------------- | -------------------------------------------- |
+| **Python 3.14+**          | Application runtime                            | Always                                       |
+| **uv**                    | Fast Python package manager                    | Always (replaces pip)                        |
+| **PostgreSQL Client**     | Database access, backups, queries              | Development, testing, ops                    |
+| **Redis CLI**             | Cache inspection and debugging                 | Development, debugging                       |
+| **Docker + Compose**      | Container orchestration                        | Development, testing, CI/CD                  |
+| **mkcert**                | Local HTTPS certificate generation             | Local development (optional but recommended) |
+| **GitHub CLI (`gh`)**     | Manage GitHub Actions vars/secrets/OIDC config | CI/CD operations                             |
+| **jq**                    | JSON parsing for API/script automation         | CI/CD operations                             |
+| **MongoDB Tools**         | Database backup/restore                        | Operations (optional)                        |
+| **util-linux + iproute2** | Chaos testing (network delays, packet loss)    | Advanced testing (optional)                  |
 
 ---
 
@@ -30,6 +32,9 @@ Data Zoo requires several system-level packages for development, testing, and op
 ```bash
 # Using Homebrew (https://brew.sh if not installed)
 brew install python@3.14 uv postgresql redis docker mkcert mongodb-database-tools util-linux iproute2
+
+# CI/CD automation tools
+brew install gh jq
 ```
 
 ### Ubuntu / Debian
@@ -44,6 +49,7 @@ sudo apt-get install -y \
   postgresql-client redis-tools \
   docker.io docker-compose \
   mkcert \
+  gh jq \
   mongodb-tools \
   util-linux iproute2
 ```
@@ -56,6 +62,7 @@ sudo dnf install -y \
   postgresql-contrib redis-tools \
   docker docker-compose \
   mkcert \
+  gh jq \
   mongodb-database-tools \
   util-linux iproute2-utils
 ```
@@ -86,6 +93,10 @@ docker compose version
 
 # mkcert
 mkcert --version
+
+# GitHub CLI and jq (used by scripts/ops/01-gh-actions-config.sh)
+gh --version
+jq --version
 ```
 
 ---
@@ -97,6 +108,7 @@ mkcert --version
 - **M1/M2 Macs**: All packages above support ARM64. No additional steps needed.
 - **Intel Macs**: Compatible as-is.
 - **Python 3.14 on macOS**: If Homebrew doesn't have 3.14 yet, use [pyenv](https://github.com/pyenv/pyenv):
+
   ```bash
   brew install pyenv
   pyenv install 3.14.0
@@ -108,6 +120,7 @@ mkcert --version
 - **WSL2 (Windows Subsystem for Linux)**: Fully supported. Install Docker Desktop for Windows, WSL2 backend will provide Docker CLI.
 - **Ubuntu 22.04 LTS**: Recommended for best compatibility.
 - **Older Ubuntu (20.04)**: Python 3.14 may require third-party PPA:
+
   ```bash
   sudo apt-get install software-properties-common
   sudo add-apt-repository ppa:deadsnakes/ppa

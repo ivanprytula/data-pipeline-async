@@ -20,10 +20,11 @@ cd data-pipeline-async
 The entire setup is automated in a single bash script:
 
 ```bash
-bash scripts/quick-setup.sh
+bash scripts/setup/01-bootstrap-dev-environment.sh
 ```
 
 This script will:
+
 - ✅ Install `uv` if missing
 - ✅ Sync Python dependencies (`uv sync`)
 - ✅ Generate local HTTPS certificates (via `mkcert`)
@@ -34,7 +35,8 @@ This script will:
 - ✅ Print access URLs
 
 **Expected output:**
-```
+
+```sh
 ✓ uv installed (v0.11.7)
 ✓ Dependencies synced
 ✓ HTTPS certificates generated in ~/.local/share/mkcert/
@@ -88,12 +90,55 @@ docker compose restart
 
 **Common customizations:**
 
-| Variable | Default | Why Change |
-|----------|---------|-----------|
-| `LOG_LEVEL` | `INFO` | Change to `DEBUG` for verbose logging |
-| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline` | Change if using different host/port |
-| `REDIS_URL` | `redis://localhost:6379/0` | Change if using external Redis |
-| `BACKGROUND_WORKERS_ENABLED` | `true` | Set to `false` to disable background job queue |
+| Variable                     | Default                                                               | Why Change                                     |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------- |
+| `LOG_LEVEL`                  | `INFO`                                                                | Change to `DEBUG` for verbose logging          |
+| `DATABASE_URL`               | `postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline` | Change if using different host/port            |
+| `REDIS_URL`                  | `redis://localhost:6379/0`                                            | Change if using external Redis                 |
+| `BACKGROUND_WORKERS_ENABLED` | `true`                                                                | Set to `false` to disable background job queue |
+
+---
+
+## Step 5 (Optional): Bootstrap GitHub Actions Config
+
+Use `scripts/ops/01-gh-actions-config.sh` to set repository/environment variables, secrets, and OIDC subject template from the command line.
+
+Prerequisites:
+
+- `gh auth login` has been completed
+- You have admin/maintainer access to the repository
+- `gh` and `jq` are installed
+
+Common bootstrap commands:
+
+```bash
+repo="ivanprytula/data-pipeline-async"
+
+# Repository-wide defaults
+scripts/ops/01-gh-actions-config.sh vars set AWS_REGION eu-central-1 --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \
+  "https://github.com/${repo}/.github/workflows/docker-build-reusable.yml@refs/heads/main" \
+  --repo "$repo"
+
+# Environment-scoped values
+scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-dev --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-staging --env staging --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-prod --env prod --repo "$repo"
+
+# Example secret
+scripts/ops/01-gh-actions-config.sh secrets set AWS_ACCOUNT_ID "123456789012" --repo "$repo"
+
+# Optional OIDC customization for subject template
+scripts/ops/01-gh-actions-config.sh oidc set --claims repo,context,job_workflow_ref --repo "$repo"
+```
+
+Quick verification:
+
+```bash
+scripts/ops/01-gh-actions-config.sh vars list --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars list --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh oidc get --repo "$repo"
+```
 
 ---
 
@@ -101,7 +146,7 @@ docker compose restart
 
 ### Services Started
 
-```
+```text
 PostgreSQL 17          localhost:5432   → Main application database
 PostgreSQL (test)      localhost:5433   → Separate DB for parallel tests
 Redis                  localhost:6379   → Cache + session store
@@ -114,6 +159,7 @@ nginx                  localhost:443    → Reverse proxy (HTTPS termination)
 ### Database Schema Created
 
 Alembic migrations were applied, creating tables:
+
 - `records` — ingested data records
 - `pipeline_jobs` — job execution history
 - And others based on current phase
@@ -121,6 +167,7 @@ Alembic migrations were applied, creating tables:
 ### Dependencies Installed
 
 Python dependencies are installed in `.venv/`:
+
 - FastAPI, Pydantic v2, SQLAlchemy 2.0
 - APScheduler, pytest, Prometheus client, OpenTelemetry
 - And many more (see `pyproject.toml`)
@@ -137,13 +184,13 @@ For canonical command workflows, use **[03 — Daily Development](03-daily-devel
 
 ### Access the Application
 
-| URL | Purpose |
-|-----|---------|
-| `https://localhost/` | Dashboard (if frontend built) |
-| `https://localhost/api/docs` | Swagger UI (interactive API docs) |
-| `https://localhost/api/redoc` | ReDoc (alternative API docs) |
-| `http://localhost:9090` | Prometheus metrics |
-| `http://localhost:16686` | Jaeger tracing |
+| URL                           | Purpose                           |
+| ----------------------------- | --------------------------------- |
+| `https://localhost/`          | Dashboard (if frontend built)     |
+| `https://localhost/api/docs`  | Swagger UI (interactive API docs) |
+| `https://localhost/api/redoc` | ReDoc (alternative API docs)      |
+| `http://localhost:9090`       | Prometheus metrics                |
+| `http://localhost:16686`      | Jaeger tracing                    |
 
 ### Submit a Test Request
 
@@ -213,7 +260,7 @@ uv run alembic upgrade head
 
 ```bash
 # Reinstall certificates
-bash scripts/setup-https.sh
+bash scripts/setup/02-setup-local-https.sh
 
 # Or manually:
 mkcert -install
@@ -233,7 +280,7 @@ uv sync --upgrade
 
 1. **Understand daily workflows**: See **[03 — Daily Development](03-daily-development.md)**
 2. **Explore the architecture**: See **[04 — Architecture Overview](04-architecture-overview.md)**
-3. **Run full test suite**: `bash scripts/test.sh all`
+3. **Run full test suite**: `bash scripts/daily/03-run-tests.sh all`
 4. **Start the dev server**: `uv run uvicorn ingestor.main:app --reload`
 
 ---

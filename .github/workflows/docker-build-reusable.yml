@@ -1,0 +1,144 @@
+name: Docker Build Reusable
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: Container image name (without registry).
+        required: true
+        type: string
+      dockerfile:
+        description: Path to Dockerfile.
+        required: false
+        type: string
+        default: Dockerfile
+      context:
+        description: Docker build context.
+        required: false
+        type: string
+        default: .
+      aws-region:
+        description: AWS region.
+        required: true
+        type: string
+      ecr-registry:
+        description: Full ECR registry host.
+        required: true
+        type: string
+      aws-role-arn:
+        description: IAM role ARN for OIDC auth.
+        required: false
+        type: string
+      push-image:
+        description: Push image to ECR.
+        required: false
+        type: boolean
+        default: false
+      sign-image:
+        description: Sign pushed image with cosign keyless signing.
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      image-uri:
+        description: Full image URI with immutable tag.
+        value: ${{ jobs.build.outputs.image-uri }}
+      image-digest-uri:
+        description: Full immutable image URI in digest form.
+        value: ${{ jobs.build.outputs.image-digest-uri }}
+      image-digest:
+        description: Image digest (sha256:...).
+        value: ${{ jobs.build.outputs.image-digest }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image-uri: ${{ steps.meta.outputs.image_uri }}
+      image-digest-uri: ${{ steps.push.outputs.image_digest_uri }}
+      image-digest: ${{ steps.push.outputs.image_digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.3.1
+
+      - name: Resolve image metadata
+        id: meta
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          image_uri="${{ inputs.ecr-registry }}/${{ inputs.image-name }}:sha-${short_sha}"
+          echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ inputs.push-image && inputs.aws-role-arn != '' }}
+        uses: aws-actions/configure-aws-credentials@5f0e8e11c7ad15b18e5f5fa5b80487b85c6cc2bc # v4.0.2
+        with:
+          role-to-assume: ${{ inputs.aws-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Login to Amazon ECR
+        if: ${{ inputs.push-image && inputs.aws-role-arn != '' }}
+        run: |
+          aws ecr get-login-password --region "${{ inputs.aws-region }}" | \
+            docker login --username AWS --password-stdin "${{ inputs.ecr-registry }}"
+
+      - name: Build image
+        run: |
+          docker build \
+            -f "${{ inputs.dockerfile }}" \
+            -t "${{ steps.meta.outputs.image_uri }}" \
+            "${{ inputs.context }}"
+
+      - name: Push image
+        id: push
+        if: ${{ inputs.push-image && inputs.aws-role-arn != '' }}
+        run: |
+          set -euo pipefail
+          docker push "${{ steps.meta.outputs.image_uri }}"
+          digest_uri=$(docker inspect --format='{{index .RepoDigests 0}}' "${{ steps.meta.outputs.image_uri }}")
+          digest_only="${digest_uri##*@}"
+          echo "image_digest_uri=${digest_uri}" >> "$GITHUB_OUTPUT"
+          echo "image_digest=${digest_only}" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        if: ${{ inputs.push-image && inputs.sign-image && inputs.aws-role-arn != '' }}
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign image (keyless)
+        if: ${{ inputs.push-image && inputs.sign-image && inputs.aws-role-arn != '' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${{ steps.push.outputs.image_digest_uri }}"
+
+      - name: Verify signature (build-time sanity check)
+        if: ${{ inputs.push-image && inputs.sign-image && inputs.aws-role-arn != '' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${{ steps.push.outputs.image_digest_uri }}" >/dev/null
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@596663df4c19c487e7c8fa0138c4e12f9ea76814 # v0.17.0
+        with:
+          image-ref: ${{ steps.meta.outputs.image_uri }}
+          format: cyclonedx
+          output: sbom-${{ inputs.image-name }}.json
+          scanners: image,config
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4.5.0
+        with:
+          name: sbom-${{ inputs.image-name }}
+          path: sbom-${{ inputs.image-name }}.json
+          retention-days: 30

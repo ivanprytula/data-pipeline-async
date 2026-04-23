@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run concurrent tests against PostgreSQL in Docker container.
 #
-# Usage: ./scripts/test_with_postgres.sh
-# Or:    ./scripts/test_with_postgres.sh tests/integration/records/test_concurrency.py -v
+# Usage: ./scripts/testing/01-test-with-postgres.sh
+# Or:    ./scripts/testing/01-test-with-postgres.sh tests/integration/records/test_concurrency.py -v
 #
 # This script:
 # 1. Starts PostgreSQL test container (if not running)

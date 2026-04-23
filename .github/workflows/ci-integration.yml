@@ -11,6 +11,9 @@ concurrency:
   group: ci-integration-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read  # Read repo for checkout; no other permissions needed
+
 jobs:
   tests:
     name: Integration/E2E — ${{ matrix.test-type }} (Python ${{ matrix.python-version }})
@@ -42,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.3.1
 
       - name: Cache pip (keyed by uv.lock)
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4.0.0
         with:
           path: |
             ~/.cache/pip
@@ -59,7 +62,7 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@3235b876344d2a9aa001b8d1453c930bba69e610 # v3.9.1
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -97,7 +100,7 @@ jobs:
 
       - name: Upload coverage (integration)
         if: ${{ matrix.test-type == 'integration' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4.5.0
         with:
           name: coverage-integration-py${{ matrix.python-version }}
           path: htmlcov

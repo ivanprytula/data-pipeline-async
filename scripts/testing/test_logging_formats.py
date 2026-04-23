@@ -2,7 +2,7 @@
 """Demo script to show development vs production logging formats.
 
 Usage:
-    uv run python scripts/test_logging_formats.py
+    uv run python scripts/testing/test_logging_formats.py
 
 Shows side-by-side comparison of:
 - Development format: human-readable with IDE-clickable source info + rotating file handler

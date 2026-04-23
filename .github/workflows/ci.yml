@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  run-ci:
+    uses: ./.github/workflows/ci-reusable.yml
+    with:
+      python-version: "3.14"
+      run-integration: true
+      run-migrations: true

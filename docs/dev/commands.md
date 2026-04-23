@@ -13,7 +13,7 @@ Use Ctrl+F to jump to any section.
 
 ```bash
 # One command to start everything
-bash scripts/dev_services.sh
+bash scripts/daily/01-start-dev-services.sh
 
 # What it starts:
 #   - PostgreSQL (main):   localhost:5432  (for app)
@@ -154,7 +154,7 @@ uv run pytest tests/test_records.py::test_create_record -v
 
 ```bash
 # Starts container, runs tests, cleans up automatically
-./scripts/test_with_postgres.sh tests/integration/records/test_concurrency.py -v
+./scripts/testing/01-test-with-postgres.sh tests/integration/records/test_concurrency.py -v
 ```
 
 **Manual method:**
@@ -516,10 +516,10 @@ k6 run --out json=results.json scripts/load_test.js
 
 ```bash
 # Start Locust web UI
-uv run locust -f scripts/locustfile.py --host http://localhost:8000
+uv run locust -f scripts/testing/locustfile.py --host http://localhost:8000
 
 # Headless mode
-uv run locust -f scripts/locustfile.py \
+uv run locust -f scripts/testing/locustfile.py \
   --host http://localhost:8000 \
   --users 100 --spawn-rate 10 --run-time 60s --headless
 ```

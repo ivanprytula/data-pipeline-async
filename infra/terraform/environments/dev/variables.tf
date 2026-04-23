@@ -1,6 +1,6 @@
 variable "aws_region" {
-  type    = string
-  default = "us-east-1"
+  description = "AWS region. Must be set explicitly via TF_VAR_aws_region env var or in terraform.tfvars."
+  type        = string
 }
 
 variable "aws_profile" {
@@ -15,8 +15,9 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  type    = list(string)
-  default = ["us-east-1a", "us-east-1b"]
+  description = "AZs for the region. Set in terraform.tfvars or via TF_VAR_availability_zones."
+  type        = list(string)
+  default     = null
 }
 
 variable "github_repository" {

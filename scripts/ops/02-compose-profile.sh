@@ -1,8 +1,8 @@
 #!/bin/bash
-# scripts/compose.sh — Wrapper around docker-compose with environment profiles
-# Usage: bash scripts/compose.sh dev up        (loose resources)
-#        bash scripts/compose.sh prod-like up  (tight resources, test prod constraints)
-#        bash scripts/compose.sh prod up       (production, use in CI/CD)
+# scripts/ops/02-compose-profile.sh — Wrapper around docker-compose with environment profiles
+# Usage: bash scripts/ops/02-compose-profile.sh dev up        (loose resources)
+#        bash scripts/ops/02-compose-profile.sh prod-like up  (tight resources, test prod constraints)
+#        bash scripts/ops/02-compose-profile.sh prod up       (production, use in CI/CD)
 
 set -e
 
@@ -30,12 +30,12 @@ case "$PROFILE" in
     echo "  prod-like   — Tight resources matching staging/prod (test locally)"
     echo "  prod        — Base config only (use in CI/CD)"
     echo ""
-    echo "Usage: bash scripts/compose.sh <profile> <command>"
+    echo "Usage: bash scripts/ops/02-compose-profile.sh <profile> <command>"
     echo "Examples:"
-    echo "  bash scripts/compose.sh dev up"
-    echo "  bash scripts/compose.sh prod-like up -d"
-    echo "  bash scripts/compose.sh prod-like logs app"
-    echo "  bash scripts/compose.sh prod up"
+    echo "  bash scripts/ops/02-compose-profile.sh dev up"
+    echo "  bash scripts/ops/02-compose-profile.sh prod-like up -d"
+    echo "  bash scripts/ops/02-compose-profile.sh prod-like logs app"
+    echo "  bash scripts/ops/02-compose-profile.sh prod up"
     exit 1
     ;;
 esac
