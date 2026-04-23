@@ -21,10 +21,6 @@ on:
         description: AWS region.
         required: true
         type: string
-      ecr-registry:
-        description: Full ECR registry host.
-        required: true
-        type: string
       aws-role-arn:
         description: IAM role ARN for OIDC auth.
         required: false
@@ -39,6 +35,10 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      aws-account-id:
+        description: AWS account ID used to build the ECR registry host.
+        required: true
     outputs:
       image-uri:
         description: Full image URI with immutable tag.
@@ -75,8 +75,10 @@ jobs:
         id: meta
         run: |
           short_sha="${GITHUB_SHA::7}"
-          image_uri="${{ inputs.ecr-registry }}/${{ inputs.image-name }}:sha-${short_sha}"
+          ecr_registry="${{ secrets.aws-account-id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com"
+          image_uri="${ecr_registry}/${{ inputs.image-name }}:sha-${short_sha}"
           artifact_stem="$(echo "${{ inputs.image-name }}" | tr '/:' '--')"
+          echo "ecr_registry=${ecr_registry}" >> "$GITHUB_OUTPUT"
           echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
           echo "artifact_stem=${artifact_stem}" >> "$GITHUB_OUTPUT"
 
@@ -91,7 +93,7 @@ jobs:
         if: ${{ inputs.push-image && inputs.aws-role-arn != '' }}
         run: |
           aws ecr get-login-password --region "${{ inputs.aws-region }}" | \
-            docker login --username AWS --password-stdin "${{ inputs.ecr-registry }}"
+            docker login --username AWS --password-stdin "${{ steps.meta.outputs.ecr_registry }}"
 
       - name: Build image
         run: |

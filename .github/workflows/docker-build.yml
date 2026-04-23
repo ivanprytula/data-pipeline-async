@@ -35,7 +35,6 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
 
 jobs:
   build-images:
@@ -65,10 +64,11 @@ jobs:
       dockerfile: ${{ matrix.image.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
-      ecr-registry: ${{ env.ECR_REGISTRY }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
       push-image: ${{ inputs.push_image }}
       sign-image: ${{ inputs.sign_image }}
+    secrets:
+      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
 
   build-summary:
     name: Build Summary

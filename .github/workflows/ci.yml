@@ -577,9 +577,10 @@ jobs:
       dockerfile: ${{ matrix.image.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
-      ecr-registry: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
       push-image: false
+    secrets:
+      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
 
   build-summary:
     name: 07 Docker build summary
