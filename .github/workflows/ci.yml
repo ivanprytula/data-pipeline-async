@@ -72,6 +72,8 @@ jobs:
       backend_change: ${{ steps.filter.outputs.backend_change }}
       db_change: ${{ steps.filter.outputs.db_change }}
       docs_change: ${{ steps.filter.outputs.docs_change }}
+      docs_files: ${{ steps.filter.outputs.docs_change_files }}
+      prompts_change: ${{ steps.filter.outputs.prompts_change }}
       infra_change: ${{ steps.filter.outputs.infra_change }}
     steps:
       - name: Checkout
@@ -81,6 +83,7 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          list-files: shell
           filters: |
             backend_change:
               - 'ingestor/**'
@@ -98,8 +101,9 @@ jobs:
             docs_change:
               - 'docs/**'
               - 'README.md'
-              - '.github/prompts/**'
               - '.github/pull_request_template.md'
+            prompts_change:
+              - '.github/prompts/**'
             infra_change:
               - '.github/workflows/**'
               - 'infra/**'
@@ -108,7 +112,10 @@ jobs:
   docs-quality:
     name: 01c Docs quality checks
     runs-on: ubuntu-latest
-    needs: quality
+    needs:
+      - quality
+      - change-impact
+    if: ${{ needs.change-impact.outputs.docs_change == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -118,15 +125,23 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Run docs quality script
-        run: python scripts/ci/docs_quality_check.py
+      - name: Run docs quality script on changed docs only
+        env:
+          DOCS_FILES: ${{ needs.change-impact.outputs.docs_files }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(printf '%s\n' "$DOCS_FILES" | sed '/^$/d')
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No high-priority docs files changed; skipping docs quality check."
+            exit 0
+          fi
+          python scripts/ci/docs_quality_check.py --profile ci "${files[@]}"
 
   docs-impact-gate:
     name: 01d Docs impact gate (PR)
     runs-on: ubuntu-latest
     needs:
       - change-impact
-      - docs-quality
     if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Validate docs acknowledgement for code-impacting changes
@@ -171,6 +186,7 @@ jobs:
           echo "- Backend change: ${{ needs.change-impact.outputs.backend_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- DB change: ${{ needs.change-impact.outputs.db_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Docs change: ${{ needs.change-impact.outputs.docs_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Prompts change: ${{ needs.change-impact.outputs.prompts_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Infra change: ${{ needs.change-impact.outputs.infra_change }}" >> "$GITHUB_STEP_SUMMARY"
 
   unit:

@@ -259,6 +259,9 @@ limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 
 **Markdown linting** — all `.md` files **must** comply with markdownlint rules. When writing or editing docs, follow these strictly:
 
+**Hard rule (non-negotiable):** Never violate this rule: "bold-only heading detected (use markdown headings)."
+Always use proper markdown heading syntax (`#`, `##`, `###`, etc.) and never use bold text as a heading substitute. If this will lead to duplicate headings, adjust the heading level or rephrase to maintain unique headings while following markdown syntax.
+
 **MD036: No emphasis as headings** — Never use bold/italic as section headings. Always use proper heading syntax (`#`, `##`, `###`, etc).
 ```markdown
 # ✅ CORRECT

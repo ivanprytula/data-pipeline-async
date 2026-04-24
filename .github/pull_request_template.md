@@ -1,4 +1,4 @@
-## Summary
+# Summary
 
 - What changed:
 - Why it changed:
@@ -19,7 +19,7 @@
 
 ## Migration Metadata (Only if Alembic revision is included)
 
-Reference: [docs/dev/migration-metadata-checklist.md](docs/dev/migration-metadata-checklist.md)
+Reference: [docs/dev/migration-metadata-checklist.md](../docs/dev/migration-metadata-checklist.md)
 
 - [ ] Not applicable (no migration in this PR)
 - [ ] Summary of schema intent and affected objects
