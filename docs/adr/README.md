@@ -5,6 +5,7 @@ This directory contains Architecture Decision Records documenting key design cho
 ## What is an ADR?
 
 An ADR captures a significant architectural decision along with:
+
 - **Context** — Why we needed to make this decision
 - **Decision** — What we decided (and why)
 - **Consequences** — Positive and negative outcomes
@@ -37,14 +38,19 @@ ADRs are not "we built it this way" documentation. They're "we **decided** to bu
   - **Safety impact**: Prevents concurrent `terraform apply` conflicts
   - **Cost**: ~$0.50/month for S3 + DynamoDB; invaluable for team environments
 
+- **ADR 007**: [Migration Runner vs Sidecar](007-migration-runner-vs-sidecar.md) — Migration execution model for Phase 7 rollout
+  - **Status**: Proposed
+  - **Focus**: One-shot pre-rollout migration task versus sidecar-triggered migrations
+  - **Policy fit**: Keeps Alembic execution out of app startup and preserves blocking deploy gates
+
 ---
 
 ## Decision Timeline
 
 ```
 Phase 1–3  → ADR 003 (HTMX)
-Phase 7    → ADRs 004, 005, 006 (ECS, OIDC, Terraform)
-Future     → ADR 007+
+Phase 7    → ADRs 004, 005, 006, 007 (ECS, OIDC, Terraform, migration execution)
+Future     → ADR 008+
 ```
 
 ---
@@ -56,12 +62,14 @@ Future     → ADR 007+
 1. **Check existing ADRs** — Is there a related decision already documented?
 2. **If your change contradicts an ADR** — Either:
    - Document why the ADR is no longer valid (update it), or
-   - Propose a new superseding ADR (e.g., "ADR 007: Migrate from ECS to EKS")
+
+- Propose a new superseding ADR (e.g., "ADR 008: Migrate from ECS to EKS")
+
 3. **When in doubt** — Write an ADR before implementing
 
 ### For Onboarding
 
-- Read ADRs in phase order (e.g., Phase 7 → read ADRs 004, 005, 006)
+- Read ADRs in phase order (e.g., Phase 7 -> read ADRs 004, 005, 006, 007)
 - Understand the "why" behind major decisions
 - Use ADRs as teaching material for architectural reasoning
 

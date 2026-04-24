@@ -413,10 +413,77 @@ Not standalone phases — each implemented as the natural solution to a real pro
 
 ---
 
+## Migration Strategy (Alembic Authority Split)
+
+Policy source of truth:
+
+- `ephemeral-local`: `create_all` is allowed only for throwaway test and scratch databases.
+- `persistent-local`: Alembic is authoritative (`upgrade head`) and must match CI and production-like migration flow.
+- `production-like` (CI/staging/prod): Alembic is authoritative and schema changes are migration-driven only.
+
+Prohibited patterns:
+
+- Do not run Alembic from FastAPI lifespan or any app event loop context.
+- Do not mix `create_all` and Alembic on the same persistent database.
+
+Ownership and execution point by phase:
+
+- Pre-Phase 0 through Phase 6: persistent-local bootstrap remains `alembic upgrade head` as a separate setup/bootstrap step.
+- Phase 7+ (ECS rollout): run a one-shot migration runner/task before service rollout; migration execution is never app startup.
+
+Production deploy and rollback model:
+
+- Deploy order: build image -> run migrations once -> verify DB revision is `head` -> roll services.
+- Fail behavior: migration failure blocks deployment; no automatic app rollout.
+- Rollback order: rollback app first when schema remains backward-compatible; run DB downgrade only for tested reversible revisions.
+
+Migration authoring compatibility contract:
+
+- Expand/contract for zero-downtime.
+- Expand first: add nullable columns, new tables, and new indexes (concurrently where applicable).
+- Backfill data in controlled jobs or batches.
+- Contract last: drop or rename only after all services stop reading old schema shape.
+- Each migration includes risk notes: lock impact, expected runtime, and reversibility.
+
+Safety gates and verification checklist:
+
+- Keep migrations as a blocking CI gate before integration/e2e stages and release promotion; deploy target DB must be at `head` (no drift).
+- Release preflight checks include current revision, pending migration count, DB connectivity, and backup recency.
+- Validation checklist includes:
+- Fresh DB path: `upgrade head` succeeds.
+- Idempotency path in CI: `downgrade base` then `upgrade head` succeeds.
+- Object checks: required extensions, views, partitions, and indexes exist.
+- Deployment dry run: migration runner exits cleanly before service rollout.
+
+Local schema-creation-only guardrail:
+
+- Startup should warn or fail fast if `create_all` is attempted outside explicitly ephemeral-local profiles.
+
+Scope boundary for this roadmap section:
+
+- This section defines phase policy and handoff criteria only; implementation work (migration runner code, CI workflow edits, Terraform resources) is tracked separately.
+
+Future integration hooks:
+
+- Add an ADR in Phase 7 implementation comparing one-shot migration runner versus sidecar execution model.
+- Add a long-running migration playbook when table volume grows (timeouts, chunked backfills, lock windows).
+- Standardize migration metadata in PR checklist (risk, lock type, rollback notes).
+
+References (detail stays in implementation docs/workflows):
+
+- `.github/workflows/ci.yml` (migration gate pattern)
+- `alembic/env.py` (authoritative Alembic runtime configuration)
+- `scripts/setup/01-bootstrap-dev-environment.sh` (persistent-local bootstrap)
+- `docs/dev/gotchas.md` (event-loop guardrail rationale)
+- `docs/design/decisions.md` (Alembic vs `create_all` decision framing)
+- `docs/adr/007-migration-runner-vs-sidecar.md` (Phase 7 execution model decision)
+- `docs/dev/migration-metadata-checklist.md` (migration PR metadata standard)
+
+---
+
 ## Scope Excluded
 
 - Kubernetes (EKS/GKE) — separate dedicated learning project
 - Multi-cloud (GCP/Azure) — AWS is the target; others referenced in `docs/references.md`
-- Production Alembic migration strategy — covered in docs; schema-creation-only for local dev
 - Mobile/native frontend
 - Full e2e test suite — integration tests per service are sufficient
