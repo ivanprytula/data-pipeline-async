@@ -38,6 +38,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   PYTHON_VERSION: '3.14'
+  PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
 
 jobs:
@@ -68,8 +69,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Run quality checks
@@ -237,8 +237,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Run unit tests
@@ -299,8 +298,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Wait for Postgres
@@ -571,8 +569,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Wait for Postgres
@@ -647,8 +644,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Wait for Postgres
@@ -694,12 +690,14 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }} pip-audit
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}" pip-audit
           uv sync --frozen
 
+      - name: Export locked dependencies for audit
+        run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt
+
       - name: Run pip-audit
-        run: pip-audit --progress-spinner off --desc
+        run: pip-audit -r requirements-audit.txt --progress-spinner off --desc
 
   build-images:
     name: 07 Docker build — ${{ matrix.image.name }}

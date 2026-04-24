@@ -281,6 +281,8 @@ More details here.
 ```
 **Why**: Markdown emphasis is for text highlighting, not document structure. Headings enable table of contents generation, screen reader navigation, and proper semantic HTML.
 
+**MD032: Lists must be surrounded by blank lines** — Always place a blank line before and after every list (ordered or unordered). Never start a list immediately after a heading, paragraph, or code block without a blank line in between.
+
 **MD040: Fenced code blocks must have language tag** — Always specify the code language (`` ```python ``, `` ```bash ``, `` ```text ``, etc). Never use bare `` ``` ``.
 ```markdown
 # ✅ CORRECT

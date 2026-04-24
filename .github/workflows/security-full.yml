@@ -10,6 +10,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  PIP_VERSION: '26.0'
 
 jobs:
   action-ref-validation:
@@ -60,7 +61,7 @@ jobs:
           cache: pip
 
       - name: Install audit tools
-        run: python -m pip install --upgrade pip pip-audit uv
+        run: python -m pip install "pip==${{ env.PIP_VERSION }}" pip-audit uv
 
       - name: Export locked dependencies for audit
         run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt

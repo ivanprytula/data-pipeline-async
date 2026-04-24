@@ -25,6 +25,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   PYTHON_VERSION: '3.14'
+  PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
 
 jobs:
@@ -56,8 +57,7 @@ jobs:
 
       - name: Install uv and sync dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
           uv sync --frozen
 
       - name: Preflight migration and backup checks
