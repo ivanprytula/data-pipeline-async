@@ -9,7 +9,6 @@ on:
         type: choice
         options:
           - dev
-          - staging
           - prod
       service:
         description: Service to deploy
@@ -44,7 +43,7 @@ permissions:
 jobs:
   prepare:
     name: Resolve deploy target
-    if: ${{ inputs.environment == 'dev' || inputs.environment == 'staging' || inputs.environment == 'prod' }}
+    if: ${{ inputs.environment == 'dev' || inputs.environment == 'prod' }}
     runs-on: ubuntu-latest
     outputs:
       ecs_service: ${{ steps.resolve.outputs.ecs_service }}
@@ -120,7 +119,6 @@ jobs:
 
   deploy:
     needs: prepare
-    environment: ${{ inputs.environment }}
     uses: ./.github/workflows/deploy-reusable.yml
     with:
       aws-region: ${{ vars.AWS_REGION }}
@@ -133,3 +131,4 @@ jobs:
       verify-signature: true
       cosign-certificate-identity: ${{ vars.COSIGN_CERTIFICATE_IDENTITY }}
       cosign-certificate-oidc-issuer: https://token.actions.githubusercontent.com
+      environment: ${{ inputs.environment }}

@@ -122,7 +122,6 @@ scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \
 
 # Environment-scoped values
 scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-dev --env dev --repo "$repo"
-scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-staging --env staging --repo "$repo"
 scripts/ops/01-gh-actions-config.sh vars set ECS_CLUSTER_NAME data-zoo-prod --env prod --repo "$repo"
 
 # Per-service ECS deploy targets (repeat for each environment you use)

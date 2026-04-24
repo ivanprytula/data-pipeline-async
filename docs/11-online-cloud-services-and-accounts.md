@@ -52,7 +52,7 @@ Create and maintain:
 
 - repository owner/organization account
 - branch protection rules for main and develop
-- GitHub Environments: dev, staging, prod
+- GitHub Environments: dev, prod
 - repository variables and secrets
 - Dependabot enabled for actions and dependencies
 
@@ -66,7 +66,7 @@ Critical configuration:
 
 Create and maintain:
 
-- one AWS account minimum (prefer separate dev/staging/prod accounts)
+- one AWS account minimum (prefer separate dev/prod accounts)
 - IAM Identity Center users/groups/permission sets
 - OIDC federation from GitHub to AWS IAM roles
 - ECR repositories for service images
@@ -80,7 +80,6 @@ Primary region:
 Recommended account model:
 
 - data-zoo-dev
-- data-zoo-staging
 - data-zoo-prod
 
 ## 3. Domain and TLS
@@ -138,7 +137,7 @@ Practical budget controls:
 - set AWS Budgets with monthly alert thresholds
 - separate tags/cost allocation per environment
 - cap log retention where possible
-- use non-prod scaling policies aggressively in dev/staging
+- use non-prod scaling policies aggressively in dev
 
 ## Ongoing Maintenance Checklist
 
@@ -171,13 +170,13 @@ Practical budget controls:
 | Setup Item | Create Now | Can Defer | Free Tier / Low Cost | Owner | Current Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | GitHub repository governance baseline | Yes | No | Partial | Platform/Admin | Partial | Workflows, required-check scripts, and environment scaffolding exist. Branch protection is not fully applied yet. |
-| AWS account structure for dev/staging/prod | Yes if deploying to cloud soon | Yes if staying local-only | No | Cloud/Admin | Partial | Repo assumes `dev`, `staging`, and `prod`, but actual AWS account separation is not verified from the repo. |
+| AWS account structure for dev/prod | Yes if deploying to cloud soon | Yes if staying local-only | No | Cloud/Admin | Partial | Repo assumes `dev` and `prod`, but actual AWS account separation is not verified from the repo. |
 | IAM Identity Center and permission sets | No | Yes | Yes for service itself | Cloud/Admin | Not started / not verified | No repo evidence of Identity Center setup. Needed once multiple human operators need controlled AWS access. |
 | GitHub OIDC trust and deploy roles | Yes before push/promote/deploy | No once cloud deploy starts | Yes for OIDC itself | Platform/Admin + Cloud/Admin | Partial | Workflows are wired for OIDC, but AWS auth inputs are still incomplete in GitHub configuration. |
 | ECR repositories for all service images | Yes before image push/promotion | Yes if only building locally | No | Platform/Admin | Partial | CI/build/promotion now support `ingestor`, `ai_gateway`, `query_api`, `processor`, and `dashboard`, but ECR presence is not verified from the repo. |
 | Terraform backend (S3 + DynamoDB lock table) | Yes before shared Terraform use | Yes if Terraform is not being applied yet | Low cost | Platform/Admin | Not verified | Documented in cloud setup docs, but live backend provisioning is not visible from this repo alone. |
 | DNS and ACM certificates | Yes before public environment exposure | Yes for local-only or private dev | ACM public certs are low/no direct cost; DNS is paid | Cloud/Admin | Not started / not verified | Needed for public HTTPS endpoints, ALB routing, and stable domains. |
-| GitHub environments `dev` / `staging` / `prod` | Yes | No | Yes | Platform/Admin | Partial | Environments exist and now contain per-service ECS variable names, but approval rules and deploy secrets are still incomplete. |
+| GitHub environments `dev` / `prod` | Yes | No | Yes | Platform/Admin | Partial | Environments exist and now contain per-service ECS variable names, but approval rules and deploy secrets are still incomplete. |
 | Monitoring, error tracking, and incident routing | No for initial local-only development | Yes | Mixed | SRE/Platform | Partial | CloudWatch, Prometheus/Grafana, and security workflows are represented in repo docs/workflows; Sentry/PagerDuty/Slack setup is not verified. |
 | Budget alerts and ownership rotation | No for earliest prototype stage | Yes | Yes / low cost | Cloud/Admin + Platform/Admin | Not started / not verified | Should be added before sustained cloud usage to prevent silent spend growth. |
 

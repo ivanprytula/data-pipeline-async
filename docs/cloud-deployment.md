@@ -149,7 +149,7 @@ Repository-level values:
 | Variable | `AWS_REGION` | `eu-central-1` | Shared region default for build, promote, and deploy workflows |
 | Secret | `AWS_ACCOUNT_ID` | `123456789012` | Required for ECR registry resolution |
 
-Environment-level values (`dev`, `staging`, `prod`):
+Environment-level values (`dev`, `prod`):
 
 | Type | Name | Example | Notes |
 | ---- | ---- | ------- | ----- |
@@ -203,7 +203,7 @@ The repository now uses four separate workflow stages instead of one workflow wi
 1. [CI workflow](../.github/workflows/ci.yml): queued quality, unit, migrations, integration, e2e, PR dependency audit, then build-only image validation on push
 2. [Manual Docker Build](../.github/workflows/docker-build.yml): manual build or build+push for one service or all services
 3. [Release Promote](../.github/workflows/release-promote.yml): manual promotion of one service or all services by digest/tag
-4. [CD Deploy](../.github/workflows/cd-deploy.yml): manual per-service ECS deployment to `dev`, `staging`, or `prod`
+4. [CD Deploy](../.github/workflows/cd-deploy.yml): manual per-service ECS deployment to `dev` or `prod`
 
 Manual deploy example:
 
@@ -242,7 +242,7 @@ When you're ready to use the current GitHub Actions delivery path end-to-end:
 
 4. Ensure GitHub Actions variables and secrets are populated for the target environment
 5. Run `docker-build.yml` manually with `push_image=true`
-6. Run `release-promote.yml` for the image you want to tag for `dev`, `staging`, or `prod`
+6. Run `release-promote.yml` for the image you want to tag for `dev` or `prod`
 7. Run `cd-deploy.yml` and choose the exact service and environment to deploy
 
 ---

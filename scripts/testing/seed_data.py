@@ -6,7 +6,7 @@ No direct DB access — works against the running app only.
 Usage:
     uv run python scripts/testing/seed_data.py            # 10 000 records (default)
     uv run python scripts/testing/seed_data.py 50000      # custom count
-    BASE_URL=http://staging:8000 uv run python scripts/testing/seed_data.py
+    BASE_URL=http://localhost:8000 uv run python scripts/testing/seed_data.py
 """
 
 from __future__ import annotations

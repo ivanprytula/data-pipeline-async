@@ -10,7 +10,7 @@
 
 **Everything** in backend systems eventually hits one of five bottlenecks (in order of prevalence):
 
-```
+```text
 1. DATABASE BOTTLENECK    (70% of cases)   → Wrong query, no index, lock contention
 2. I/O BOTTLENECK         (15% of cases)   → Network latency, external APIs, disk I/O
 3. CPU BOTTLENECK         (10% of cases)   → Compute-bound processing, no parallelism
@@ -20,7 +20,7 @@
 
 **Decision Rule**: Measure first, diagnose which bottleneck, then solve.
 
-```
+```text
 ❌ WRONG: "Let me add caching" (assumes I/O bottleneck)
 ✅ RIGHT: Run query analyzer → See sequential table scan → Add index
 ❌ WRONG: "Let me optimize CPU" (assumes compute bottleneck)
@@ -35,7 +35,7 @@
 
 **Mental Model**: Every UPDATE creates a new row version, not in-place modification.
 
-```
+```text
 Transaction 1 (writes)
 ├─ Old row version: "status=pending"
 ├─ Commits: New row version: "status=approved"
@@ -76,7 +76,7 @@ async def process_in_batches():
 
 **EXPLAIN ANALYZE Decision Tree**:
 
-```
+```text
 1. Slow query detected
    └─ Run: EXPLAIN ANALYZE SELECT ...
    └─ Output shows:
@@ -116,11 +116,11 @@ async def process_in_batches():
 
 ### 1.3 Isolation Levels (Correctness vs Performance)
 
-| Level | Problem | When | Cost |
-|-------|---------|------|------|
-| READ COMMITTED (default) | Non-repeatable reads | 99% of cases | ✅ Lowest |
-| REPEATABLE READ | Phantom reads | Strong consistency needs | ⚠️ Medium |
-| SERIALIZABLE | None (total ordering) | Financial transactions | ❌ High |
+| Level                    | Problem               | When                     | Cost      |
+| ------------------------ | --------------------- | ------------------------ | --------- |
+| READ COMMITTED (default) | Non-repeatable reads  | 99% of cases             | ✅ Lowest |
+| REPEATABLE READ          | Phantom reads         | Strong consistency needs | ⚠️ Medium |
+| SERIALIZABLE             | None (total ordering) | Financial transactions   | ❌ High   |
 
 **Real Scenario**: Concurrent balance updates (lost update problem)
 
@@ -155,7 +155,7 @@ async with db.begin():
 
 **Mental Model**: One thread, many tasks, pausing & resuming based on I/O readiness.
 
-```
+```text
 Event Loop Timeline:
 ├─ Task A (await db.query)     → Yields, waits for DB
 ├─ Task B (await api.get)      → Yields, waits for network
@@ -171,6 +171,7 @@ Event Loop Timeline:
 ```
 
 **The Rule**:
+
 - **I/O-bound** (network, disk, DB)? Use async → 10–100x improvement
 - **CPU-bound** (compute, parsing)? Async is useless
 
@@ -194,7 +195,7 @@ async def fetch_user_and_posts(user_id):
 
 **Truth**: Only ONE thread can execute Python bytecode at a time.
 
-```
+```text
 Two threads computing (no I/O):
 ├─ Thread 1: Running bytecode [====]
 ├─ Thread 2: Waiting (GIL held by Thread 1)
@@ -220,7 +221,7 @@ BUT with async (one thread, many tasks):
 
 **Definition**: Processing the same message twice produces same result as once.
 
-```
+```text
 ❌ NOT idempotent:
 def increment_counter(user_id):
     count = db.get(f"SELECT count FROM users WHERE id={user_id}")
@@ -250,7 +251,7 @@ def increment_counter(user_id, event_id):
 
 **Concept**: When processing fails, move message to DLQ for later investigation.
 
-```
+```text
 Normal flow:
 Event → Process → Success → Delete from queue
 
@@ -277,7 +278,7 @@ Operator action:
 
 **Problem**: Producer sends 1000 messages/sec, consumer processes 100/sec
 
-```
+```text
 Without backpressure:
 ├─ Queue grows: 0 → 100 → 200 → 500 → 1000 (unbounded)
 ├─ Memory exhausted → Application crashes
@@ -314,7 +315,7 @@ async def producer():
 
 **Solution**: Circuit breaker stops calling B after first few failures.
 
-```
+```text
 State machine:
 
 CLOSED (normal)
@@ -378,6 +379,7 @@ async def update_user(user_id: int, data: dict):
 **Your Answer** (2 min):
 
 "First, I'd run EXPLAIN ANALYZE to understand the plan. I'm looking for:
+
 1. Is it a sequential scan on a large table?
 2. If yes, check if I can add an index matching the WHERE clause
 3. If it's an index scan but slow, check the join order
@@ -385,6 +387,7 @@ async def update_user(user_id: int, data: dict):
 5. Monitor actual vs estimated rows — big difference means outdated statistics
 
 Then I'd check if it's a database bottleneck at all. Maybe the slow part is:
+
 - Application-side filtering (stream too much data then filter in Python)
 - Serialization (JSON encoding huge result set)
 - Network latency (results sent across data center)
@@ -398,17 +401,20 @@ I'd profile with Python profiler or database slow-query log to confirm."
 "Depends on the bottleneck:
 
 **Async**: I/O-bound workload (network calls, database queries, file I/O).
+
 - Single thread, event loop, many concurrent tasks
 - Example: Web server handling 1000 concurrent requests
 - Can do 1000 I/O operations in parallel efficiently
 
 **Threads**: I/O-bound with legacy synchronous libraries.
+
 - GIL allows only one thread to execute Python bytecode at a time
 - But I/O releases the GIL, so other threads can progress
 - Example: Multiple database drivers that don't support async
 - Risk: Race conditions if not careful with shared state
 
 **Processes**: CPU-bound workload (computation, heavy parsing).
+
 - GIL doesn't apply (separate Python interpreters)
 - True parallelism on multi-core
 - Example: Heavy ML inference, video encoding
@@ -460,7 +466,7 @@ This way, even if the API goes down, my service degrades gracefully."
 
 **The Reality**: Raw data is broken. Missing fields, wrong types, duplicates. Your job: catch it early.
 
-```
+```text
 Raw Data Stream
   ├─ Schema validation (expected fields, types)
   ├─ Business logic validation (age > 0, email has @)
@@ -470,7 +476,7 @@ Raw Data Stream
   └─ → Invalid data to DLQ for manual review
 ```
 
-**Example: CSV upload of customer records**
+Example: CSV upload of customer records
 
 ```python
 from pydantic import BaseModel, field_validator
@@ -520,7 +526,7 @@ async def import_customers(file: UploadFile):
 
 **The Solution**: Separate write path (operational DB) from read path (analytics DB optimized for queries).
 
-```
+```text
 Write Path (Operational):
   User clicks → FastAPI endpoint → PostgreSQL (normalized schema)
   └─ Publishes event: "customer_created"
@@ -534,7 +540,7 @@ Query: "Revenue by country last 30 days"
   └─ New: Query pre-aggregated table in analytics DB → 100ms
 ```
 
-**Implementation Example**
+Implementation Example
 
 ```python
 # Write path: Operational
@@ -583,16 +589,16 @@ async def revenue_by_country(db: AsyncSession):
 
 ### 6.1 Multi-Environment Deployment Strategy
 
-**The Pattern**: dev → staging → production. Same code, different configs.
+**The Pattern**: dev → production. Same code, different configs.
 
-```
+```text
 git push main
   ├─ GitHub Actions triggers
   ├─ Test suite runs (pytest)
   ├─ Build Docker image
   ├─ Tag with git commit SHA
   │
-  ├─ Deploy to staging (auto)
+  ├─ Deploy to dev (auto)
   │   ├─ Run migration
   │   ├─ Update image in ECS
   │   ├─ Run smoke tests
@@ -612,7 +618,7 @@ git push main
 
 **The Reality**: You have limited CPU/memory. Too many requests → everything crashes.
 
-```
+```text
 Without limits:
   ├─ 1000 concurrent requests
   ├─ Each uses 100MB memory
@@ -630,6 +636,7 @@ With limits:
 ```
 
 **Rule of Thumb**:
+
 - **Requests** = what you need (baseline)
 - **Limits** = max you'll ever use (safety valve)
 - **Ratio**: Limits should be ~2x requests (leave headroom for spikes)
@@ -663,7 +670,7 @@ spec:
 
 **The Goal**: Detect problems before users notice.
 
-```
+```text
 Application Metrics (Prometheus):
   ├─ Request latency (P50, P95, P99)
   ├─ Error rate (errors / total requests)
@@ -687,7 +694,7 @@ Alerts (PagerDuty):
 Dashboards (Grafana):
   ├─ Real-time service health (green/yellow/red)
   ├─ Historical trends (is performance degrading?)
-  ├─ Comparison (staging vs production)
+  ├─ Comparison (dev vs production)
   └─ Business metrics (revenue, signups)
 ```
 
@@ -698,14 +705,16 @@ Dashboards (Grafana):
 **The Question**: "If the database dies, how fast can you recover?"
 
 **RTO** (Recovery Time Objective) = How long until system is back up?
+
 - Goal: < 1 hour
 - Do: Automated failover to read replica
 
 **RPO** (Recovery Point Objective) = How much data can you lose?
+
 - Goal: < 5 minutes
 - Do: Continuous backups + WAL archiving
 
-```
+```text
 Production Database (Primary)
   ├─ Writes happen here
   ├─ Continuous streaming to:
@@ -732,7 +741,7 @@ Production Database (Primary)
   - CQRS + analytics (separate read/write paths)
 
 - ✅ **Solid (DevOps, Observability)**
-  - Multi-env deployment (dev → staging → prod)
+  - Multi-env deployment (dev → prod)
   - Resource limits + scaling (Kubernetes)
   - Monitoring + alerting (detect problems early)
   - Backup + recovery (RTO/RPO)
