@@ -89,6 +89,40 @@ class NotificationTestResponse(BaseModel):
     detail: str | None = None
 
 
+class VectorSearchResult(BaseModel):
+    """One semantic-search match returned by the AI gateway."""
+
+    id: int
+    score: float
+    metadata: dict[str, Any]
+
+
+class VectorSearchQueryResponse(BaseModel):
+    """Semantic-search response for indexed records."""
+
+    results: list[VectorSearchResult]
+    count: int
+    query: str
+    collection: str
+
+
+class VectorSearchIndexResponse(BaseModel):
+    """Response from indexing records into the AI gateway."""
+
+    requested_count: int
+    indexed_count: int
+    missing_record_ids: list[int] = Field(default_factory=list)
+    collection: str
+
+
+class VectorSearchHealthResponse(BaseModel):
+    """Health status of the AI gateway bridge."""
+
+    status: str
+    ai_gateway_connected: bool
+    collection: str
+
+
 __all__ = [
     "PaginationMeta",
     "NotificationDispatchResult",
@@ -99,4 +133,8 @@ __all__ = [
     "BackgroundTaskStatusResponse",
     "NotificationTestRequest",
     "NotificationTestResponse",
+    "VectorSearchResult",
+    "VectorSearchQueryResponse",
+    "VectorSearchIndexResponse",
+    "VectorSearchHealthResponse",
 ]

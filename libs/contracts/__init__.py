@@ -37,6 +37,10 @@ from libs.contracts.schemas import (
     PaginationMeta,
     ScrapeResponse,
     SessionResponse,
+    VectorSearchHealthResponse,
+    VectorSearchIndexResponse,
+    VectorSearchQueryResponse,
+    VectorSearchResult,
 )
 
 
@@ -57,4 +61,8 @@ __all__ = [
     "BackgroundTaskStatusResponse",
     "NotificationTestRequest",
     "NotificationTestResponse",
+    "VectorSearchResult",
+    "VectorSearchQueryResponse",
+    "VectorSearchIndexResponse",
+    "VectorSearchHealthResponse",
 ]
