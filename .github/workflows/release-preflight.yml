@@ -1,6 +1,9 @@
 name: Release Preflight
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -28,7 +31,7 @@ jobs:
   preflight:
     name: Release preflight checks
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -62,7 +65,7 @@ jobs:
           DATABASE_URL_RAW: ${{ secrets.DATABASE_URL_RAW }}
           BACKUP_LAST_SUCCESS_AT: ${{ vars.BACKUP_LAST_SUCCESS_AT }}
           BACKUP_MAX_AGE_HOURS: ${{ vars.BACKUP_MAX_AGE_HOURS }}
-          REQUIRE_BACKUP_RECENCY: ${{ inputs.require-backup-recency }}
+          REQUIRE_BACKUP_RECENCY: ${{ github.event_name == 'workflow_dispatch' && inputs.require-backup-recency || true }}
         run: |
           set -euo pipefail
           uv run python - <<'PYTHON'

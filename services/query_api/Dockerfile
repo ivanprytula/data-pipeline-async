@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Multi-stage build for query-api service
-FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa as builder
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR /app
@@ -26,9 +26,8 @@ WORKDIR /app
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 
-# Copy app and services
-COPY app ./app
-COPY services/query-api ./services/query-api
+# Copy only query_api source to keep service image independent
+COPY services/query_api ./services/query_api
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \

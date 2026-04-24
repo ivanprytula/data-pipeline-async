@@ -111,7 +111,12 @@ jobs:
 
       - name: Build image
         run: |
-          docker build \
+          docker buildx create --name ci-builder --driver docker-container --use || docker buildx use ci-builder
+          docker buildx inspect --bootstrap
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope="${{ steps.meta.outputs.artifact_stem }}" \
+            --cache-to type=gha,mode=max,scope="${{ steps.meta.outputs.artifact_stem }}" \
             -f "${{ inputs.dockerfile }}" \
             -t "${{ steps.meta.outputs.image_uri }}" \
             "${{ inputs.context }}"

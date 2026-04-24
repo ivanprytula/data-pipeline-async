@@ -127,11 +127,8 @@ fi
 
 default_contexts_json='[
 	"CI / 01 Quality checks — Python 3.14",
+	"CI / 01b Change impact routing",
 	"CI / 02 Unit tests — Python 3.14",
-	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
-	"CI / 04 Integration tests — Python 3.14",
-	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit",
 	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]'
 
@@ -146,11 +143,8 @@ discover_required_contexts() {
 	local targets_json
 	targets_json='[
 		"01 Quality checks — Python 3.14",
+		"01b Change impact routing",
 		"02 Unit tests — Python 3.14",
-		"03 Verify Alembic migrations (PostgreSQL 17)",
-		"04 Integration tests — Python 3.14",
-		"05 E2E tests — Python 3.14",
-		"06 Dependency Audit",
 		"Secrets Scan (changed lines)"
 	]'
 
@@ -187,11 +181,8 @@ if [[ "$discover_contexts" != "true" ]]; then
 read -r -d '' contexts_json <<'JSON' || true
 [
 	"CI / 01 Quality checks — Python 3.14",
+	"CI / 01b Change impact routing",
 	"CI / 02 Unit tests — Python 3.14",
-	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
-	"CI / 04 Integration tests — Python 3.14",
-	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit",
 	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]
 JSON
