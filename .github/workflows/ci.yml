@@ -77,6 +77,9 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+      - name: Enforce service boundary guardrails (phase 1)
+        run: python scripts/ci/check_service_boundaries.py
+
   change-impact:
     name: 01b Change impact routing
     runs-on: ubuntu-latest
