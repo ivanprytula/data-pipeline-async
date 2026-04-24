@@ -919,10 +919,6 @@ jobs:
       - name: Report build matrix
         run: |
           echo "### Docker Build Result" >> "$GITHUB_STEP_SUMMARY"
-          echo "Built images:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/ingestor" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/ai_gateway" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/query_api" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/processor" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/dashboard" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changed services built: ${{ needs.service-matrix.outputs.changed_services_matrix }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build result: ${{ needs.build-images.result }}" >> "$GITHUB_STEP_SUMMARY"

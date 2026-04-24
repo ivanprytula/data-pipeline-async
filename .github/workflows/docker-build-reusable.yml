@@ -153,18 +153,3 @@ jobs:
           cosign verify \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "${{ steps.push.outputs.image_digest_uri }}" >/dev/null
-
-      - name: Generate SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ steps.meta.outputs.image_uri }}
-          format: cyclonedx
-          output: sbom-${{ steps.meta.outputs.artifact_stem }}.json
-          scanners: image,config
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: sbom-${{ steps.meta.outputs.artifact_stem }}
-          path: sbom-${{ steps.meta.outputs.artifact_stem }}.json
-          retention-days: 30

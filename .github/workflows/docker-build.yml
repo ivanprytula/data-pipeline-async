@@ -37,34 +37,59 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
 
 jobs:
+  # Build a filtered service matrix based on inputs.service.
+  # matrix context is not available in job-level if when using uses:, so we
+  # pre-filter here and drive the build-images matrix from this output.
+  prepare-matrix:
+    name: Prepare build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+      has_builds: ${{ steps.build.outputs.has_builds }}
+    steps:
+      - name: Build service matrix from input
+        id: build
+        run: |
+          set -euo pipefail
+
+          all_services='[
+            {"name":"ingestor","image_name":"data-zoo/ingestor","dockerfile":"Dockerfile"},
+            {"name":"ai_gateway","image_name":"data-zoo/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile"},
+            {"name":"query_api","image_name":"data-zoo/query_api","dockerfile":"services/query_api/Dockerfile"},
+            {"name":"processor","image_name":"data-zoo/processor","dockerfile":"services/processor/Dockerfile"},
+            {"name":"dashboard","image_name":"data-zoo/dashboard","dockerfile":"services/dashboard/Dockerfile"}
+          ]'
+
+          service="${{ inputs.service }}"
+          if [[ "$service" == "all" ]]; then
+            matrix="$all_services"
+          else
+            matrix=$(jq --arg svc "$service" '[.[] | select(.name == $svc)]' <<< "$all_services")
+          fi
+
+          count=$(jq 'length' <<< "$matrix")
+          if [[ "$count" -gt 0 ]]; then
+            echo "has_builds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_builds=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   build-images:
-    name: Build ${{ matrix.image.name }}
+    name: Build ${{ matrix.service.name }}
+    needs: prepare-matrix
+    if: ${{ needs.prepare-matrix.outputs.has_builds == 'true' }}
     strategy:
+      fail-fast: false
       matrix:
-        image:
-          - name: ingestor
-            image_name: data-zoo/ingestor
-            dockerfile: Dockerfile
-          - name: ai_gateway
-            image_name: data-zoo/ai_gateway
-            dockerfile: services/ai_gateway/Dockerfile
-          - name: query_api
-            image_name: data-zoo/query_api
-            dockerfile: services/query_api/Dockerfile
-          - name: processor
-            image_name: data-zoo/processor
-            dockerfile: services/processor/Dockerfile
-          - name: dashboard
-            image_name: data-zoo/dashboard
-            dockerfile: services/dashboard/Dockerfile
-    if: ${{ inputs.service == 'all' || inputs.service == matrix.image.name }}
+        service: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
-      image-name: ${{ matrix.image.image_name }}
-      dockerfile: ${{ matrix.image.dockerfile }}
+      image-name: ${{ matrix.service.image_name }}
+      dockerfile: ${{ matrix.service.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
@@ -76,7 +101,8 @@ jobs:
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: build-images
+    needs: [prepare-matrix, build-images]
+    if: ${{ needs.build-images.result != 'skipped' && needs.build-images.result != 'cancelled' }}
     steps:
       - name: Report build matrix
         run: |
@@ -84,3 +110,4 @@ jobs:
           echo "Selected service scope: ${{ inputs.service }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Push mode: ${{ inputs.push_image && 'enabled' || 'disabled' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Signing mode: ${{ inputs.sign_image && 'enabled' || 'disabled' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build result: ${{ needs.build-images.result }}" >> "$GITHUB_STEP_SUMMARY"
