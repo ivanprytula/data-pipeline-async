@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Phase 1 guardrails for service boundary enforcement.
+"""Phase 2 guardrails for service boundary enforcement.
 
 Checks implemented:
 1. No cross-service Python imports between the five service boundaries.
 2. No direct access to another service's persistence modules
    (database/models/crud/storage/repository/repositories).
+3. libs.platform and libs.contracts are shared namespaces — any service
+   may import from them, but they must not import back into any service.
 
 The five service boundaries are:
 - ingestor
@@ -12,6 +14,10 @@ The five service boundaries are:
 - services/query_api
 - services/processor
 - services/dashboard
+
+Allowed shared namespaces (any service may import):
+- libs.platform
+- libs.contracts
 """
 
 from __future__ import annotations
@@ -22,6 +28,14 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Shared library namespaces — imports from these are always permitted.
+SHARED_LIBS: frozenset[str] = frozenset({"libs.platform", "libs.contracts"})
+
+LIBS_ROOTS: dict[str, Path] = {
+    "libs.platform": REPO_ROOT / "libs" / "platform",
+    "libs.contracts": REPO_ROOT / "libs" / "contracts",
+}
 
 SERVICE_ROOTS: dict[str, Path] = {
     "ingestor": REPO_ROOT / "ingestor",
@@ -60,6 +74,18 @@ def detect_service_owner(file_path: Path) -> str | None:
 
 
 def module_to_service(module: str) -> str | None:
+    """Return the owning service name for a module string, or None.
+
+    Returns None for:
+    - stdlib / third-party modules
+    - libs.platform and libs.contracts (shared, always allowed)
+    """
+    # Shared libs are always allowed — not owned by any single service.
+    if module == "libs" or any(
+        module == lib or module.startswith(lib + ".") for lib in SHARED_LIBS
+    ):
+        return None
+
     if module == "ingestor" or module.startswith("ingestor."):
         return "ingestor"
 
@@ -148,15 +174,50 @@ def collect_service_python_files() -> list[Path]:
     return sorted(files)
 
 
+def collect_libs_python_files() -> list[Path]:
+    files: list[Path] = []
+    for root in LIBS_ROOTS.values():
+        if not root.exists():
+            continue
+        files.extend(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
+    return sorted(files)
+
+
+def scan_libs_file(file_path: Path) -> list[Violation]:
+    """Check that libs/* do not import back into any service (SVC003)."""
+    content = file_path.read_text(encoding="utf-8")
+    tree = ast.parse(content, filename=str(file_path))
+
+    violations: list[Violation] = []
+    for node in ast.walk(tree):
+        for line, module in extract_import_modules(node):
+            target_service = module_to_service(module)
+            if target_service is not None:
+                violations.append(
+                    Violation(
+                        file=file_path,
+                        line=line,
+                        code="SVC003",
+                        message=(
+                            f"libs must not import from services: '{module}' "
+                            f"(target: '{target_service}')."
+                        ),
+                    )
+                )
+    return violations
+
+
 def main() -> int:
-    files = collect_service_python_files()
     violations: list[Violation] = []
 
-    for file_path in files:
+    for file_path in collect_service_python_files():
         violations.extend(scan_file(file_path))
 
+    for file_path in collect_libs_python_files():
+        violations.extend(scan_libs_file(file_path))
+
     if not violations:
-        print("Service boundary guardrails passed (phase 1).")
+        print("Service boundary guardrails passed (phase 2).")
         return 0
 
     print("Service boundary guardrails failed:")
