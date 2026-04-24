@@ -30,7 +30,7 @@ GitHub Actions CI
     v
 Artifact Registry (ECR)
   - immutable tags: sha-<commit>
-  - promotion tags: dev, staging, prod
+  - promotion tags: dev, prod
     |
     +-----------------------------+
     |                             |
@@ -86,7 +86,7 @@ Runtime options:
   - `scripts/ops/01-gh-actions-config.sh` for vars/secrets/OIDC maintenance via `gh`
 - Remaining for full target state:
   - enable cosign signing + verification gate before deploy
-  - finalize digest-only deployment promotion pipeline (`dev` -> `staging` -> `prod`)
+  - finalize digest-only deployment promotion pipeline (`dev` -> `prod`)
 
 ## 1. Split CI and CD responsibilities clearly
 
@@ -117,7 +117,7 @@ Use this split:
 - `PYTHON_VERSION=3.14`
 - `UV_VERSION=0.11.7`
 
-### Environment Variables (`vars` in `dev`, `staging`, `prod`)
+### Environment Variables (`vars` in `dev`, `prod`)
 
 - `ECS_CLUSTER_NAME`
 - `ECS_SERVICE_NAME`
@@ -189,7 +189,7 @@ Use immutable promotion, not rebuild per env:
 
 1. Build once on merge
 2. Push image tagged with commit SHA and digest
-3. Promote same digest to `dev` then `staging` then `prod`
+3. Promote same digest to `dev` then `prod`
 4. Deploy only promoted digest
 
 This improves reproducibility and rollback reliability.
@@ -222,8 +222,7 @@ Add scheduled workflow:
 Recommended account layout (best):
 
 - AWS account 1: `data-zoo-dev`
-- AWS account 2: `data-zoo-staging`
-- AWS account 3: `data-zoo-prod`
+- AWS account 2: `data-zoo-prod`
 
 If keeping single account for now, isolate with strict IAM boundaries and tags.
 
@@ -263,7 +262,7 @@ This section is the requested checklist of online accounts/services.
 | Service | Account Type Needed | Purpose | Owner | Notes |
 | --- | --- | --- | --- | --- |
 | GitHub | Organization or dedicated project owner account | Source control, PRs, Actions, environments, branch protection | Team/Admin | Enable branch protection + required checks |
-| AWS | At least one AWS account (prefer separate dev/staging/prod) | Runtime, networking, data services, IAM OIDC trust | Cloud/Admin | Primary region: `eu-central-1` |
+| AWS | At least one AWS account (prefer separate dev/prod) | Runtime, networking, data services, IAM OIDC trust | Cloud/Admin | Primary region: `eu-central-1` |
 | AWS IAM Identity Center (SSO) | User + group assignments | Human access management with least privilege | Security/Admin | Avoid direct IAM users for humans |
 | AWS ECR | Registry in AWS account | Store signed container images | Platform | Repositories per service |
 | AWS ACM | Certificate management | TLS for ALB/API endpoints | Platform | Certificates must exist in deployment region |
@@ -291,7 +290,7 @@ This section is the requested checklist of online accounts/services.
 
 ## Minimum Manual Work Setup Checklist
 
-1. Create GitHub environments: `dev`, `staging`, `prod`
+1. Create GitHub environments: `dev`, `prod`
 2. Configure environment protection rules (reviewers, branch restrictions)
 3. Create one AWS OIDC deploy role per environment
 4. Store only non-sensitive config in `vars`, sensitive config in `secrets`
@@ -307,7 +306,6 @@ This section is the requested checklist of online accounts/services.
 | Environment | Branch | AWS Account | Region | OIDC Role |
 | --- | --- | --- | --- | --- |
 | `dev` | `develop` | `data-zoo-dev` | `eu-central-1` | `arn:aws:iam::<dev-account-id>:role/data-zoo-gha-dev` |
-| `staging` | `release/*` | `data-zoo-staging` | `eu-central-1` | `arn:aws:iam::<staging-account-id>:role/data-zoo-gha-staging` |
 | `prod` | `main` | `data-zoo-prod` | `eu-central-1` | `arn:aws:iam::<prod-account-id>:role/data-zoo-gha-prod` |
 
 Trust policy condition should match branch/environment to enforce least privilege.

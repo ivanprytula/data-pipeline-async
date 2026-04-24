@@ -56,7 +56,7 @@ Week 14: JWT implementation: short-lived access + long-lived refresh tokens, rat
 ### Phase 7 — Infrastructure as Code
 
 ```text
-Week 16: Terraform multi-env (dev/staging/prod) with RDS + Fargate + ElastiCache. Automatic backups, secrets rotation via AWS Secrets Manager. GitHub: [link]. #backend #devops
+Week 16: Terraform multi-env (dev/prod) with RDS + Fargate + ElastiCache. Automatic backups, secrets rotation via AWS Secrets Manager. GitHub: [link]. #backend #devops
 ```
 
 ---

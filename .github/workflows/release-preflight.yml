@@ -9,7 +9,6 @@ on:
         type: choice
         options:
           - dev
-          - staging
           - prod
       require-backup-recency:
         description: Enforce backup recency check

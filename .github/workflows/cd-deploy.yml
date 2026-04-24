@@ -9,7 +9,6 @@ on:
         type: choice
         options:
           - dev
-          - staging
           - prod
       service:
         description: Service to deploy
@@ -44,7 +43,7 @@ permissions:
 jobs:
   prepare:
     name: Resolve deploy target
-    if: ${{ inputs.environment == 'dev' || inputs.environment == 'staging' || inputs.environment == 'prod' }}
+    if: ${{ inputs.environment == 'dev' || inputs.environment == 'prod' }}
     runs-on: ubuntu-latest
     outputs:
       ecs_service: ${{ steps.resolve.outputs.ecs_service }}

@@ -140,10 +140,10 @@ INTERVIEW CHECKLIST:
 ### Phase 7: Terraform Multi-Environment
 
 ```text
-infra(terraform): add multi-environment support (dev, staging, prod)
+infra(terraform): add multi-environment support (dev, prod)
 
 Terraform modules: networking, RDS, ECS cluster, ALB. Variables.tf defines env inputs.
-Workspaces separate tfstate (dev, staging, prod). Secrets fetched from AWS Secrets Manager.
+Workspaces separate tfstate (dev, prod). Secrets fetched from AWS Secrets Manager.
 Terraform plan gated by GitHub Actions (manual approval for prod).
 
 INTERVIEW CHECKLIST:

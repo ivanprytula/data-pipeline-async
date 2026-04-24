@@ -82,7 +82,7 @@ Data Zoo progresses through **8 phases**, each adding one architectural layer:
 | **4** | Resilience Patterns  | ✅ Done                | Circuit breaker + DLQ for failures                   |
 | **5** | CQRS + Analytics     | 🚀 Active              | Read-optimized DB for 10M queries/day                |
 | **6** | Dashboard            | ✅ Implemented baseline| Server-rendered dashboard with SSE + admin workflows |
-| **7** | Cloud IaC            | ✅ Done                | Multi-env Terraform (dev/staging/prod)               |
+| **7** | Cloud IaC            | ✅ Done                | Multi-env Terraform (dev/prod)                       |
 | **8** | Production Hardening | ⏹️ Queued              | Backup/chaos/observability strategy                  |
 
 ---

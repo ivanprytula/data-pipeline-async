@@ -2,7 +2,7 @@
 
 **Status**: ✅ Complete
 **Timeline**: Week 13–14 (April 2026)
-**Core Question**: "Walk me through your multi-environment infrastructure deployment (dev/staging/prod). What trade-offs did you make?"
+**Core Question**: "Walk me through your multi-environment infrastructure deployment (dev/prod). What trade-offs did you make?"
 
 ---
 
