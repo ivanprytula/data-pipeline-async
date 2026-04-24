@@ -119,7 +119,6 @@ jobs:
 
   deploy:
     needs: prepare
-    environment: ${{ inputs.environment }}
     uses: ./.github/workflows/deploy-reusable.yml
     with:
       aws-region: ${{ vars.AWS_REGION }}
@@ -132,3 +131,4 @@ jobs:
       verify-signature: true
       cosign-certificate-identity: ${{ vars.COSIGN_CERTIFICATE_IDENTITY }}
       cosign-certificate-oidc-issuer: https://token.actions.githubusercontent.com
+      environment: ${{ inputs.environment }}
