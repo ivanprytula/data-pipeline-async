@@ -150,14 +150,14 @@ uv run pytest tests/test_records.py::test_create_record -v
 
 ### Run with Real PostgreSQL
 
-**Quick method (using script):**
+Quick method (using script):
 
 ```bash
 # Starts container, runs tests, cleans up automatically
 ./scripts/testing/01-test-with-postgres.sh tests/integration/records/test_concurrency.py -v
 ```
 
-**Manual method:**
+#### Manual Method
 
 ```bash
 # Start test DB
@@ -179,13 +179,13 @@ uv run pytest tests/integration/records/test_query_analysis.py::TestQueryAnalysi
 docker compose --profile test down
 ```
 
-**Settings:**
+#### Settings
 
 - Port: 5433 (Docker), 5432 (inside container)
 - Database: test_database
 - User: postgres / Password: postgres
 
-**Notes:**
+#### Notes
 
 - Default: SQLite in-memory tests only -> 192 passed, 10 skipped (PostgreSQL tests)
 - With Docker container running -> 202 passed (all tests including EXPLAIN ANALYZE)
@@ -272,7 +272,7 @@ pre-commit uninstall
 
 ### Authentication
 
-**HTTP Basic Auth (Docs endpoints):**
+#### HTTP Basic Auth (Docs Endpoints)
 
 ```bash
 # Access protected docs (prompts for username/password)
@@ -283,7 +283,7 @@ curl -u admin:admin http://localhost:8000/docs
 # DOCS_PASSWORD=changeme
 ```
 
-**Bearer Token (v1 API, stateless):**
+#### Bearer Token (v1 API, Stateless)
 
 ```bash
 # Static token from .env: API_V1_BEARER_TOKEN=dev-secret-bearer-token
@@ -293,7 +293,7 @@ curl -X POST http://localhost:8000/api/v1/records/batch/protected \
   -d '[{"source": "curl", "value": 42.0, "metadata": {}}]'
 ```
 
-**Session-Based Auth (v1 API, stateful):**
+#### Session-Based Auth (v1 API, Stateful)
 
 ```bash
 # 1. Login (creates session, returns Set-Cookie header)
@@ -378,20 +378,20 @@ curl http://localhost:8000/openapi.json
 
 ```bash
 # Dev stack: hot-reload, source mount
-docker compose -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
-# Shell into app container
-docker compose -f docker-compose.dev.yml exec app bash
+# Shell into ingestor container
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec ingestor bash
 
-# View app logs
-docker compose -f docker-compose.dev.yml logs app -f
+# View ingestor logs
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs ingestor -f
 ```
 
 ### Production-like (`docker-compose.prod-like.yml`)
 
 ```bash
 # Prod-like: built image, no source mount
-docker compose -f docker-compose.prod-like.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.prod-like.yml up --build
 
 # Check health endpoint in prod-like
 curl http://localhost:8000/health
@@ -400,17 +400,20 @@ curl http://localhost:8000/health
 ### Profiles (selective service start)
 
 ```bash
-# Start only DB and Redis (no app)
-docker compose --profile db-only up -d
-
-# Start with monitoring stack (Prometheus + Grafana)
+# Start with monitoring stack
 docker compose --profile monitoring up -d
 
-# Start everything
-docker compose --profile full up --build
+# Start vector stack (Qdrant + AI gateway)
+docker compose --profile vector up -d
+
+# Start processor worker
+docker compose --profile worker up -d
+
+# Start test database in addition to core services
+docker compose --profile test up -d db-test
 ```
 
-> See individual `docker-compose.*.yml` files for exact profile names.
+> Available profiles in this repo: `test`, `monitoring`, `vector`, `worker`.
 
 ---
 
@@ -483,14 +486,14 @@ open http://localhost:3000
 ### Logs
 
 ```bash
-# Tail app logs (Docker)
-docker compose logs app -f
+# Tail ingestor logs (Docker)
+docker compose logs ingestor -f
 
 # Filter for errors only
-docker compose logs app -f | grep '"level":"ERROR"'
+docker compose logs ingestor -f | grep '"level":"ERROR"'
 
 # Filter by correlation ID
-docker compose logs app | grep '"cid":"<value>"'
+docker compose logs ingestor | grep '"cid":"<value>"'
 ```
 
 ---

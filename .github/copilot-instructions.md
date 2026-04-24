@@ -14,7 +14,7 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 
 ## Communication Style
 
-**Concise and direct.**
+Concise and direct.
 - Minimize explanations; assume technical competence.
 - No filler: skip "Here's the answer," "Let me show you," "Thank you," "Thank you for," "Let me explain," "First, let me," etc.
 - No rephrasing/redundancy: state information once, move on.
@@ -262,6 +262,8 @@ limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 **Hard rule (non-negotiable):** Never violate this rule: "bold-only heading detected (use markdown headings)."
 Always use proper markdown heading syntax (`#`, `##`, `###`, etc.) and never use bold text as a heading substitute. If this will lead to duplicate headings, adjust the heading level or rephrase to maintain unique headings while following markdown syntax.
 
+**Explicit anti-pattern ban:** Never write standalone label lines like `**Manual method:**`, `**Settings:**`, `**Notes:**`, `**Expected output:**`. These are treated as emphasis-only headings and will fail the docs quality hook. Use `###`/`####` headings or plain paragraph text instead.
+
 **MD036: No emphasis as headings** — Never use bold/italic as section headings. Always use proper heading syntax (`#`, `##`, `###`, etc).
 ```markdown
 # ✅ CORRECT
@@ -282,6 +284,11 @@ More details here.
 **Why**: Markdown emphasis is for text highlighting, not document structure. Headings enable table of contents generation, screen reader navigation, and proper semantic HTML.
 
 **MD032: Lists must be surrounded by blank lines** — Always place a blank line before and after every list (ordered or unordered). Never start a list immediately after a heading, paragraph, or code block without a blank line in between.
+
+**Pre-flight markdown check** — before finishing any `.md` edit:
+1. Search for standalone emphasis lines (`^\*\*.*\*\*$`).
+2. Convert each to a proper heading or inline sentence.
+3. Re-check heading hierarchy (no skips).
 
 **MD040: Fenced code blocks must have language tag** — Always specify the code language (`` ```python ``, `` ```bash ``, `` ```text ``, etc). Never use bare `` ``` ``.
 ```markdown
@@ -304,7 +311,7 @@ def foo():
 
 ## Visual Documentation
 
-**Prefer diagrams over prose for flows, chains, and complex processes.**
+### Prefer Diagrams Over Prose
 
 When explaining workflows, dependency chains, data flows, or multi-step processes:
 
@@ -344,7 +351,7 @@ When explaining workflows, dependency chains, data flows, or multi-step processe
 
 **Rationale:** Readers scan visual diagrams in 2 seconds. Reading equivalent prose takes 30+ seconds and is harder to recall. For learning projects, diagrams are especially critical.
 
-**Where to add diagrams:**
+### Where To Add Diagrams
 - Code comments: Small ASCII diagrams inline (2–5 lines max)
 - Documentation files: Full flowcharts and ASCII art (no size limit)
 - Chat responses: ASCII diagrams explaining complex concepts (this file shows examples)

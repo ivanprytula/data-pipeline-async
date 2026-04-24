@@ -12,7 +12,7 @@ services:
           cpus: '2.0'          # Generous for debugging
           memory: '2G'         # No memory pressure
 
-  app:
+  ingestor:
     deploy:
       resources:
         reservations:

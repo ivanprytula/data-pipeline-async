@@ -34,7 +34,7 @@ case "$PROFILE" in
     echo "Examples:"
     echo "  bash scripts/ops/02-compose-profile.sh dev up"
     echo "  bash scripts/ops/02-compose-profile.sh prod-like up -d"
-    echo "  bash scripts/ops/02-compose-profile.sh prod-like logs app"
+    echo "  bash scripts/ops/02-compose-profile.sh prod-like logs ingestor"
     echo "  bash scripts/ops/02-compose-profile.sh prod up"
     exit 1
     ;;

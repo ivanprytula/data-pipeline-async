@@ -352,7 +352,7 @@ alembic upgrade head
 
 # Docker
 docker compose up --build
-docker compose logs app
+docker compose logs ingestor
 docker exec -it <container> bash
 
 # Git

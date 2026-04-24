@@ -226,3 +226,20 @@ See [ByteByteGo's Caching Guide](https://bytebytego.com/guides/).
 - **Dead links**: Broken internal references (keep links updated during refactoring).
 - **Poor table formatting**: Misaligned columns, missing headers.
 - **Unclear examples**: Examples that don't map to actual code or commands.
+
+## MD036 Guardrail (Docs Quality Hook)
+
+The repository pre-commit hook `docs-quality-markdown` fails on emphasis-only headings.
+
+- Never put a standalone bold line that acts like a heading, for example:
+  - `**Manual method:**`
+  - `**Settings:**`
+  - `**Notes:**`
+- Replace these with real headings (`###`, `####`) or convert them into plain paragraph text.
+- If a label is short and does not deserve a section, keep it inline in a sentence instead of a standalone line.
+
+Pre-flight check before finalizing markdown edits:
+
+1. Scan for standalone lines matching `**...**`.
+2. Convert each to a markdown heading or inline sentence.
+3. Ensure heading levels are consistent after conversion.

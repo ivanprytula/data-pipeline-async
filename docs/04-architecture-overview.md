@@ -239,6 +239,21 @@ Service discovery rollout:
 
 ## Key Design Patterns
 
+## Local Runtime Modes
+
+Use the same codebase in two local runtime modes depending on the task.
+
+| Mode | Entry Point | Best For |
+| --- | --- | --- |
+| Docker Compose (resource overlays) | `bash scripts/ops/02-compose-profile.sh dev up -d` | Daily API/backend iteration |
+| Docker Compose (optional stacks) | `docker compose --profile monitoring up -d`, `docker compose --profile vector up -d`, `docker compose --profile worker up -d` | Enabling only needed subsystems |
+| k3d (local Kubernetes) | `bash scripts/setup/03-bootstrap-k3d.sh` | Infra validation and K8s manifests rehearsal |
+
+Guardrails:
+
+- Service-boundary direction is enforced in CI via `scripts/ci/check_service_boundaries.py`.
+- Shared code is limited to `libs.platform` and `libs.contracts`; reverse imports into services are forbidden.
+
 ### Dependency Injection (FastAPI)
 
 All external dependencies (DB session, config, services) are injected via `Annotated[T, Depends(...)]`:

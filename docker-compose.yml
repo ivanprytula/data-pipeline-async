@@ -224,6 +224,8 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       QDRANT_LOG_LEVEL: info
+    profiles:
+      - vector
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:6333/health']
       interval: 10s
@@ -258,6 +260,8 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_started
+    profiles:
+      - worker
     deploy:
       restart_policy:
         condition: on-failure
@@ -284,6 +288,8 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
+    profiles:
+      - vector
     healthcheck:
       test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8001/health']
       interval: 10s
@@ -424,12 +430,7 @@ services:
     depends_on:
       - ingestor
       - dashboard
-      - ai-gateway
       - query-api
-      - jaeger
-      - grafana
-      - prometheus
-      - alertmanager
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost/nginx-status']
       interval: 10s
@@ -466,6 +467,8 @@ services:
       - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/monitoring/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
+    profiles:
+      - monitoring
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/-/healthy']
       interval: 10s
@@ -503,6 +506,8 @@ services:
       - ./infra/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
     depends_on:
       - prometheus
+    profiles:
+      - monitoring
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/api/health']
       interval: 10s
@@ -534,6 +539,8 @@ services:
     volumes:
       - ./infra/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
+    profiles:
+      - monitoring
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9093/-/healthy']
       interval: 10s
