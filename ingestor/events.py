@@ -23,42 +23,13 @@ from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
 from ingestor.core.circuit_breaker import CircuitOpenError, circuit_breaker
-
-
-# ---------------------------------------------------------------------------
-# Generic event envelope (PEP 695 syntax — Python 3.12+ standard)
-# ---------------------------------------------------------------------------
-
-
-class EventPayload[T]:
-    """Typed event envelope — wraps any payload with a named event_type.
-
-    Generic over T so callers get type-checked payloads:
-
-        event: EventPayload[dict[str, Any]] = EventPayload(
-            event_type="record.created",
-            payload={"record_id": 1, "source": "api"},
-        )
-        msg_bytes = json.dumps(event.to_dict()).encode()
-
-    The Observer pattern connects producers (this module) to consumers
-    (services/processor) via the Kafka topic without direct coupling.
-    """
-
-    def __init__(self, event_type: str, payload: T) -> None:
-        self.event_type = event_type
-        self.payload = payload
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to a JSON-encodable dict."""
-        return {"event_type": self.event_type, "payload": self.payload}
-
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-TOPIC_RECORD_CREATED = "records.events"
-TOPIC_SCRAPED = "scraped.events"
+from libs.contracts.events import (
+    EVENT_DOC_SCRAPED,
+    EVENT_RECORD_CREATED,
+    TOPIC_RECORD_CREATED,
+    TOPIC_SCRAPED,
+    EventPayload,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +105,7 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
         return
 
     event: EventPayload[dict[str, Any]] = EventPayload(
-        event_type="record.created",
+        event_type=EVENT_RECORD_CREATED,
         payload={"record_id": record_id, **payload},
     )
 
@@ -145,7 +116,7 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
         )
         logger.debug(
             "event_published",
-            extra={"event_type": "record.created", "record_id": record_id},
+            extra={"event_type": EVENT_RECORD_CREATED, "record_id": record_id},
         )
     except (KafkaError, CircuitOpenError) as exc:
         logger.warning(
@@ -168,7 +139,7 @@ async def publish_doc_scraped(source: str, count: int) -> None:
         return
 
     event: EventPayload[dict[str, Any]] = EventPayload(
-        event_type="doc.scraped",
+        event_type=EVENT_DOC_SCRAPED,
         payload={"source": source, "count": count},
     )
 
@@ -179,7 +150,7 @@ async def publish_doc_scraped(source: str, count: int) -> None:
         )
         logger.debug(
             "event_published",
-            extra={"event_type": "doc.scraped", "source": source, "count": count},
+            extra={"event_type": EVENT_DOC_SCRAPED, "source": source, "count": count},
         )
     except (KafkaError, CircuitOpenError) as exc:
         logger.warning(

@@ -20,6 +20,7 @@ from ingestor.constants import (
     VECTOR_SEARCH_MAX_TOP_K,
     VECTOR_SEARCH_MIN_RECORD_IDS,
 )
+from libs.contracts.schemas import NotificationDispatchResult, PaginationMeta
 
 
 class RecordRequest(BaseModel):
@@ -151,13 +152,6 @@ class BatchRecordsRequest(BaseModel):
     records: list[RecordRequest] = Field(
         ..., min_length=MIN_BATCH_SIZE, max_length=MAX_BATCH_SIZE
     )
-
-
-class PaginationMeta(BaseModel):
-    total: int
-    skip: int
-    limit: int
-    has_more: bool
 
 
 class RecordListResponse(BaseModel):
@@ -351,14 +345,6 @@ class NotificationTestRequest(BaseModel):
     severity: str = Field(default="info")
     event: str = Field(default="notification_test")
     channels: list[Literal["slack", "telegram", "webhook", "email"]] | None = None
-
-
-class NotificationDispatchResult(BaseModel):
-    """One channel dispatch result for notification test endpoint."""
-
-    channel: str
-    status: str
-    detail: str
 
 
 class NotificationTestResponse(BaseModel):
