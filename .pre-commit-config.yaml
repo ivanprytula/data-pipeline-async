@@ -36,6 +36,12 @@
         language: script
         types: [file]
         pass_filenames: false
+      - id: docs-quality-markdown
+        name: docs-quality-markdown
+        entry: uv run python scripts/ci/docs_quality_check.py --profile precommit
+        language: system
+        types: [markdown]
+        pass_filenames: true
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10

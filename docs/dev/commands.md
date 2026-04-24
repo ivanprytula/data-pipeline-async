@@ -264,6 +264,7 @@ pre-commit uninstall
 ```
 
 > See `docs/pre-commit-setup.md` for hook configuration details.
+> Dependabot branch-target troubleshooting checklist: `docs/dev/dependabot-verification-checklist.md`.
 
 ---
 

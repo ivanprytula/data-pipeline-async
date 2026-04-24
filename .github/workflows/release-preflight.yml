@@ -1,0 +1,152 @@
+name: Release Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      require-backup-recency:
+        description: Enforce backup recency check
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  PYTHON_VERSION: '3.14'
+  UV_VERSION: '0.11.7'
+
+jobs:
+  preflight:
+    name: Release preflight checks
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Cache pip / uv wheel
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
+          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
+            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
+            ${{ runner.os }}-pip-
+
+      - name: Install uv and sync dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv==${{ env.UV_VERSION }}
+          uv sync --frozen
+
+      - name: Preflight migration and backup checks
+        env:
+          DATABASE_URL_RAW: ${{ secrets.DATABASE_URL_RAW }}
+          BACKUP_LAST_SUCCESS_AT: ${{ vars.BACKUP_LAST_SUCCESS_AT }}
+          BACKUP_MAX_AGE_HOURS: ${{ vars.BACKUP_MAX_AGE_HOURS }}
+          REQUIRE_BACKUP_RECENCY: ${{ inputs.require-backup-recency }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PYTHON'
+          from __future__ import annotations
+
+          import os
+          from datetime import datetime, timezone
+
+          import psycopg
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(message)
+
+
+          db_url = os.environ.get("DATABASE_URL_RAW", "").strip()
+          if not db_url:
+              fail("DATABASE_URL_RAW secret is required for release preflight checks.")
+
+          cfg = Config("alembic.ini")
+          script = ScriptDirectory.from_config(cfg)
+          head_revision = script.get_current_head()
+
+          conn = psycopg.connect(db_url)
+          cur = conn.cursor()
+          cur.execute("SELECT version_num FROM alembic_version")
+          row = cur.fetchone()
+          cur.close()
+          conn.close()
+
+          if row is None:
+              fail("alembic_version table is missing or empty.")
+
+          current_revision = row[0]
+          if current_revision != head_revision:
+              fail(
+                  "Database is not at Alembic head. "
+                  f"current={current_revision} head={head_revision}"
+              )
+
+          pending_count = 0 if current_revision == head_revision else 1
+
+          require_backup = os.environ.get("REQUIRE_BACKUP_RECENCY", "true").lower() == "true"
+          backup_last_success_at = os.environ.get("BACKUP_LAST_SUCCESS_AT", "").strip()
+          backup_max_age_raw = os.environ.get("BACKUP_MAX_AGE_HOURS", "").strip()
+
+          if require_backup:
+              if not backup_last_success_at:
+                  fail(
+                      "BACKUP_LAST_SUCCESS_AT env var is required when backup recency is enforced."
+                  )
+              if not backup_max_age_raw:
+                  fail(
+                      "BACKUP_MAX_AGE_HOURS env var is required when backup recency is enforced."
+                  )
+
+              max_age_hours = int(backup_max_age_raw)
+              last_success = datetime.fromisoformat(backup_last_success_at.replace("Z", "+00:00"))
+              if last_success.tzinfo is None:
+                  last_success = last_success.replace(tzinfo=timezone.utc)
+              age_hours = (datetime.now(timezone.utc) - last_success).total_seconds() / 3600
+
+              if age_hours > max_age_hours:
+                  fail(
+                      "Backup recency check failed. "
+                      f"age_hours={age_hours:.2f} max_allowed={max_age_hours}"
+                  )
+
+          summary_lines = [
+              "### Release Preflight",
+              f"- Database connectivity: pass",
+              f"- Current revision: {current_revision}",
+              f"- Head revision: {head_revision}",
+              f"- Pending migration count: {pending_count}",
+              f"- Backup recency check enforced: {require_backup}",
+          ]
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as handle:
+                  handle.write("\n".join(summary_lines) + "\n")
+
+          print("Preflight checks passed.")
+          PYTHON

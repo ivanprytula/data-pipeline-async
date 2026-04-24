@@ -9,9 +9,9 @@
 
 - **Embedding service** (ai-gateway): Lazy-loaded `all-MiniLM-L6-v2` model with LRU cache deduplication
   - *Metric*: Sub-100ms embedding latency for batch operations; 1K unique texts cached, 99%+ cache hit rate
-- **Qdrant vector database integration** (Motor async client for 10K+ vector upserts): Typed collection schema, distance metrics (cosine), async search
+- **Qdrant vector database integration** (Qdrant client for 10K+ vector upserts): Typed collection schema, distance metrics (cosine), async search
   - *Metric*: 50ms p99 search latency over 10K vectors; zero downtime collection recreation
-- **Semantic search endpoint** (`GET /search?q=...`): Full-text query → embedding → Qdrant similarity search → ranked results with scores
+- **Semantic search endpoint** (`POST /search`): Full-text query → embedding → Qdrant similarity search → ranked results with scores
   - *Metric*: Top-10 results returned in <200ms; relevance verified on domain queries (e.g., "startup funding" returns HN finance posts first)
 - **Processor service upgrade**: Phase 1 processor now calls ai-gateway `/embed` after Phase 2 scraper completes
   - *Metric*: End-to-end pipeline: scrape → MongoDB → Kafka event → embed → Qdrant upsert (< 5s latency)
@@ -47,7 +47,7 @@
 - **Caching strategy**:
 
   ```python
-  # app/core/cache.py — Redis caching for embeddings
+    # ingestor/cache.py — Redis caching for embeddings
   embed_cache_key = f"embed:{md5(text)}"
   cached = await redis.get(embed_cache_key)
   if cached:
@@ -67,7 +67,7 @@
 *My implementation*:
 
 ```python
-# services/ai-gateway/vector_store.py
+# services/ai_gateway/vector_store.py
 def _make_id(text: str, source: str) -> str:
     """Deterministic UUID: same (source, text) → same ID."""
     return hashlib.md5(f"{source}:{text}".encode()).hexdigest()
@@ -96,7 +96,7 @@ await qdrant.upsert(
 
 *Typical answer*:
 
-| Model | Size  | Speed | Accuracy | Use Case |
+| Model | Size | Speed | Accuracy | Use Case |
 | --- | --- | --- | --- | --- |
 | `all-MiniLM-L6-v2` | 22M | Fast | 85% | General web search (🎯 our choice) |
 | `all-mpnet-base-v2` | 110M | Medium | 92% | High-accuracy domain search |
@@ -153,7 +153,7 @@ await qdrant.upsert(
 *Implemented*:
 
 ```python
-# services/ai-gateway/vector_store.py
+# services/ai_gateway/vector_store.py
 async def search(
     query_embedding: List[float],
     limit: int = 10,
@@ -181,7 +181,7 @@ async def search(
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │ POST /api/v1/scrape/hn (Phase 2)                        │
 │  ↓                                                        │
@@ -202,7 +202,7 @@ async def search(
 │ Qdrant Collection "scraped_docs"                        │
 │   (10K+ vectors indexed with HNSW)                      │
 │       ↓                                                   │
-│ GET /search?q=startups                                  │
+│ POST /search                                            │
 │   ├─ Query text → Embedding                             │
 │   ├─ Qdrant cosine search (top-10)                      │
 │   └─ Return ranked results with scores                  │
@@ -213,9 +213,9 @@ async def search(
 
 ## Implementation Details
 
-### 1. Embedding Model Setup (services/ai-gateway/embeddings.py)
+### 1. Embedding Model Setup (services/ai_gateway/embeddings.py)
 
-**Lazy Singleton with LRU Cache**
+#### Lazy Singleton with LRU Cache
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -270,9 +270,9 @@ def get_embedding_service() -> EmbeddingService:
 
 ---
 
-### 2. Qdrant Vector Store (services/ai-gateway/vector_store.py)
+### 2. Qdrant Vector Store (services/ai_gateway/vector_store.py)
 
-**Async Client with Typed Schema**
+#### Async Client with Typed Schema
 
 ```python
 from qdrant_client.async_client import AsyncQdrantClient
@@ -346,7 +346,7 @@ async def get_vector_store() -> VectorStore:
 
 ---
 
-### 3. FastAPI Routes (services/ai-gateway/main.py)
+### 3. FastAPI Routes (services/ai_gateway/main.py)
 
 ```python
 from fastapi import FastAPI, HTTPException
@@ -465,9 +465,9 @@ HNSW index parameter `ef_search` controls search accuracy/speed. Defaults to 100
 
 ### Core Implementation
 
-- [services/ai-gateway/embeddings.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai-gateway/embeddings.py) — Lazy model loading + LRU cache
-- [services/ai-gateway/vector_store.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai-gateway/vector_store.py) — Qdrant async client
-- [services/ai-gateway/main.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai-gateway/main.py) — `/embed` and `/search` routes
+- [services/ai_gateway/embeddings.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai_gateway/embeddings.py) — Lazy model loading + LRU cache
+- [services/ai_gateway/vector_store.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai_gateway/vector_store.py) — Qdrant async client
+- [services/ai_gateway/main.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/ai_gateway/main.py) — `/embed` and `/search` routes
 - [services/processor/main.py](https://github.com/ivanp/data-pipeline-async/blob/main/services/processor/main.py) — Updated to call ai-gateway
 
 ### Tests

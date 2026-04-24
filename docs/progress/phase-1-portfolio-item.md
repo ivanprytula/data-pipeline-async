@@ -64,7 +64,7 @@ A monolithic app can only scale by adding compute to a single service. To enable
 - Admin UI: port 8081 (topics can be inspected)
 - Healthcheck: Redpanda ready in ~5s after container start
 
-### 2. Producer: app/events.py
+### 2. Producer: ingestor/events.py
 
 Advanced Python Pattern: Generic Event Envelope
 
@@ -87,10 +87,10 @@ event: EventPayload[dict[str, Any]] = EventPayload(
 
 Mypy type-checks the payload structure, preventing accidental null fields.
 
-**Singleton Producer Pattern (modeled on `app/cache.py`):**
+**Singleton Producer Pattern (modeled on `ingestor/cache.py`):**
 
 - Module-level `_producer: AIOKafkaProducer | None = None`
-- `connect_producer(bootstrap_servers)` called in `app/main.py` lifespan
+- `connect_producer(bootstrap_servers)` called in `ingestor/main.py` lifespan
 - `disconnect_producer()` called on shutdown (graceful connection close)
 - `publish_record_created(record_id, payload)` → sends JSON to Kafka
 
@@ -140,7 +140,7 @@ Redpanda automatically partitions the topic — each replica consumes disjoint e
 
 ---
 
-### 4. Router Integration: app/routers/records.py
+### 4. Router Integration: ingestor/routers/records.py
 
 **POST /api/v1/records Updated:**
 
@@ -160,7 +160,7 @@ async def create_record(body: RecordCreate, db: DbDep) -> RecordResponse:
 
 ---
 
-### 5. Lifespan Wiring: app/main.py
+### 5. Lifespan Wiring: ingestor/main.py
 
 **Startup → Connect producer:**
 
@@ -200,19 +200,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 - Redpanda service created with healthcheck
 - Processor service created, depends_on redpanda
 
-✅ **app/events.py**
+✅ **ingestor/events.py**
 
 - aiokafka producer module-level singleton
 - `connect_producer()` / `disconnect_producer()` lifespan hooks
 - `publish_record_created()` function with fail-open
 - Structured JSON logging
 
-✅ **app/main.py**
+✅ **ingestor/main.py**
 
 - Lifespan connects Kafka producer on startup
 - Lifespan disconnects Kafka producer on shutdown
 
-✅ **app/routers/records.py**
+✅ **ingestor/routers/records.py**
 
 - POST /records calls `publish_record_created()` after DB write
 - API returns 201 regardless of Kafka success
@@ -307,13 +307,11 @@ After completing Phase 1, you understand:
 
 ## Code Statistics
 
-| Metric                  | Count                                                             |
-| ----------------------- | ----------------------------------------------------------------- |
-| New files               | 2 (`app/events.py`, `services/processor/main.py`)                 |
-| Modified files          | 3 (`docker-compose.yml`, `app/main.py`, `app/routers/records.py`) |
-| Lines of code (Phase 1) | ~250                                                              |
-| Test coverage impact    | 0 (no test changes; Kafka is fail-open, orthogonal)               |
-| Dependencies added      | 1 (`aiokafka>=0.11`)                                              |
+- New files: 2 (`ingestor/events.py`, `services/processor/main.py`)
+- Modified files: 3 (`docker-compose.yml`, `ingestor/main.py`, `ingestor/routers/records.py`)
+- Lines of code (Phase 1): ~250
+- Test coverage impact: 0 (no test changes; Kafka is fail-open, orthogonal)
+- Dependencies added: 1 (`aiokafka>=0.11`)
 
 ---
 

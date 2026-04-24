@@ -7,7 +7,7 @@
 
 ## What I Built
 
-- **Circuit breaker pattern** (`app/core/circuit_breaker.py`): Three-state machine (CLOSED → OPEN → HALF_OPEN) with async-safe locking
+- **Circuit breaker pattern** (`ingestor/core/circuit_breaker.py`): Three-state machine (CLOSED → OPEN → HALF_OPEN) with async-safe locking
   - *Metric*: Protects Kafka producer and MongoDB writes; 5-failure threshold, 30s recovery timeout
 - **Prometheus metrics integration**: `pipeline_circuit_breaker_state` gauge exports state (0=CLOSED, 1=OPEN, 2=HALF_OPEN) per circuit
   - *Metric*: Real-time observability of circuit state transitions via `/metrics` endpoint
@@ -15,7 +15,7 @@
   - *Metric*: Zero message loss; DLQ forwarding with 5s timeout prevents indefinite hangs
 - **OpenTelemetry distributed tracing**: Jaeger all-in-one backend, FastAPI auto-instrumentation, manual consumer spans
   - *Metric*: End-to-end trace visibility: ingestor → Kafka → processor; trace IDs in structured logs
-- **Trace ID injection**: `app/core/logging.py` extracts OTel trace ID and injects into dev logs (prefix `[trace:abc12345]`) and production JSON (field `trace_id`)
+- **Trace ID injection**: `ingestor/core/logging.py` extracts OTel trace ID and injects into dev logs (prefix `[trace:abc12345]`) and production JSON (field `trace_id`)
   - *Metric*: 100% log-trace correlation for debugging distributed failures
 
 ---
@@ -36,7 +36,7 @@
 *What I implemented*:
 
 ```python
-# app/core/circuit_breaker.py
+# ingestor/core/circuit_breaker.py
 class CircuitState(Enum):
     CLOSED = auto()
     OPEN = auto()
@@ -72,8 +72,8 @@ async with lock:
 
 **Applied to**:
 
-- `app/events.py::_send_to_kafka` — protects Kafka producer
-- `app/storage/mongo.py::_mongo_insert_one` — protects MongoDB writes
+- `ingestor/events.py::_send_to_kafka` — protects Kafka producer
+- `ingestor/storage/mongo.py::_mongo_insert_one` — protects MongoDB writes
 
 **Observability**:
 
@@ -155,7 +155,7 @@ await asyncio.wait_for(
 
 *My implementation*:
 
-**OTel setup** (`app/core/tracing.py`):
+**OTel setup** (`ingestor/core/tracing.py`):
 
 ```python
 from opentelemetry import trace
@@ -193,12 +193,12 @@ async for msg in consumer:
         await _process_message(event)
 ```
 
-**Trace ID in logs** (`app/core/logging.py`):
+**Trace ID in logs** (`ingestor/core/logging.py`):
 
 ```python
 def _get_trace_id() -> str | None:
     try:
-        from app.core.tracing import get_trace_id
+        from ingestor.core.tracing import get_trace_id
         return get_trace_id()
     except ImportError:
         return None
@@ -238,7 +238,7 @@ Jaeger UI → Trace abc12345 →
 *Implemented in Phase 4*:
 
 ```python
-# app/events.py (Service A = ingestor, Service B = Kafka)
+# ingestor/events.py (Service A = ingestor, Service B = Kafka)
 @circuit_breaker(failure_threshold=5, recovery_timeout=30)
 async def _send_to_kafka(topic: str, value: bytes) -> None:
     await _producer.send_and_wait(topic, value=value)
@@ -266,9 +266,9 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 ┌─────────────────────────────────────────────────────────────────┐
 │ POST /api/v1/records (Ingestor)                                 │
 │  ↓                                                                │
-│ app/crud.py → PostgreSQL write                                  │
+│ ingestor/crud.py → PostgreSQL write                             │
 │  ↓                                                                │
-│ app/events.py::publish_record_created()                         │
+│ ingestor/events.py::publish_record_created()                    │
 │  ├─ @circuit_breaker(failure_threshold=5, recovery_timeout=30)  │
 │  └─ _send_to_kafka("records.events", msg_bytes)                │
 │      ↓                                                            │
@@ -295,7 +295,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 │  ├─ OTLP gRPC receiver (port 4317)                              │
 │  └─ Stores traces: ingestor → Kafka → processor                │
 │                                                                   │
-│ Logs (app/core/logging.py)                                      │
+│ Logs (ingestor/core/logging.py)                                 │
 │  ├─ Dev: "[trace:abc12345] record_created"                     │
 │  └─ Prod: {"message": "record_created", "trace_id": "abc..."}  │
 └─────────────────────────────────────────────────────────────────┘
@@ -368,7 +368,7 @@ async def lifespan(app: FastAPI):
 **Solution**: Separate concerns:
 
 ```python
-# app/storage/mongo.py
+# ingestor/storage/mongo.py
 @circuit_breaker(failure_threshold=5, recovery_timeout=30)
 async def _mongo_insert_one(doc: dict) -> None:
     """Circuit-wrapped inner function (only I/O)."""

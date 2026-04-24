@@ -1,19 +1,26 @@
 version: 2
+
+# IMPORTANT:
+# Dependabot reads this config from the repository default branch.
+# Keep this file in sync on the default branch to ensure target-branch rules apply.
+
 updates:
-  # Python package updates (pip + uv)
+  # Python package updates (pip)
   - package-ecosystem: pip
     directory: "/"
     schedule:
       interval: weekly
       day: monday
       time: "03:00"  # 3 AM UTC
+      timezone: "UTC"
     target-branch: develop
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     reviewers:
       - ivanp
     assignees:
       - ivanp
     labels:
+      - "dependencies"
       - "type/dependency"
       - "area/python-packages"
     allow:
@@ -26,6 +33,50 @@ updates:
       separator: "/"
     rebase-strategy: auto
     versioning-strategy: auto
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Python package updates (uv)
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:30"  # 3:30 AM UTC
+      timezone: "UTC"
+    target-branch: develop
+    open-pull-requests-limit: 3
+    reviewers:
+      - ivanp
+    assignees:
+      - ivanp
+    labels:
+      - "dependencies"
+      - "python.uv"
+      - "type/dependency"
+      - "area/python-packages"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: auto
+    versioning-strategy: auto
+    groups:
+      uv-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Docker base image updates
   - package-ecosystem: docker
@@ -34,13 +85,15 @@ updates:
       interval: weekly
       day: tuesday
       time: "03:00"  # 3 AM UTC
+      timezone: "UTC"
     target-branch: develop
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     reviewers:
       - ivanp
     assignees:
       - ivanp
     labels:
+      - "dependencies"
       - "type/dependency"
       - "area/docker-images"
     allow:
@@ -51,11 +104,6 @@ updates:
       include: "scope"
     pull-request-branch-name:
       separator: "/"
-    registries:
-      - registry-type: docker-hub
-        registry-url: registry.hub.docker.com
-      - registry-type: ghcr
-        registry-url: ghcr.io
     rebase-strategy: auto
 
   # GitHub Actions updates (automatically pins action refs to full commit SHAs)
@@ -65,6 +113,7 @@ updates:
       interval: weekly
       day: wednesday
       time: "03:00"  # 3 AM UTC
+      timezone: "UTC"
     target-branch: develop
     open-pull-requests-limit: 5
     reviewers:
@@ -72,6 +121,7 @@ updates:
     assignees:
       - ivanp
     labels:
+      - "dependencies"
       - "type/dependency"
       - "area/github-actions"
       - "security"
@@ -82,5 +132,5 @@ updates:
       separator: "/"
     rebase-strategy: auto
 
-# Vulnerability alerts are handled separately by GitHub's Dependabot security tab
-# (no action-based workflow needed; alerts appear in Security tab automatically)
+# Note: Dependabot security updates are managed separately in GitHub Security.
+# Depending on repo settings, those PRs may still target default-branch behavior.

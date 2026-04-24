@@ -34,7 +34,7 @@
 
 *What I implemented*:
 
-- Semaphore concurrency in `app/scrapers/` (max_concurrent=5 default)
+- Semaphore concurrency in `ingestor/scrapers/` (max_concurrent=5 default)
 - Exponential backoff in HTTP client with 3-retry limit
 - Timeout enforcement (10s per request)
 - All HTTP errors logged to `extra={"source": "...", "attempt": N}`
@@ -54,7 +54,7 @@
 *My implementation*:
 
 ```python
-# app/scrapers/__init__.py — ScraperFactory.get_scraper()
+# ingestor/scrapers/__init__.py — ScraperFactory.get_scraper()
 # Uses httpx.AsyncClient with:
 # - timeout=10s (prevents hanging)
 # - verify=False for self-signed (dev only; remove in prod)
@@ -112,7 +112,7 @@
 *Implemented*:
 
 ```python
-# app/routers/scraper.py → async def scrape_source()
+# ingestor/routers/scraper.py → async def scrape_source()
 # Logs: logger.error("scrape_failed", extra={
 #   "source": source,
 #   "count": count,
@@ -125,7 +125,7 @@
 
 - Add distributed tracing (OpenTelemetry) to track request latency
 - Implement circuit breaker pattern (Phase 4): if >30% timeout, fail gracefully
-- Add per-source timeout configuration: `app/config.py` → `SCRAPER_TIMEOUTS = {"hn": 5, "slow-api": 30}`
+- Add per-source timeout configuration: `ingestor/config.py` → `SCRAPER_TIMEOUTS = {"hn": 5, "slow-api": 30}`
 
 ---
 
@@ -137,7 +137,7 @@
 - Kafka event publishes async (fire-and-forget, logged if fails)
 - User gets feedback on scrape completion regardless of persistence success
 
-**Why this matters**: In production, MongoDB might be restarting or Kafka experiencing brief downtime. If your scraper is blocked by these, you lose data &amp; frustrate users. Better to persist to disk cache (app/storage/cache.py) and retry later.
+**Why this matters**: In production, MongoDB might be restarting or Kafka experiencing brief downtime. If your scraper is blocked by these, you lose data &amp; frustrate users. Better to persist to disk cache (`ingestor/cache.py`) and retry later.
 
 **Mistake avoided**: Not tracking failed MongoDB inserts. Now I log all storage errors so on-call engineer can replay from logs if needed.
 
@@ -147,16 +147,16 @@
 
 ### Core Implementation
 
-- [app/scrapers/**init**.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/scrapers/__init__.py) — ScraperFactory + 3 scraper types
-- [app/storage/mongo.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/storage/mongo.py) — Motor async client (singleton, fail-open)
-- [app/routers/scraper.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/routers/scraper.py) — POST /api/v1/scrape/{source} endpoint
-- [app/events.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/events.py) → `publish_doc_scraped()` — Kafka event
-- [app/schemas.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/schemas.py) → `ScrapeResponse` — Response model
+- [ingestor/scrapers/**init**.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/scrapers/__init__.py) — ScraperFactory + 3 scraper types
+- [ingestor/storage/mongo.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/storage/mongo.py) — Motor async client (singleton, fail-open)
+- [ingestor/routers/scraper.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/routers/scraper.py) — POST /api/v1/scrape/{source} endpoint
+- [ingestor/events.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/events.py) → `publish_doc_scraped()` — Kafka event
+- [ingestor/schemas.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/schemas.py) → `ScrapeResponse` — Response model
 
 ### Configuration &amp; Wiring
 
-- [app/main.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/main.py) — `lifespan` hook: Motor connect/disconnect
-- [app/config.py](https://github.com/ivanp/data-pipeline-async/blob/main/app/config.py) → `MONGO_URL`, `MONGO_DB_NAME`
+- [ingestor/main.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/main.py) — `lifespan` hook: Motor connect/disconnect
+- [ingestor/config.py](https://github.com/ivanp/data-pipeline-async/blob/main/ingestor/config.py) → `MONGO_URL`, `MONGO_DB_NAME`
 - [pyproject.toml](https://github.com/ivanp/data-pipeline-async/blob/main/pyproject.toml) — Dependencies: `motor`, `playwright`, `beautifulsoup4`
 
 ---
