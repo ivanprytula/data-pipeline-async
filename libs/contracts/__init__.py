@@ -23,17 +23,38 @@ from libs.contracts.events import (
     EVENT_RECORD_CREATED,
     TOPIC_RECORD_CREATED,
     TOPIC_SCRAPED,
+    DocScrapedPayload,
     EventPayload,
+    RecordCreatedPayload,
 )
-from libs.contracts.schemas import NotificationDispatchResult, PaginationMeta
+from libs.contracts.schemas import (
+    BackgroundBatchSubmitResponse,
+    BackgroundTaskStatusResponse,
+    BatchCreateResponse,
+    NotificationDispatchResult,
+    NotificationTestRequest,
+    NotificationTestResponse,
+    PaginationMeta,
+    ScrapeResponse,
+    SessionResponse,
+)
 
 
 __all__ = [
     "EventPayload",
+    "RecordCreatedPayload",
+    "DocScrapedPayload",
     "EVENT_RECORD_CREATED",
     "EVENT_DOC_SCRAPED",
     "TOPIC_RECORD_CREATED",
     "TOPIC_SCRAPED",
     "PaginationMeta",
     "NotificationDispatchResult",
+    "BatchCreateResponse",
+    "SessionResponse",
+    "ScrapeResponse",
+    "BackgroundBatchSubmitResponse",
+    "BackgroundTaskStatusResponse",
+    "NotificationTestRequest",
+    "NotificationTestResponse",
 ]

@@ -28,7 +28,9 @@ from libs.contracts.events import (
     EVENT_RECORD_CREATED,
     TOPIC_RECORD_CREATED,
     TOPIC_SCRAPED,
+    DocScrapedPayload,
     EventPayload,
+    RecordCreatedPayload,
 )
 
 
@@ -104,9 +106,10 @@ async def publish_record_created(record_id: int, payload: dict[str, Any]) -> Non
     if _producer is None:
         return
 
-    event: EventPayload[dict[str, Any]] = EventPayload(
+    event_payload: RecordCreatedPayload = {"record_id": record_id, **payload}
+    event: EventPayload[RecordCreatedPayload] = EventPayload(
         event_type=EVENT_RECORD_CREATED,
-        payload={"record_id": record_id, **payload},
+        payload=event_payload,
     )
 
     try:
@@ -138,9 +141,10 @@ async def publish_doc_scraped(source: str, count: int) -> None:
     if _producer is None:
         return
 
-    event: EventPayload[dict[str, Any]] = EventPayload(
+    event_payload: DocScrapedPayload = {"source": source, "count": count}
+    event: EventPayload[DocScrapedPayload] = EventPayload(
         event_type=EVENT_DOC_SCRAPED,
-        payload={"source": source, "count": count},
+        payload=event_payload,
     )
 
     try:

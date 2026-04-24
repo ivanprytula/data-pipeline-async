@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 
 class PaginationMeta(BaseModel):
@@ -22,4 +25,78 @@ class NotificationDispatchResult(BaseModel):
     detail: str
 
 
-__all__ = ["PaginationMeta", "NotificationDispatchResult"]
+class BatchCreateResponse(BaseModel):
+    """Response from batch create endpoint."""
+
+    created: int
+    impl: str
+
+
+class SessionResponse(BaseModel):
+    """Session/login response payload."""
+
+    session_id: str
+    message: str
+
+
+class ScrapeResponse(BaseModel):
+    """Scraper endpoint response payload."""
+
+    source: str
+    scraped: int
+    stored: int
+
+
+class BackgroundBatchSubmitResponse(BaseModel):
+    """Response from background batch ingestion submission endpoint."""
+
+    task_id: str
+    status: str
+    batch_size: int
+    queued_at: datetime
+
+
+class BackgroundTaskStatusResponse(BaseModel):
+    """Status response for a submitted background task."""
+
+    task_id: str
+    status: str
+    batch_size: int
+    queued_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class NotificationTestRequest(BaseModel):
+    """Request payload for notification test endpoint."""
+
+    message: str = Field(..., min_length=1, max_length=2000)
+    severity: str = Field(default="info")
+    event: str = Field(default="notification_test")
+    channels: list[Literal["slack", "telegram", "webhook", "email"]] | None = None
+
+
+class NotificationTestResponse(BaseModel):
+    """Response payload for notification test endpoint."""
+
+    event: str
+    severity: str
+    sent: int
+    failed: int
+    results: list[NotificationDispatchResult] = Field(default_factory=list)
+    detail: str | None = None
+
+
+__all__ = [
+    "PaginationMeta",
+    "NotificationDispatchResult",
+    "BatchCreateResponse",
+    "SessionResponse",
+    "ScrapeResponse",
+    "BackgroundBatchSubmitResponse",
+    "BackgroundTaskStatusResponse",
+    "NotificationTestRequest",
+    "NotificationTestResponse",
+]

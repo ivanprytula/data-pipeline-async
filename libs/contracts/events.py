@@ -5,7 +5,7 @@ Contains event envelope and canonical event/topic names used across services.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 
 EVENT_RECORD_CREATED = "record.created"
@@ -13,6 +13,23 @@ EVENT_DOC_SCRAPED = "doc.scraped"
 
 TOPIC_RECORD_CREATED = "records.events"
 TOPIC_SCRAPED = "scraped.events"
+
+
+class RecordCreatedPayload(TypedDict, total=False):
+    """Payload contract for record.created events."""
+
+    record_id: int
+    source: str
+    timestamp: str
+    data: dict[str, Any]
+    tags: list[str]
+
+
+class DocScrapedPayload(TypedDict):
+    """Payload contract for doc.scraped events."""
+
+    source: str
+    count: int
 
 
 class EventPayload[T]:
@@ -32,6 +49,8 @@ class EventPayload[T]:
 
 __all__ = [
     "EventPayload",
+    "RecordCreatedPayload",
+    "DocScrapedPayload",
     "EVENT_RECORD_CREATED",
     "EVENT_DOC_SCRAPED",
     "TOPIC_RECORD_CREATED",
