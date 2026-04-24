@@ -52,10 +52,11 @@
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
     hooks:
-      -   id: pip-audit
-          args: ["-r", "requirements-audit.txt"]
+      - id: pip-audit
+        args: ["-r", "requirements-audit.txt", "--no-deps"]
+        files: 'pyproject\.toml|uv\.lock|requirements-audit\.txt'
+        pass_filenames: false
 
   ci:
-    # Leave pip-audit to only run locally and not in CI
     # pre-commit.ci does not allow network calls
     skip: [pip-audit]
