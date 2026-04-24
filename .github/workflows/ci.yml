@@ -99,6 +99,15 @@ jobs:
       docs_files: ${{ steps.filter.outputs.docs_change_files }}
       prompts_change: ${{ steps.filter.outputs.prompts_change }}
       infra_change: ${{ steps.filter.outputs.infra_change }}
+      shared_libs_change: ${{ steps.filter.outputs.shared_libs_change }}
+      ingestor_change: ${{ steps.filter.outputs.ingestor_change }}
+      ai_gateway_change: ${{ steps.filter.outputs.ai_gateway_change }}
+      query_api_change: ${{ steps.filter.outputs.query_api_change }}
+      processor_change: ${{ steps.filter.outputs.processor_change }}
+      dashboard_change: ${{ steps.filter.outputs.dashboard_change }}
+      contracts_change: ${{ steps.filter.outputs.contracts_change }}
+      contracts_version_change: ${{ steps.filter.outputs.contracts_version_change }}
+      contracts_changelog_change: ${{ steps.filter.outputs.contracts_changelog_change }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -132,6 +141,130 @@ jobs:
               - '.github/workflows/**'
               - 'infra/**'
               - 'scripts/**'
+            shared_libs_change:
+              - 'libs/platform/**'
+              - 'libs/contracts/**'
+            ingestor_change:
+              - 'ingestor/**'
+              - 'Dockerfile'
+            ai_gateway_change:
+              - 'services/ai_gateway/**'
+              - 'services/ai_gateway/Dockerfile'
+            query_api_change:
+              - 'services/query_api/**'
+              - 'services/query_api/Dockerfile'
+            processor_change:
+              - 'services/processor/**'
+              - 'services/processor/Dockerfile'
+            dashboard_change:
+              - 'services/dashboard/**'
+              - 'services/dashboard/Dockerfile'
+            contracts_change:
+              - 'libs/contracts/**/*.py'
+            contracts_version_change:
+              - 'libs/contracts/VERSION'
+            contracts_changelog_change:
+              - 'libs/contracts/CHANGELOG.md'
+
+  service-matrix:
+    name: 01ba Service matrix from changed paths
+    runs-on: ubuntu-latest
+    needs:
+      - change-impact
+    outputs:
+      changed_services_matrix: ${{ steps.matrix.outputs.changed_services_matrix }}
+      has_changed_services: ${{ steps.matrix.outputs.has_changed_services }}
+    steps:
+      - name: Build changed-service matrix
+        id: matrix
+        env:
+          SHARED_LIBS_CHANGE: ${{ needs.change-impact.outputs.shared_libs_change }}
+          INGESTOR_CHANGE: ${{ needs.change-impact.outputs.ingestor_change }}
+          AI_GATEWAY_CHANGE: ${{ needs.change-impact.outputs.ai_gateway_change }}
+          QUERY_API_CHANGE: ${{ needs.change-impact.outputs.query_api_change }}
+          PROCESSOR_CHANGE: ${{ needs.change-impact.outputs.processor_change }}
+          DASHBOARD_CHANGE: ${{ needs.change-impact.outputs.dashboard_change }}
+        run: |
+          set -euo pipefail
+
+          include_service() {
+            local service_json="$1"
+            matrix_json=$(jq --argjson svc "$service_json" '. + [$svc]' <<< "$matrix_json")
+          }
+
+          matrix_json='[]'
+          include_all='false'
+          if [[ "$SHARED_LIBS_CHANGE" == "true" ]]; then
+            include_all='true'
+          fi
+
+          if [[ "$include_all" == "true" || "$INGESTOR_CHANGE" == "true" ]]; then
+            include_service '{"name":"ingestor","path":"ingestor","dockerfile":"Dockerfile","image_name":"data-zoo/ingestor"}'
+          fi
+          if [[ "$include_all" == "true" || "$AI_GATEWAY_CHANGE" == "true" ]]; then
+            include_service '{"name":"ai_gateway","path":"services/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile","image_name":"data-zoo/ai_gateway"}'
+          fi
+          if [[ "$include_all" == "true" || "$QUERY_API_CHANGE" == "true" ]]; then
+            include_service '{"name":"query_api","path":"services/query_api","dockerfile":"services/query_api/Dockerfile","image_name":"data-zoo/query_api"}'
+          fi
+          if [[ "$include_all" == "true" || "$PROCESSOR_CHANGE" == "true" ]]; then
+            include_service '{"name":"processor","path":"services/processor","dockerfile":"services/processor/Dockerfile","image_name":"data-zoo/processor"}'
+          fi
+          if [[ "$include_all" == "true" || "$DASHBOARD_CHANGE" == "true" ]]; then
+            include_service '{"name":"dashboard","path":"services/dashboard","dockerfile":"services/dashboard/Dockerfile","image_name":"data-zoo/dashboard"}'
+          fi
+
+          count=$(jq 'length' <<< "$matrix_json")
+          if [[ "$count" -gt 0 ]]; then
+            echo "has_changed_services=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changed_services=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "changed_services_matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+
+  service-lint-test:
+    name: 01bb Service lint/smoke — ${{ matrix.service.name }}
+    runs-on: ubuntu-latest
+    needs:
+      - quality
+      - service-matrix
+    if: ${{ needs.service-matrix.outputs.has_changed_services == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.service-matrix.outputs.changed_services_matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Cache pip / uv wheel
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
+          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
+            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
+
+      - name: Install uv and sync dependencies
+        run: |
+          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
+          uv sync --frozen
+
+      - name: Ruff lint service scope
+        run: uv run ruff check "${{ matrix.service.path }}"
+
+      - name: Python compile smoke test
+        run: python -m compileall -q "${{ matrix.service.path }}"
 
   docs-quality:
     name: 01c Docs quality checks
@@ -212,6 +345,40 @@ jobs:
           echo "- Docs change: ${{ needs.change-impact.outputs.docs_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prompts change: ${{ needs.change-impact.outputs.prompts_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Infra change: ${{ needs.change-impact.outputs.infra_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contracts change: ${{ needs.change-impact.outputs.contracts_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Shared libs change: ${{ needs.change-impact.outputs.shared_libs_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, ai_gateway=${{ needs.change-impact.outputs.ai_gateway_change }}, query_api=${{ needs.change-impact.outputs.query_api_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
+
+  contracts-versioning-gate:
+    name: 01f Contracts versioning gate
+    runs-on: ubuntu-latest
+    needs:
+      - change-impact
+    steps:
+      - name: Enforce contracts version bump and changelog update
+        env:
+          CONTRACTS_CHANGE: ${{ needs.change-impact.outputs.contracts_change }}
+          CONTRACTS_VERSION_CHANGE: ${{ needs.change-impact.outputs.contracts_version_change }}
+          CONTRACTS_CHANGELOG_CHANGE: ${{ needs.change-impact.outputs.contracts_changelog_change }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CONTRACTS_CHANGE" != "true" ]]; then
+            echo "No contracts changes detected; skipping version/changelog gate."
+            exit 0
+          fi
+
+          if [[ "$CONTRACTS_VERSION_CHANGE" != "true" ]]; then
+            echo "Contracts changed but libs/contracts/VERSION was not updated." >&2
+            exit 1
+          fi
+
+          if [[ "$CONTRACTS_CHANGELOG_CHANGE" != "true" ]]; then
+            echo "Contracts changed but libs/contracts/CHANGELOG.md was not updated." >&2
+            exit 1
+          fi
+
+          echo "Contracts versioning gate passed."
 
   unit:
     name: 02 Unit tests — Python 3.14
@@ -219,6 +386,7 @@ jobs:
     needs:
       - quality
       - service-boundaries
+      - contracts-versioning-gate
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -715,40 +883,26 @@ jobs:
           inputs: requirements-audit.txt
 
   build-images:
-    name: 07 Docker build — ${{ matrix.image.name }}
+    name: 07 Docker build — ${{ matrix.service.name }}
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - name: ingestor
-            image_name: data-zoo/ingestor
-            dockerfile: Dockerfile
-          - name: ai_gateway
-            image_name: data-zoo/ai_gateway
-            dockerfile: services/ai_gateway/Dockerfile
-          - name: query_api
-            image_name: data-zoo/query_api
-            dockerfile: services/query_api/Dockerfile
-          - name: processor
-            image_name: data-zoo/processor
-            dockerfile: services/processor/Dockerfile
-          - name: dashboard
-            image_name: data-zoo/dashboard
-            dockerfile: services/dashboard/Dockerfile
+        service: ${{ fromJson(needs.service-matrix.outputs.changed_services_matrix) }}
     needs:
       - quality
       - unit
       - migrations
       - integration
       - e2e
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build }}
+      - service-matrix
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.service-matrix.outputs.has_changed_services == 'true' }}
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
-      image-name: ${{ matrix.image.image_name }}
-      dockerfile: ${{ matrix.image.dockerfile }}
+      image-name: ${{ matrix.service.image_name }}
+      dockerfile: ${{ matrix.service.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
@@ -760,7 +914,7 @@ jobs:
     name: 07 Docker build summary
     runs-on: ubuntu-latest
     needs: build-images
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.build-images.result != 'skipped' }}
     steps:
       - name: Report build matrix
         run: |
