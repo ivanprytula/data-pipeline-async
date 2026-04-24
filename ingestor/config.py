@@ -1,5 +1,7 @@
 """App settings (async stack)."""
 
+import secrets
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,7 +26,7 @@ class Settings(BaseSettings):
     # REQUIRED: Must be set via DATABASE_URL environment variable
     # ============ Database ============
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline",
+        default="postgresql+asyncpg://localhost:5432/data_pipeline",
         description="PostgreSQL connection string (asyncpg driver)",
     )
 
@@ -102,8 +104,8 @@ class Settings(BaseSettings):
 
     # ============ API Auth — v2 (JWT) ============
     jwt_secret: str = Field(
-        default="dev-secret-key-change-in-production",
-        description="Secret key for JWT signing (MUST be >32 chars in production)",
+        default_factory=lambda: secrets.token_urlsafe(48),
+        description="Secret key for JWT signing. Set JWT_SECRET via env/secrets manager for stable tokens across restarts.",  # noqa: E501
     )
 
     jwt_algorithm: str = Field(

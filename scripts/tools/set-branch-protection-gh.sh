@@ -131,7 +131,8 @@ default_contexts_json='[
 	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
 	"CI / 04 Integration tests — Python 3.14",
 	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit"
+	"CI / 06 Dependency Audit",
+	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]'
 
 discover_required_contexts() {
@@ -149,7 +150,8 @@ discover_required_contexts() {
 		"03 Verify Alembic migrations (PostgreSQL 17)",
 		"04 Integration tests — Python 3.14",
 		"05 E2E tests — Python 3.14",
-		"06 Dependency Audit"
+		"06 Dependency Audit",
+		"Secrets Scan (changed lines)"
 	]'
 
 	gh api "repos/${owner}/${name}/commits/${sha}/check-runs" \
@@ -189,7 +191,8 @@ read -r -d '' contexts_json <<'JSON' || true
 	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
 	"CI / 04 Integration tests — Python 3.14",
 	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit"
+	"CI / 06 Dependency Audit",
+	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]
 JSON
 fi

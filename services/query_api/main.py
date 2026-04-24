@@ -10,6 +10,7 @@ Features:
 """
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -25,7 +26,12 @@ from services.query_api.routers import analytics
 logger = logging.getLogger(__name__)
 
 # Database configuration (read-only, same PostgreSQL as ingestor)
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline"
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is required for query_api. "
+        "Set it via environment variables or a secrets manager."
+    )
 
 # Create async engine with read-only semantics
 engine = create_async_engine(
