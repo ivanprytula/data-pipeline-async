@@ -40,7 +40,7 @@ blinker==1.9.0
     # via flask
 brotli==1.2.0
     # via geventhttpclient
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   geventhttpclient
     #   httpcore
@@ -55,7 +55,7 @@ cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.4.7
     # via requests
-click==8.3.1
+click==8.3.3
     # via
     #   flask
     #   typer
@@ -72,9 +72,9 @@ coverage==7.13.5
     # via pytest-cov
 cuda-bindings==13.2.0 ; sys_platform == 'linux'
     # via torch
-cuda-pathfinder==1.5.2 ; sys_platform == 'linux'
+cuda-pathfinder==1.5.3 ; sys_platform == 'linux'
     # via cuda-bindings
-cuda-toolkit==13.0.2 ; sys_platform == 'linux'
+cuda-toolkit==13.2.1 ; sys_platform == 'linux'
     # via torch
 deprecated==1.3.1
     # via limits
@@ -82,12 +82,12 @@ distlib==0.4.0
     # via virtualenv
 dnspython==2.8.0
     # via pymongo
-fakeredis==2.35.0
-fastapi==0.135.2
+fakeredis==2.35.1
+fastapi==0.136.1
     # via
     #   data-pipeline-async
     #   sentry-sdk
-filelock==3.25.2
+filelock==3.29.0
     # via
     #   huggingface-hub
     #   python-discovery
@@ -120,7 +120,7 @@ googleapis-common-protos==1.74.0
     # via
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-greenlet==3.3.2
+greenlet==3.4.0
     # via
     #   gevent
     #   playwright
@@ -149,16 +149,16 @@ httpx==0.28.1
     #   data-pipeline-async
     #   huggingface-hub
     #   qdrant-client
-huggingface-hub==1.10.1
+huggingface-hub==1.12.0
     # via
     #   sentence-transformers
     #   tokenizers
     #   transformers
 hyperframe==6.1.0
     # via h2
-identify==2.6.18
+identify==2.6.19
     # via pre-commit
-idna==3.11
+idna==3.13
     # via
     #   anyio
     #   httpx
@@ -196,7 +196,7 @@ mirakuru==3.0.2
     # via pytest-postgresql
 motor==3.7.1
     # via data-pipeline-async
-mpmath==1.3.0
+mpmath==1.4.1
     # via sympy
 msgpack==1.1.2
     # via locust
@@ -215,46 +215,46 @@ numpy==2.4.4
     #   scipy
     #   sentence-transformers
     #   transformers
-nvidia-cublas==13.1.0.3 ; sys_platform == 'linux'
+nvidia-cublas==13.4.0.1 ; sys_platform == 'linux'
     # via
     #   cuda-toolkit
     #   nvidia-cudnn-cu13
     #   nvidia-cusolver
-nvidia-cuda-cupti==13.0.85 ; sys_platform == 'linux'
+nvidia-cuda-cupti==13.2.75 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cuda-nvrtc==13.0.88 ; sys_platform == 'linux'
+nvidia-cuda-nvrtc==13.2.78 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cuda-runtime==13.0.96 ; sys_platform == 'linux'
+nvidia-cuda-runtime==13.2.75 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cudnn-cu13==9.19.0.56 ; sys_platform == 'linux'
+nvidia-cudnn-cu13==9.21.1.3 ; sys_platform == 'linux'
     # via torch
-nvidia-cufft==12.0.0.61 ; sys_platform == 'linux'
+nvidia-cufft==12.2.0.46 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cufile==1.15.1.6 ; sys_platform == 'linux'
+nvidia-cufile==1.17.1.22 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-curand==10.4.0.35 ; sys_platform == 'linux'
+nvidia-curand==10.4.2.55 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cusolver==12.0.4.66 ; sys_platform == 'linux'
+nvidia-cusolver==12.2.0.1 ; sys_platform == 'linux'
     # via cuda-toolkit
-nvidia-cusparse==12.6.3.3 ; sys_platform == 'linux'
+nvidia-cusparse==12.7.10.1 ; sys_platform == 'linux'
     # via
     #   cuda-toolkit
     #   nvidia-cusolver
-nvidia-cusparselt-cu13==0.8.0 ; sys_platform == 'linux'
+nvidia-cusparselt-cu13==0.9.0 ; sys_platform == 'linux'
     # via torch
-nvidia-nccl-cu13==2.28.9 ; sys_platform == 'linux'
+nvidia-nccl-cu13==2.30.4 ; sys_platform == 'linux'
     # via torch
-nvidia-nvjitlink==13.0.88 ; sys_platform == 'linux'
+nvidia-nvjitlink==13.2.78 ; sys_platform == 'linux'
     # via
     #   cuda-toolkit
     #   nvidia-cufft
     #   nvidia-cusolver
     #   nvidia-cusparse
-nvidia-nvshmem-cu13==3.4.5 ; sys_platform == 'linux'
+nvidia-nvshmem-cu13==3.6.5 ; sys_platform == 'linux'
     # via torch
-nvidia-nvtx==13.0.85 ; sys_platform == 'linux'
+nvidia-nvtx==13.2.75 ; sys_platform == 'linux'
     # via cuda-toolkit
-opentelemetry-api==1.41.0
+opentelemetry-api==1.41.1
     # via
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
@@ -263,15 +263,15 @@ opentelemetry-api==1.41.0
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp==1.41.0
+opentelemetry-exporter-otlp==1.41.1
     # via data-pipeline-async
-opentelemetry-exporter-otlp-proto-common==1.41.0
+opentelemetry-exporter-otlp-proto-common==1.41.1
     # via
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-grpc==1.41.0
+opentelemetry-exporter-otlp-proto-grpc==1.41.1
     # via opentelemetry-exporter-otlp
-opentelemetry-exporter-otlp-proto-http==1.41.0
+opentelemetry-exporter-otlp-proto-http==1.41.1
     # via opentelemetry-exporter-otlp
 opentelemetry-instrumentation==0.62b0
     # via
@@ -281,12 +281,12 @@ opentelemetry-instrumentation-asgi==0.62b0
     # via opentelemetry-instrumentation-fastapi
 opentelemetry-instrumentation-fastapi==0.62b0
     # via data-pipeline-async
-opentelemetry-proto==1.41.0
+opentelemetry-proto==1.41.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.41.0
+opentelemetry-sdk==1.41.1
     # via
     #   data-pipeline-async
     #   opentelemetry-exporter-otlp-proto-grpc
@@ -301,7 +301,7 @@ opentelemetry-util-http==0.62b0
     # via
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-packaging==26.0
+packaging==26.2
     # via
     #   aiokafka
     #   huggingface-hub
@@ -324,7 +324,7 @@ port-for==1.0.0
     # via pytest-postgresql
 portalocker==3.2.0
     # via qdrant-client
-pre-commit==4.5.1
+pre-commit==4.6.0
 prometheus-client==0.25.0
     # via prometheus-fastapi-instrumentator
 prometheus-fastapi-instrumentator==7.1.0
@@ -350,15 +350,15 @@ psycopg-binary==3.3.3 ; implementation_name != 'pypy'
     # via psycopg
 pycparser==3.0 ; (implementation_name == 'pypy' and platform_python_implementation != 'CPython') or (implementation_name != 'PyPy' and platform_python_implementation == 'CPython' and sys_platform == 'win32') or (implementation_name == 'pypy' and sys_platform != 'win32')
     # via cffi
-pydantic==2.12.5
+pydantic==2.13.3
     # via
     #   data-pipeline-async
     #   fastapi
     #   pydantic-settings
     #   qdrant-client
-pydantic-core==2.41.5
+pydantic-core==2.46.3
     # via pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via data-pipeline-async
 pyee==13.0.1
     # via playwright
@@ -368,7 +368,7 @@ pygments==2.20.0
     #   rich
 pyjwt==2.12.1
     # via data-pipeline-async
-pymongo==4.16.0
+pymongo==4.17.0
     # via motor
 pytest==9.0.3
     # via
@@ -390,7 +390,7 @@ python-engineio==4.13.1
     # via
     #   locust
     #   python-socketio
-python-json-logger==4.0.0
+python-json-logger==4.1.0
     # via data-pipeline-async
 python-multipart==0.0.26
     # via data-pipeline-async
@@ -423,7 +423,7 @@ requests==2.33.1
     #   python-socketio
 rich==15.0.0
     # via typer
-ruff==0.15.10
+ruff==0.15.12
 safetensors==0.7.0
     # via transformers
 scikit-learn==1.8.0
@@ -432,7 +432,7 @@ scipy==1.17.1
     # via
     #   scikit-learn
     #   sentence-transformers
-sentence-transformers==5.4.0
+sentence-transformers==5.4.1
     # via data-pipeline-async
 sentry-sdk==2.58.0
     # via data-pipeline-async
@@ -448,7 +448,7 @@ sortedcontainers==2.4.0
     # via fakeredis
 soupsieve==2.8.3
     # via beautifulsoup4
-sqlalchemy==2.0.48
+sqlalchemy==2.0.49
     # via
     #   alembic
     #   data-pipeline-async
@@ -469,12 +469,12 @@ tqdm==4.67.3
     #   huggingface-hub
     #   sentence-transformers
     #   transformers
-transformers==5.5.4
+transformers==5.6.2
     # via sentence-transformers
 triton==3.6.0 ; sys_platform == 'linux'
     # via torch
-ty==0.0.29
-typer==0.24.1
+ty==0.0.32
+typer==0.25.0
     # via
     #   huggingface-hub
     #   transformers
@@ -516,11 +516,11 @@ urllib3==2.6.3
     #   qdrant-client
     #   requests
     #   sentry-sdk
-uvicorn==0.42.0
+uvicorn==0.46.0
     # via data-pipeline-async
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-virtualenv==21.2.1
+virtualenv==21.2.4
     # via pre-commit
 watchfiles==1.1.1
     # via uvicorn
@@ -546,5 +546,5 @@ zipp==3.23.1
     # via importlib-metadata
 zope-event==6.1
     # via gevent
-zope-interface==8.3
+zope-interface==8.4
     # via gevent
