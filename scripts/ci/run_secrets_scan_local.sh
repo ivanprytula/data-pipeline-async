@@ -26,10 +26,34 @@ fi
 
 echo "Scanning diff from $BASE to $HEAD"
 
-mapfile -t changed_files < <(git diff --name-only --diff-filter=ACMR "$BASE" "$HEAD" | sort -u)
+mapfile -t all_changed_files < <(git diff --name-only --diff-filter=ACMR "$BASE" "$HEAD" | sort -u)
+
+# Filter: exclude dev-only and example files
+declare -a EXCLUDE_PATTERNS=(
+  '\.example\.'          # *.example.* files (e.g., .env.example, secret.example.yaml)
+  '/local/'              # local/ directories (e.g., infra/kubernetes/overlays/local/)
+  '^\.env\.local'        # .env.local* files
+  '\.test\.'             # *.test.* test fixtures
+  '^scripts/testing/'    # scripts/testing/ directory (test-only scripts)
+  '^tests/'              # tests/ directory (unit/integration tests)
+  '\.md$'                # Markdown files (documentation only)
+)
+
+mapfile -t changed_files < <(
+  for file in "${all_changed_files[@]}"; do
+    skip=0
+    for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+      if [[ "$file" =~ $pattern ]]; then
+        skip=1
+        break
+      fi
+    done
+    [[ $skip -eq 0 ]] && echo "$file"
+  done
+)
 
 if [[ ${#changed_files[@]} -eq 0 ]]; then
-  echo "No changed files to scan."
+  echo "No files to scan (all changes were in dev-only or example paths)."
   exit 0
 fi
 
