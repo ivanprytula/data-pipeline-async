@@ -14,7 +14,7 @@ aws_region         = "eu-central-1"  # Frankfurt (change to your region)
 aws_profile        = "data-zoo-dev"
 vpc_cidr           = "10.0.0.0/16"
 availability_zones = ["eu-central-1a", "eu-central-1b"]  # Frankfurt AZs (update per region)
-github_repository  = "ivanp/data-pipeline-async"
+github_repository  = "ivanprytula/data-pipeline-async"
 image_tag          = "develop"
 
 # Sensitive values — DO NOT set here. Use TF_VAR_* env var instead:

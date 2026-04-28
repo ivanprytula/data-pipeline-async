@@ -50,12 +50,12 @@ Define and document a strict migration model: Alembic is authoritative for CI/st
 - Out-of-scope for this plan: implementing migration runner code, editing CI workflows, writing new Terraform resources.
 
 **Relevant files**
-- `/home/ivanp/PersonalProjects/data-pipeline-async/.github/prompts/plan-dataZooPlatform.prompt.md` — replace scope-excluded Alembic bullet with enforceable migration strategy subsection.
-- `/home/ivanp/PersonalProjects/data-pipeline-async/.github/workflows/ci.yml` — reference as existing migration gate pattern to preserve.
-- `/home/ivanp/PersonalProjects/data-pipeline-async/alembic/env.py` — reference for current authoritative Alembic configuration behavior.
-- `/home/ivanp/PersonalProjects/data-pipeline-async/scripts/setup/01-bootstrap-dev-environment.sh` — reference for persistent-local bootstrap (`alembic upgrade head`).
-- `/home/ivanp/PersonalProjects/data-pipeline-async/docs/dev/gotchas.md` — reference for Python 3.14 rule: avoid invoking Alembic from app event loop.
-- `/home/ivanp/PersonalProjects/data-pipeline-async/docs/design/decisions.md` — reference for Alembic vs `create_all` decision framing.
+- `/home/$USER/<directory>/data-pipeline-async/.github/prompts/plan-dataZooPlatform.prompt.md` — replace scope-excluded Alembic bullet with enforceable migration strategy subsection.
+- `/home/$USER/<directory>/data-pipeline-async/.github/workflows/ci.yml` — reference as existing migration gate pattern to preserve.
+- `/home/$USER/<directory>/data-pipeline-async/alembic/env.py` — reference for current authoritative Alembic configuration behavior.
+- `/home/$USER/<directory>/data-pipeline-async/scripts/setup/01-bootstrap-dev-environment.sh` — reference for persistent-local bootstrap (`alembic upgrade head`).
+- `/home/$USER/<directory>/data-pipeline-async/docs/dev/gotchas.md` — reference for Python 3.14 rule: avoid invoking Alembic from app event loop.
+- `/home/$USER/<directory>/data-pipeline-async/docs/design/decisions.md` — reference for Alembic vs `create_all` decision framing.
 
 **Verification**
 1. Roadmap prompt contains a migration strategy subsection with explicit environment split and no contradictory “out-of-scope” wording for production migrations.

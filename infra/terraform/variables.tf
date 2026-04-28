@@ -40,5 +40,5 @@ variable "app_port" {
 variable "github_repository" {
   description = "GitHub repo in 'owner/repo' format, used for OIDC trust policy."
   type        = string
-  default     = "ivanp/data-pipeline-async"
+  default     = "ivanprytularytula/data-pipeline-async"
 }

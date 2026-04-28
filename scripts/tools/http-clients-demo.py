@@ -204,7 +204,7 @@ if __name__ == "__main__":
     """
     Run the demo:
 
-    $ cd /home/ivanp/PersonalProjects/data-pipeline-async
+    $ cd /home/$USER/<directory>/data-pipeline-async
     $ uv run python scripts/tools/http-clients-demo.py
 
     This requires the app to have working fetch modules and access to:

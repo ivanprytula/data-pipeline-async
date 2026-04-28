@@ -247,7 +247,7 @@ pip install pre-commit
 **Initialize** (one-time per repository):
 
 ```bash
-cd /home/ivanp/PersonalProjects/data-pipeline-async
+cd /home/$USER/<directory>/data-pipeline-async
 pre-commit install
 ```
 

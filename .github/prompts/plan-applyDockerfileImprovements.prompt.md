@@ -9,42 +9,42 @@
 ### Phase 1: Apply 6 Dockerfiles (parallel, independent)
 
 1. **Replace `/Dockerfile`** (Main ingestor service)
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/Dockerfile`
    - Action: Overwrite with improved version (80 lines, saved in `/memories/session/dockerfile-improvements.md`)
    - Key changes: Add syntax directive, pin digest to sha256:bc389f7df..., add SHELL directive, convert 2 apt-get blocks to BuildKit cache mounts
    - Verification: File has syntax directive on line 1, SHELL directive after each FROM
    - *Parallel with steps 2-6*
 
 2. **Replace `/services/ai_gateway/Dockerfile`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/services/ai_gateway/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/ai_gateway/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL directives, replace apt-get pattern with cache mounts
    - Verification: File has syntax directive, BuildKit cache mount on apt-get call
    - *Parallel with steps 1, 3-6*
 
 3. **Replace `/services/query_api/Dockerfile`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/services/query_api/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/query_api/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL to both builder and final stage, replace apt-get with cache mounts
    - Verification: Both FROM blocks have digest + SHELL
    - *Parallel with steps 1-2, 4-6*
 
 4. **Replace `/services/processor/Dockerfile`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/services/processor/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/processor/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL to both stages
    - Verification: Both stages have proper directives
    - *Parallel with steps 1-3, 5-6*
 
 5. **Replace `/services/dashboard/Dockerfile`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/services/dashboard/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/dashboard/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL directives (no apt changes needed)
    - Verification: File has all 3 directives
    - *Parallel with steps 1-4, 6*
 
 6. **Replace `/infra/database/Dockerfile`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/infra/database/Dockerfile`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/infra/database/Dockerfile`
    - Action: Overwrite with improved version (postgres:17 base + pgvector)
    - Key changes: Add syntax + SHELL directives, replace apt pattern with cache mounts, add git/build-essential cleanup
    - Verification: File has syntax + SHELL, BuildKit cache mount pattern
@@ -53,7 +53,7 @@
 ### Phase 2: Update .dockerignore (Depends on Phase 1 completion)
 
 7. **Append to `/.dockerignore`**
-   - File path: `/home/ivanp/PersonalProjects/data-pipeline-async/.dockerignore`
+   - File path: `/home/$USER/<directory>/data-pipeline-async/.dockerignore`
    - Action: Append 5 new lines to end of file:
      ```
      htmlcov/
