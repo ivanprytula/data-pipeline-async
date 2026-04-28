@@ -361,14 +361,14 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 15
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/data_pipeline
-      DATABASE_URL_RAW: postgresql://postgres:postgres@postgres:5432/data_pipeline
+      DATABASE_URL: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/data_pipeline
+      DATABASE_URL_RAW: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/data_pipeline
     services:
       postgres:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: data_pipeline
         ports:
           - 5432:5432
@@ -616,7 +616,7 @@ jobs:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: test_database
         ports:
           - 5432:5432
@@ -643,7 +643,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@postgres:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "integration"
@@ -670,7 +670,7 @@ jobs:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: test_database
         ports:
           - 5432:5432
@@ -697,7 +697,7 @@ jobs:
 
       - name: Run E2E tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@postgres:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "e2e"
