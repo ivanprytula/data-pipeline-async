@@ -13,13 +13,20 @@ ARG UV_VERSION=0.11.7
 RUN python -m pip install --upgrade pip==${PIP_VERSION} \
     && python -m pip install uv==${UV_VERSION}
 
+# Set UV behavior to avoid hardlink/symlink issues in CI and Docker filesystems
+# UV_LINK_MODE=copy forces uv to copy files instead of hardlinking/symlinking
+# UV_COMPILE_BYTECODE=1 pre-compiles bytecode for slightly faster startup
+ENV UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1
+
 # Layer 3: Workspace setup (cached — changes only if lockfile/pyproject changes)
 WORKDIR /workspace
 COPY uv.lock pyproject.toml .python-version ./
 
 # Layer 4: Install dependencies (cached — reused if lockfile unchanged)
 # Even if only code changes, this layer is skipped
-RUN uv sync --frozen || true
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen || true
 
 # Layer 5: Default entrypoint (cached until entrypoint changes)
 ENTRYPOINT ["sh", "-lc", "python --version && pip --version && uv --version"]

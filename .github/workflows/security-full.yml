@@ -1,6 +1,6 @@
 name: Security Full Scan (Scheduled and Manual)
 
-'on':
+on:
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'

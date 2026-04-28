@@ -27,6 +27,7 @@ permissions:
 env:
   PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
+  UV_LINK_MODE: 'copy'
 
 jobs:
   build-and-push:

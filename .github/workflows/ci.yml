@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - develop
+      - 'release/*'
   pull_request:
     branches:
       - main
@@ -40,6 +40,7 @@ env:
   PYTHON_VERSION: '3.14'
   PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
+  UV_LINK_MODE: 'copy'
 
 jobs:
   # ---------------------------------------------------------------------------
