@@ -70,7 +70,7 @@ jobs:
 
       - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             backend_change:
@@ -361,8 +361,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 15
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/data_pipeline
-      DATABASE_URL_RAW: postgresql://postgres:postgres@127.0.0.1:5432/data_pipeline
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/data_pipeline
+      DATABASE_URL_RAW: postgresql://postgres:postgres@postgres:5432/data_pipeline
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -388,7 +388,7 @@ jobs:
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Test fresh migrations (upgrade from base to head)
@@ -638,12 +638,12 @@ jobs:
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Run integration tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "integration"
@@ -692,12 +692,12 @@ jobs:
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Run E2E tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "e2e"
