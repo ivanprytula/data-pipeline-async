@@ -299,10 +299,10 @@ async def get_ingestion_health(db: AsyncSession) -> dict[str, Any]:
             "ingestion_enabled": True,
         }
 
-    except Exception as e:
-        logger.error("ingestion_health_check_failed", extra={"error": str(e)})
+    except Exception:
+        logger.exception("ingestion_health_check_failed")
         return {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Internal ingestion health check failure",
             "ingestion_enabled": False,
         }
