@@ -1,5 +1,8 @@
 """Integration tests for dashboard page routes."""
 
+import re
+from urllib.parse import urlparse
+
 import pytest
 from httpx import AsyncClient, HTTPError
 
@@ -124,7 +127,10 @@ async def test_search_partial_returns_results(
 
     assert r.status_code == 200
     assert "text/html" in r.headers.get("content-type", "")
-    assert "api.example.com" in r.text
+
+    urls = re.findall(r'https?://[^\s"\'<>]+', r.text)
+    hosts = [urlparse(url).hostname for url in urls]
+    assert "api.example.com" in hosts
 
 
 @pytest.mark.integration
