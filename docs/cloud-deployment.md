@@ -1,3 +1,71 @@
+## Cloud deployment — Safe defaults
+
+This document records recommended safe defaults for continuous deployment (CD) in this repository.
+
+Summary
+
+- CD workflows in this repo are manual by default: see `.github/workflows/cd-deploy.yml` which uses `workflow_dispatch` only.
+- Recommended safe defaults: require environment protections for `prod` (and optionally `dev`), store secrets in environment-scoped secrets, and remove stale branch-protection contexts.
+
+Why
+
+- Manual deploys + environment protection reduce blast radius and prevent CI from accidentally triggering production changes.
+
+Recommendations (safe defaults)
+
+1. Keep CD workflows manual
+
+- Do not add `workflow_run` or other automatic triggers to call `cd-deploy.yml` or the reusable `deploy-reusable.yml` unless you explicitly opt in.
+
+1. Protect the `prod` environment (and optionally `dev`)
+
+- In GitHub: Repository → Settings → Environments → Add `prod` (if not present) → Protect environment.
+  - Add required reviewers (teams or individuals) to enforce human approvals.
+  - Optionally add a `wait timer` to delay deployments.
+
+- UI steps (quick):
+  1. Go to <https://github.com/><OWNER>/<REPO>/settings/environments
+  2. Click the environment name (e.g., `prod`).
+  3. Under "Protection rules" add required reviewers or teams and save.
+
+1. Store deployment secrets as environment-scoped secrets
+
+Use the `gh` CLI to create environment secrets rather than storing values at repo or org level.
+
+Example to set `CI_POSTGRES_PASSWORD` for `prod` (run locally as a repo admin):
+
+```bash
+# from a machine with gh CLI authenticated as a repo admin
+export CI_POSTGRES_PASSWORD="${CI_POSTGRES_PASSWORD}"  # set locally beforehand
+gh secret set CI_POSTGRES_PASSWORD --env prod --body "$CI_POSTGRES_PASSWORD"
+```
+
+1. Remove stale 'Expected' branch-protection contexts
+
+This repo contains `scripts/tools/set-branch-protection-gh.sh` which can discover check-run contexts observed on `main` and apply them to branch-protection rules.
+
+Example (requires `gh` + `jq`, and repo admin):
+
+```bash
+bash scripts/tools/set-branch-protection-gh.sh --discover --discover-ref main --branches main,develop --apply
+```
+
+1. Quick verification and CI run
+
+- Verify the required secret `CI_POSTGRES_PASSWORD` exists in the `prod` environment (or other required secrets used by deployment).
+- Trigger a full CI run after protections and secrets are configured:
+
+```bash
+# example (adjust fields as needed)
+gh workflow run ci.yml --ref main --field run_slow_checks=true --field run_docker_build=false
+```
+
+Notes
+
+- Creating environment protections and editing branch-protection requires repository admin permissions.
+- The helper script `scripts/tools/apply-github-environment-protection.sh` (in this repo) can set environment secrets from local env vars and points you to the UI for reviewer setup.
+
+If you want, I can prepare the `gh api` payloads to apply environment protection programmatically; this requires team/user IDs and admin privileges.
 # Cloud Deployment — ECS Fargate on AWS
 
 ## Why ECS Fargate (not EKS)
