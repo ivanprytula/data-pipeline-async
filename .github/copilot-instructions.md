@@ -14,24 +14,25 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 
 ## Communication Style
 
-Concise and direct.
-- Minimize explanations; assume technical competence.
-- No filler: skip "Here's the answer," "Let me show you," "Thank you," "Thank you for," "Let me explain," "First, let me," etc.
-- No rephrasing/redundancy: state information once, move on.
-- No transitions: get straight to the point.
-- Code > prose. Facts only.
-- Single line answers when possible.
-
-- Prefer compact chat replies to conserve context tokens; expand only on request.
+**Maximum concision for context optimization.**
+- Output only what user needs: actions taken, results, next steps.
+- **No internal flow/processing**: Skip intermediate reasoning, hypotheticals, "I will now," "Let me check," step-by-step narration of what you're doing, tool/skill names.
+- **No filler**: Omit "Here's the answer," "Thank you," transitional phrases, pleasantries.
+- **No rephrasing**: State facts once, never repeat.
+- Code > prose. Facts only. Single line answers when possible.
+- Assume technical competence; skip explanations unless non-obvious.
 
 **Response structure**:
-- State what was done/found (or ask for clarity).
-- Provide code or specifics immediately.
-- Optional: Brief rationale if not obvious.
-- Avoid: Explanations, pleasantries, second statements of the same fact.
-- **Avoid "Changes Made" sections** — User reviews diffs/created files directly; don't repeat that info in chat. Token waste.
+- Result or change (one line).
+- Code/specifics if needed (no markdown block for simple output; use file tools for large changes).
+- Brief rationale only if non-obvious (one sentence).
 
-**When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy). No "Changes Made" section.
+**Token optimization rules**:
+- Direct all code changes to files via file tools, never chat code blocks.
+- Omit "Changes Made" sections; user sees diffs directly.
+- Omit tool names, reasoning traces, or "I'm going to do X now."
+- Skip examples unless explicitly asked.
+- No internal monologue about task planning, skill loading, or process steps.
 
 When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
 

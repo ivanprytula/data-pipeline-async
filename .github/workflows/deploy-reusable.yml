@@ -51,6 +51,18 @@ on:
         required: false
         type: string
         default: ""
+      image-name:
+        type: string
+      dockerfile:
+        type: string
+      context:
+        type: string
+      push-image:
+        type: boolean
+    secrets:
+      aws_account_id:
+        required: true
+        description: AWS account ID for image registry
 
 permissions:
   contents: read

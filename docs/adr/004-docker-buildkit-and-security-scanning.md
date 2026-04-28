@@ -74,9 +74,27 @@ FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2
   - **Security update (April 22, 2026)**: Switched from `postgres:17` (1 CRITICAL + 13 HIGH vulns)
   - Alpine assessment: pgvector requires `/bin/bash` + Debian build tools (limited availability in Alpine)
   - Chosen: `postgres:17-bookworm` (Debian-based, reliable pgvector builds, significantly smaller than vulnerable postgres:17)
-  - Update monthly via [digest-update-runbook.md](../../setup/digest-update-runbook.md)
+  - Update monthly via [digest-update-runbook.md](../setup/digest-update-runbook.md)
 
 **Trade-off**: Requires manual updates when upgrading base images (check periodically for patches).
+
+Alternative (recommended): run the Python dependency audit inside the curated prebuilt CI image to avoid per-job `setup-python` installs and to guarantee the interpreter/ABI used for cp314 wheels:
+
+```yaml
+  python-deps:
+    # Use the prebuilt image (guaranteed Python 3.14 + uv + wheels cached)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
+    steps:
+      - uses: actions/checkout@<sha>
+      - name: Export locked deps
+        run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt
+      - name: Run pip-audit
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266
+        with:
+          inputs: requirements-audit.txt
+```
 
 ### 3. Adopt Docker Image Vulnerability Scanning (APPROVED)
 
@@ -462,7 +480,7 @@ done
 
 ### Monthly Digest Review Process
 
-Base image digests require monthly security review. See [digest-update-runbook.md](../../setup/digest-update-runbook.md) for complete procedures:
+Base image digests require monthly security review. See [digest-update-runbook.md](../setup/digest-update-runbook.md) for complete procedures:
 
 - Automated vulnerability scanning (Trivy)
 - Finding and validating new digests

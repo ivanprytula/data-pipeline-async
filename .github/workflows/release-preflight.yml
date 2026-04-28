@@ -32,33 +32,13 @@ jobs:
   preflight:
     name: Release preflight checks
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
     environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install "pip==${{ env.PIP_VERSION }}" "uv==${{ env.UV_VERSION }}"
-          uv sync --frozen
 
       - name: Preflight migration and backup checks
         env:

@@ -89,9 +89,9 @@ updates:
     target-branch: develop
     open-pull-requests-limit: 5
     reviewers:
-      - ivanp
+      - ivanprytula
     assignees:
-      - ivanp
+      - ivanprytula
     labels:
       - "dependencies"
       - "type/dependency"

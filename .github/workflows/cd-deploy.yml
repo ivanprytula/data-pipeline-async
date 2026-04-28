@@ -132,3 +132,5 @@ jobs:
       cosign-certificate-identity: ${{ vars.COSIGN_CERTIFICATE_IDENTITY }}
       cosign-certificate-oidc-issuer: https://token.actions.githubusercontent.com
       environment: ${{ inputs.environment }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}

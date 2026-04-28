@@ -23,7 +23,6 @@ BuildKit enables faster, more efficient Docker builds with layer caching.
 
 #### Option 1: Per-Command (Temporary)
 
-
 ```bash
 export DOCKER_BUILDKIT=1
 docker build -t ingestor:latest .
@@ -34,21 +33,18 @@ docker build -t ingestor:latest .
 
 #### Option 2: Permanent (Linux/macOS)
 
-
-**Add to `~/.bashrc`, `~/.zshrc`, or equivalent:**
+Add to `~/.bashrc`, `~/.zshrc`, or equivalent:
 
 ```bash
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 ```
 
-
 Then reload shell:
 
 ```bash
 source ~/.bashrc  # or ~/.zshrc
 ```
-
 
 #### Option 3: Docker Daemon Config (All Users)
 
@@ -64,7 +60,6 @@ source ~/.bashrc  # or ~/.zshrc
 ```
 
 Then restart Docker:
-
 
 ```bash
 sudo systemctl restart docker
@@ -132,7 +127,7 @@ pip-audit && echo "✓ No vulnerabilities" || echo "✗ Vulnerabilities found"
 
 #### Example Output
 
-```
+```text
 Found 2 known security vulnerabilities in 2 packages
 
 Vulnerability #1
@@ -154,11 +149,9 @@ Vulnerability #2
 
 ---
 
-
 ### 2. Trivy (Container Image Scanner)
 
 Scans Docker images for OS-level vulnerabilities, misconfigurations, and dependency vulnerabilities.
-
 
 #### Installation
 
@@ -212,7 +205,7 @@ trivy image --severity HIGH --list-all-pkgs ingestor:latest
 
 #### Example Output
 
-```
+```sh
 2024-04-22T10:15:32.123Z INFO Vulnerability DB Repository: ghcr.io/aquasecurity/trivy-db
 2024-04-22T10:15:33.456Z INFO Scanning image: ingestor:latest
 
@@ -238,7 +231,6 @@ MEDIUM Vulnerabilities
 ```
 
 ---
-
 
 ## Pre-Commit Hooks
 
@@ -374,6 +366,23 @@ jobs:
         run: |
           echo "### Python Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
           echo "✅ No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+```
+
+Alternative (recommended): use the prebuilt CI image `ghcr.io/${{ github.repository_owner }}/data-pipeline-ci` for the `pip-audit` job to avoid per-job Python setup and to use pre-synced wheels.
+
+```yaml
+pip-audit:
+  runs-on: ubuntu-latest
+  container:
+    image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
+  steps:
+    - uses: actions/checkout@<sha>
+    - name: Export locked deps
+      run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt
+    - name: Run pip-audit
+      uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266
+      with:
+        inputs: requirements-audit.txt
 ```
 
 ### Workflow 2: Docker Image Vulnerability Scanning
@@ -564,7 +573,6 @@ uv pip install pip-audit
 **Symptom**: Trivy scan takes 5+ minutes
 
 **Solution**:
-
 
 ```bash
 # Update Trivy DB (cached, usually fast)
