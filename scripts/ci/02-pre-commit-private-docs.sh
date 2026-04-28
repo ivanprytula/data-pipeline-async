@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Pre-commit hook to prevent staging files in learning_docs/
+# Pre-commit hook to prevent accidental files in learning_docs/
 # This is a safety net in case the .gitignore entry is toggled.
 
 FORBIDDEN_DIR="learning_docs/"

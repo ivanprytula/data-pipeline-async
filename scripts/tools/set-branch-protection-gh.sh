@@ -7,21 +7,27 @@ branches_csv="main,develop"
 approvals="1"
 discover_contexts="false"
 discover_ref=""
+enforce_admins="false"
+bypass_users_csv=""
+owner_type=""
 
 usage() {
 	cat <<'EOF'
 Usage:
-	set-branch-protection-gh.sh [--repo owner/name] [--branches main,develop] [--approvals 1] [--discover] [--discover-ref main] [--apply]
+	set-branch-protection-gh.sh [--repo owner/name] [--branches main,develop] [--approvals 1] [--discover] [--discover-ref main] [--enforce-admins true|false] [--bypass-users user1,user2] [--apply]
 
 Examples:
 	set-branch-protection-gh.sh
 	set-branch-protection-gh.sh --apply
+	set-branch-protection-gh.sh --bypass-users ivanprytula --apply
 	set-branch-protection-gh.sh --discover --discover-ref main
 	set-branch-protection-gh.sh --repo ivanprytula/data-pipeline-async --branches main --apply
 
 Notes:
 	- Default mode is dry-run (prints payloads only).
 	- --discover auto-discovers required checks from latest check-runs on the selected ref.
+	- Personal repositories cannot use user/team bypass lists; admin bypass is controlled via --enforce-admins.
+	- For personal repos, use --enforce-admins false to allow direct push only for admins.
 	- Use --apply to update branch protection rules through GitHub API.
 EOF
 }
@@ -52,6 +58,14 @@ while [[ $# -gt 0 ]]; do
 			discover_ref="$2"
 			shift 2
 			;;
+		--enforce-admins)
+			enforce_admins="$2"
+			shift 2
+			;;
+		--bypass-users)
+			bypass_users_csv="$2"
+			shift 2
+			;;
 		-h|--help)
 			usage
 			exit 0
@@ -78,18 +92,44 @@ if [[ -z "$repo" ]]; then
 	repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 fi
 
+owner_type="$(gh api "repos/${repo}" -q .owner.type)"
+
+if [[ "$enforce_admins" != "true" && "$enforce_admins" != "false" ]]; then
+	echo "--enforce-admins must be 'true' or 'false'." >&2
+	exit 1
+fi
+
 owner="${repo%/*}"
 name="${repo#*/}"
 
 IFS=',' read -r -a branches <<<"$branches_csv"
 
+if [[ -z "$bypass_users_csv" ]]; then
+	bypass_users_csv="$(gh api user -q .login)"
+fi
+
+bypass_users_json="$(
+	printf '%s' "$bypass_users_csv" \
+	| tr ',' '\n' \
+	| sed 's/^ *//; s/ *$//' \
+	| sed '/^$/d' \
+	| jq -R . \
+	| jq -s .
+)"
+
+supports_user_bypass="false"
+if [[ "$owner_type" == "Organization" ]]; then
+	supports_user_bypass="true"
+elif [[ -n "$bypass_users_csv" ]]; then
+	echo "Info: Personal repository detected; user/team bypass lists are not supported by GitHub API." >&2
+	echo "Info: Ignoring --bypass-users and relying on admin bypass via --enforce-admins=false." >&2
+fi
+
 default_contexts_json='[
 	"CI / 01 Quality checks — Python 3.14",
+	"CI / 01b Change impact routing",
 	"CI / 02 Unit tests — Python 3.14",
-	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
-	"CI / 04 Integration tests — Python 3.14",
-	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit"
+	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]'
 
 discover_required_contexts() {
@@ -103,11 +143,9 @@ discover_required_contexts() {
 	local targets_json
 	targets_json='[
 		"01 Quality checks — Python 3.14",
+		"01b Change impact routing",
 		"02 Unit tests — Python 3.14",
-		"03 Verify Alembic migrations (PostgreSQL 17)",
-		"04 Integration tests — Python 3.14",
-		"05 E2E tests — Python 3.14",
-		"06 Dependency Audit"
+		"Secrets Scan (changed lines)"
 	]'
 
 	gh api "repos/${owner}/${name}/commits/${sha}/check-runs" \
@@ -143,11 +181,9 @@ if [[ "$discover_contexts" != "true" ]]; then
 read -r -d '' contexts_json <<'JSON' || true
 [
 	"CI / 01 Quality checks — Python 3.14",
+	"CI / 01b Change impact routing",
 	"CI / 02 Unit tests — Python 3.14",
-	"CI / 03 Verify Alembic migrations (PostgreSQL 17)",
-	"CI / 04 Integration tests — Python 3.14",
-	"CI / 05 E2E tests — Python 3.14",
-	"CI / 06 Dependency Audit"
+	"Security Secrets Lite / Secrets Scan (changed lines)"
 ]
 JSON
 fi
@@ -156,12 +192,15 @@ for branch in "${branches[@]}"; do
 	payload="$(jq -n \
 		--argjson contexts "$contexts_json" \
 		--argjson approvals "$approvals" \
+		--argjson enforce_admins "$enforce_admins" \
+		--argjson bypass_users "$bypass_users_json" \
+		--argjson supports_user_bypass "$supports_user_bypass" \
 		'{
 			required_status_checks: {
 				strict: true,
 				contexts: $contexts
 			},
-			enforce_admins: false,
+			enforce_admins: $enforce_admins,
 			required_pull_request_reviews: {
 				dismiss_stale_reviews: true,
 				require_code_owner_reviews: false,
@@ -176,7 +215,16 @@ for branch in "${branches[@]}"; do
 			block_creations: false,
 			lock_branch: false,
 			allow_fork_syncing: true
-		}')"
+		}
+		| if $supports_user_bypass then
+			.required_pull_request_reviews.bypass_pull_request_allowances = {
+				users: $bypass_users,
+				teams: [],
+				apps: []
+			}
+		  else
+			.
+		  end')"
 
 	echo "=== Branch: ${branch} ==="
 	echo "$payload" | jq .

@@ -107,8 +107,13 @@ def is_external_link(target: str) -> bool:
     )
 
 
-def normalize_target(base: Path, target: str) -> Path:
+def normalize_target(base: Path, target: str, root: Path) -> Path:
     no_anchor = target.split("#", 1)[0]
+    # Root-relative paths: only .github/ and absolute paths / are repo-root-relative
+    # Everything else (including ./ and ../) is relative to markdown file directory
+    if no_anchor.startswith(".github/"):
+        return (root / no_anchor).resolve()
+    # Otherwise resolve relative to markdown file directory
     return (base / no_anchor).resolve()
 
 
@@ -148,7 +153,7 @@ def check_file(path: Path, check_level: str) -> list[str]:
             if target.startswith("`"):
                 continue
 
-            resolved = normalize_target(path.parent, target)
+            resolved = normalize_target(path.parent, target, ROOT)
             if not resolved.exists():
                 errors.append(
                     f"{rel_path}:{line_no}: broken local link target '{target}'."

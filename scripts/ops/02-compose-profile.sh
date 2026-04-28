@@ -27,14 +27,14 @@ case "$PROFILE" in
     echo ""
     echo "Available profiles:"
     echo "  dev         — Loose resources for debugging (default)"
-    echo "  prod-like   — Tight resources matching staging/prod (test locally)"
+    echo "  prod-like   — Tight resources matching prod (test locally)"
     echo "  prod        — Base config only (use in CI/CD)"
     echo ""
     echo "Usage: bash scripts/ops/02-compose-profile.sh <profile> <command>"
     echo "Examples:"
     echo "  bash scripts/ops/02-compose-profile.sh dev up"
     echo "  bash scripts/ops/02-compose-profile.sh prod-like up -d"
-    echo "  bash scripts/ops/02-compose-profile.sh prod-like logs app"
+    echo "  bash scripts/ops/02-compose-profile.sh prod-like logs ingestor"
     echo "  bash scripts/ops/02-compose-profile.sh prod up"
     exit 1
     ;;

@@ -14,28 +14,36 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 
 ## Communication Style
 
-**Concise and direct.**
-- Minimize explanations; assume technical competence.
-- No filler: skip "Here's the answer," "Let me show you," "Thank you," "Thank you for," "Let me explain," "First, let me," etc.
-- No rephrasing/redundancy: state information once, move on.
-- No transitions: get straight to the point.
-- Code > prose. Facts only.
-- Single line answers when possible.
-
-- Prefer compact chat replies to conserve context tokens; expand only on request.
+**Maximum concision for context optimization.**
+- Output only what user needs: actions taken, results, next steps.
+- **No internal flow/processing**: Skip intermediate reasoning, hypotheticals, "I will now," "Let me check," step-by-step narration of what you're doing, tool/skill names.
+- **No filler**: Omit "Here's the answer," "Thank you," transitional phrases, pleasantries.
+- **No rephrasing**: State facts once, never repeat.
+- Code > prose. Facts only. Single line answers when possible.
+- Assume technical competence; skip explanations unless non-obvious.
 
 **Response structure**:
-- State what was done/found (or ask for clarity).
-- Provide code or specifics immediately.
-- Optional: Brief rationale if not obvious.
-- Avoid: Explanations, pleasantries, second statements of the same fact.
-- **Avoid "Changes Made" sections** — User reviews diffs/created files directly; don't repeat that info in chat. Token waste.
+- Result or change (one line).
+- Code/specifics if needed (no markdown block for simple output; use file tools for large changes).
+- Brief rationale only if non-obvious (one sentence).
 
-**When implementation is requested**: Apply changes directly to files, not code blocks in chat. Large code blocks waste tokens and force manual copy-paste. Use file tools (replace_string_in_file, multi_replace_string_in_file, create_file) to deliver code changes directly. Summary message in chat only (what changed, why, if noteworthy). No "Changes Made" section.
+**Token optimization rules**:
+- Direct all code changes to files via file tools, never chat code blocks.
+- Omit "Changes Made" sections; user sees diffs directly.
+- Omit tool names, reasoning traces, or "I'm going to do X now."
+- Skip examples unless explicitly asked.
+- No internal monologue about task planning, skill loading, or process steps.
 
 When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
 
+- Avoid embedding literal environment variable names or secret identifiers in descriptions or comments; keep descriptions generic and do not reveal secret identifiers in human-readable text.
+
 ## Build and Test
+
+Execution note: always invoke Python scripts using `uv run` so the project's pinned
+environment is used (for example `uv run python scripts/ci/dependabot_age_gate.py` or
+`uv run pytest`). Avoid calling `python` or `python3` directly in CI, scripts, or
+developer commands — use `uv run` to ensure reproducible dependencies.
 
 ```bash
 uv sync                                              # install deps
@@ -262,6 +270,8 @@ limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 **Hard rule (non-negotiable):** Never violate this rule: "bold-only heading detected (use markdown headings)."
 Always use proper markdown heading syntax (`#`, `##`, `###`, etc.) and never use bold text as a heading substitute. If this will lead to duplicate headings, adjust the heading level or rephrase to maintain unique headings while following markdown syntax.
 
+**Explicit anti-pattern ban:** Never write standalone label lines like `**Manual method:**`, `**Settings:**`, `**Notes:**`, `**Expected output:**`. These are treated as emphasis-only headings and will fail the docs quality hook. Use `###`/`####` headings or plain paragraph text instead.
+
 **MD036: No emphasis as headings** — Never use bold/italic as section headings. Always use proper heading syntax (`#`, `##`, `###`, etc).
 ```markdown
 # ✅ CORRECT
@@ -280,6 +290,13 @@ Use this section to explain configuration.
 More details here.
 ```
 **Why**: Markdown emphasis is for text highlighting, not document structure. Headings enable table of contents generation, screen reader navigation, and proper semantic HTML.
+
+**MD032: Lists must be surrounded by blank lines** — Always place a blank line before and after every list (ordered or unordered). Never start a list immediately after a heading, paragraph, or code block without a blank line in between.
+
+**Pre-flight markdown check** — before finishing any `.md` edit:
+1. Search for standalone emphasis lines (`^\*\*.*\*\*$`).
+2. Convert each to a proper heading or inline sentence.
+3. Re-check heading hierarchy (no skips).
 
 **MD040: Fenced code blocks must have language tag** — Always specify the code language (`` ```python ``, `` ```bash ``, `` ```text ``, etc). Never use bare `` ``` ``.
 ```markdown
@@ -302,7 +319,7 @@ def foo():
 
 ## Visual Documentation
 
-**Prefer diagrams over prose for flows, chains, and complex processes.**
+### Prefer Diagrams Over Prose
 
 When explaining workflows, dependency chains, data flows, or multi-step processes:
 
@@ -342,7 +359,7 @@ When explaining workflows, dependency chains, data flows, or multi-step processe
 
 **Rationale:** Readers scan visual diagrams in 2 seconds. Reading equivalent prose takes 30+ seconds and is harder to recall. For learning projects, diagrams are especially critical.
 
-**Where to add diagrams:**
+### Where To Add Diagrams
 - Code comments: Small ASCII diagrams inline (2–5 lines max)
 - Documentation files: Full flowcharts and ASCII art (no size limit)
 - Chat responses: ASCII diagrams explaining complex concepts (this file shows examples)

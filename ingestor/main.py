@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -147,10 +148,11 @@ def _validate_production_security_settings() -> None:
     if settings.environment.lower() not in {"production", "prod"}:
         return
 
-    weak_jwt_secret = settings.jwt_secret == "dev-secret-key-change-in-production"
+    weak_jwt_secret = len(settings.jwt_secret) < 32
+    jwt_secret_from_env = bool(os.environ.get("JWT_SECRET"))
     weak_docs_password = settings.docs_password in {"changeme", "admin", "password"}
 
-    if weak_jwt_secret or weak_docs_password:
+    if weak_jwt_secret or weak_docs_password or not jwt_secret_from_env:
         raise RuntimeError(
             "Weak default secrets detected in production environment. "
             "Set strong values via environment variables or a secrets manager."

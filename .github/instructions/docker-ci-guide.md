@@ -100,6 +100,8 @@ GitHub Actions (ci.yml) triggers
 
 - [ ] **Dockerfile (multi-stage)**
 
+**Tip:** For Python-heavy CI, prefer using the prebuilt CI image `ghcr.io/${{ github.repository_owner }}/data-pipeline-ci` to ensure interpreter parity and faster runs. See [docs/ci/prebuilt-ci-image.md](docs/ci/prebuilt-ci-image.md) for build/pin/rollback steps.
+
   ```dockerfile
   FROM python:3.12-slim as builder
 
@@ -196,6 +198,22 @@ GitHub Actions (ci.yml) triggers
     push-ecr:
       runs-on: ubuntu-latest
       if: github.ref == 'refs/heads/main'
+
+
+  Tip: For maintainers, consider running the `lint` and `test` jobs inside the prebuilt CI image instead of using `actions/setup-python` on each job. Example:
+
+```yaml
+lint:
+  container:
+    image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
+  steps:
+    - uses: actions/checkout@<sha>
+    - run: uv run ruff check .
+```
+
+This reduces per-job setup time and guarantees Python 3.14 parity for cp314 wheels.
+
+```yaml
       needs: docker-build
       steps:
         - uses: actions/checkout@v4
@@ -216,7 +234,7 @@ GitHub Actions (ci.yml) triggers
               ${{ steps.login-ecr.outputs.registry }}/app:latest
             cache-from: type=gha
             cache-to: type=gha,mode=max
-  ```
+```
 
 - [ ] **GitHub Secrets (set in repo settings)**
   - `AWS_ACCESS_KEY_ID`

@@ -13,6 +13,7 @@
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^infra/kubernetes/charts/.*/templates/.*\.ya?ml$
       - id: check-toml
       - id: check-added-large-files
       - id: check-merge-conflict
@@ -52,9 +53,13 @@
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
     hooks:
-      -   id: pip-audit
+        - id: pip-audit
+          name: pip-audit (wrapper)
+          entry: uv run python scripts/ci/pip_audit_wrapper.py
+          language: system
+          files: 'pyproject\\.toml|uv\\.lock|requirements-audit\\.txt'
+          pass_filenames: false
 
   ci:
-    # Leave pip-audit to only run locally and not in CI
     # pre-commit.ci does not allow network calls
     skip: [pip-audit]

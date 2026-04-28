@@ -1,7 +1,7 @@
 """Pydantic v2 schemas (same for both stacks)."""
 
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,6 +19,21 @@ from ingestor.constants import (
     VECTOR_SEARCH_MAX_RECORD_IDS,
     VECTOR_SEARCH_MAX_TOP_K,
     VECTOR_SEARCH_MIN_RECORD_IDS,
+)
+from libs.contracts.schemas import (
+    BackgroundBatchSubmitResponse,
+    BackgroundTaskStatusResponse,
+    BatchCreateResponse,
+    NotificationDispatchResult,
+    NotificationTestRequest,
+    NotificationTestResponse,
+    PaginationMeta,
+    ScrapeResponse,
+    SessionResponse,
+    VectorSearchHealthResponse,
+    VectorSearchIndexResponse,
+    VectorSearchQueryResponse,
+    VectorSearchResult,
 )
 
 
@@ -153,13 +168,6 @@ class BatchRecordsRequest(BaseModel):
     )
 
 
-class PaginationMeta(BaseModel):
-    total: int
-    skip: int
-    limit: int
-    has_more: bool
-
-
 class RecordListResponse(BaseModel):
     records: list[RecordResponse]
     pagination: PaginationMeta
@@ -260,119 +268,6 @@ class CursorPaginationResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Batch create response schema
-# ---------------------------------------------------------------------------
-
-
-class BatchCreateResponse(BaseModel):
-    """Response from POST /api/v1/records/batch.
-
-    Attributes:
-        created: Number of records successfully created.
-        impl: The batch implementation used ("optimized" or "naive").
-    """
-
-    created: int
-    impl: str
-
-
-# ---------------------------------------------------------------------------
-# Session/login response schema
-# ---------------------------------------------------------------------------
-
-
-class SessionResponse(BaseModel):
-    """Response from POST /api/v1/records/auth/login (session-based auth).
-
-    Attributes:
-        session_id: Unique session identifier for this user.
-        message: Confirmation message.
-    """
-
-    session_id: str
-    message: str
-
-
-# ---------------------------------------------------------------------------
-# Scraper response schema (Phase 2)
-# ---------------------------------------------------------------------------
-
-
-class ScrapeResponse(BaseModel):
-    """Response from POST /api/v1/scrape/{source}.
-
-    Attributes:
-        source: Scraper source identifier used (e.g., 'hn', 'jsonplaceholder').
-        scraped: Number of items returned by the scraper.
-        stored: Number of items successfully persisted to MongoDB.
-    """
-
-    source: str
-    scraped: int
-    stored: int
-
-
-# ---------------------------------------------------------------------------
-# Background processing schemas (Pillar 5)
-# ---------------------------------------------------------------------------
-
-
-class BackgroundBatchSubmitResponse(BaseModel):
-    """Response from background batch ingestion submission endpoint."""
-
-    task_id: str
-    status: str
-    batch_size: int
-    queued_at: datetime
-
-
-class BackgroundTaskStatusResponse(BaseModel):
-    """Status response for a submitted background task."""
-
-    task_id: str
-    status: str
-    batch_size: int
-    queued_at: datetime
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    result: dict[str, Any] | None = None
-    error: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Notifications schemas (Pillar 8)
-# ---------------------------------------------------------------------------
-
-
-class NotificationTestRequest(BaseModel):
-    """Request payload for notification test endpoint."""
-
-    message: str = Field(..., min_length=1, max_length=2000)
-    severity: str = Field(default="info")
-    event: str = Field(default="notification_test")
-    channels: list[Literal["slack", "telegram", "webhook", "email"]] | None = None
-
-
-class NotificationDispatchResult(BaseModel):
-    """One channel dispatch result for notification test endpoint."""
-
-    channel: str
-    status: str
-    detail: str
-
-
-class NotificationTestResponse(BaseModel):
-    """Response payload for notification test endpoint."""
-
-    event: str
-    severity: str
-    sent: int
-    failed: int
-    results: list[NotificationDispatchResult] = Field(default_factory=list)
-    detail: str | None = None
-
-
-# ---------------------------------------------------------------------------
 # Vector search schemas (Pillar 9)
 # ---------------------------------------------------------------------------
 
@@ -390,15 +285,6 @@ class VectorSearchIndexRequest(BaseModel):
         default=None,
         description="Optional AI gateway collection override.",
     )
-
-
-class VectorSearchIndexResponse(BaseModel):
-    """Response from indexing records into the AI gateway."""
-
-    requested_count: int
-    indexed_count: int
-    missing_record_ids: list[int] = Field(default_factory=list)
-    collection: str
 
 
 class VectorSearchReindexRecentRequest(BaseModel):
@@ -442,26 +328,18 @@ class VectorSearchQueryRequest(BaseModel):
     )
 
 
-class VectorSearchResult(BaseModel):
-    """One semantic-search match returned by the AI gateway."""
-
-    id: int
-    score: float
-    metadata: dict[str, Any]
-
-
-class VectorSearchQueryResponse(BaseModel):
-    """Semantic-search response for indexed records."""
-
-    results: list[VectorSearchResult]
-    count: int
-    query: str
-    collection: str
-
-
-class VectorSearchHealthResponse(BaseModel):
-    """Health status of the AI gateway bridge used by Pillar 9."""
-
-    status: str
-    ai_gateway_connected: bool
-    collection: str
+__all__ = [
+    "PaginationMeta",
+    "NotificationDispatchResult",
+    "BatchCreateResponse",
+    "SessionResponse",
+    "ScrapeResponse",
+    "BackgroundBatchSubmitResponse",
+    "BackgroundTaskStatusResponse",
+    "NotificationTestRequest",
+    "NotificationTestResponse",
+    "VectorSearchResult",
+    "VectorSearchQueryResponse",
+    "VectorSearchIndexResponse",
+    "VectorSearchHealthResponse",
+]

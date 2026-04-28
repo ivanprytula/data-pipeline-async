@@ -538,7 +538,7 @@ Base image digests must be reviewed monthly for security patches. See [digest-up
 | `DATABASE_URL`             | `.env`             | GitHub Secrets                       | Secrets Manager          | Primary app DB                    |
 | `DATABASE_URL_TEST`        | `.env`             | GitHub Secrets                       | N/A (tests don't run)    | PostgreSQL test DB                |
 | `REDIS_URL`                | `.env`             | GitHub Secrets                       | Secrets Manager          | Redis service                     |
-| `ENVIRONMENT`              | `.env` or override | `development`/`staging`/`production` | Injected by orchestrator | App mode                          |
+| `ENVIRONMENT`              | `.env` or override | `development`/`production`           | Injected by orchestrator | App mode                          |
 | `LOG_LEVEL`                | `.env`             | `INFO` (GitHub)                      | Injected                 | Logging verbosity                 |
 | `OTEL_ENDPOINT`            | `.env`             | GitHub Secrets                       | Secrets Manager          | Tracing endpoint                  |
 | `DOCKER_BUILDKIT`          | `1` (recommended)  | `1` (CI default)                     | N/A                      | Enable BuildKit for faster builds |

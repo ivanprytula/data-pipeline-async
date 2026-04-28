@@ -2,6 +2,8 @@
 
 This document explains how to secure GitHub Actions workflows by pinning action references to immutable commit SHAs and maintaining them over time.
 
+Note: this repository also uses a curated, prebuilt CI image for Python-based jobs: `ghcr.io/${{ github.repository_owner }}/data-pipeline-ci`. The image guarantees Python 3.14 parity, preinstalled `uv` and cached wheels. See [Prebuilt CI Image](docs/ci/prebuilt-ci-image.md) for build, pinning, and rollback instructions.
+
 ## The Problem: Mutable Action References
 
 Default GitHub Actions workflows pin to **mutable tags** like `@v4` or `@latest`:

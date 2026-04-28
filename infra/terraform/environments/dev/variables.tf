@@ -22,7 +22,7 @@ variable "availability_zones" {
 
 variable "github_repository" {
   type    = string
-  default = "ivanp/data-pipeline-async"
+  default = "ivanprytula/data-pipeline-async"
 }
 
 variable "redis_auth_token" {

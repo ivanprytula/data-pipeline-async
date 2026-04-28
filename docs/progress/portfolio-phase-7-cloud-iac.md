@@ -2,7 +2,7 @@
 
 **Status**: ✅ Complete
 **Timeline**: Week 13–14 (April 2026)
-**Core Question**: "Walk me through your multi-environment infrastructure deployment (dev/staging/prod). What trade-offs did you make?"
+**Core Question**: "Walk me through your multi-environment infrastructure deployment (dev/prod). What trade-offs did you make?"
 
 ---
 
@@ -22,15 +22,15 @@ Data Zoo runs perfectly on `docker-compose` locally. Now it needs to run on AWS 
 
 ### Architecture Decision
 
-**Why ECS Fargate (not EKS)?**
+Why ECS Fargate (not EKS)?
 
-| Factor | ECS Fargate | EKS | Trade-off |
-|--------|------------|-----|-----------|
-| **Ops burden** | None (managed) | High (nodes, upgrades, CNI) | Pay $ for simplicity |
-| **Learning curve** | 2 hours (ALB, IAM, ECS) | 2 weeks (K8s API, CRDs) | Fargate focuses on patterns, not ops |
-| **Cost (dev)** | ~$85/month | ~$100+/month | Fargate cheaper + Spot = 70% savings |
-| **CI/CD** | `aws ecs update-service` (1 call) | `kubectl set image` + GitOps | Fargate is simpler |
-| **Suitable for** | 1–10 services | 50+ services, platform team | This project is 5 services |
+| Factor             | ECS Fargate                       | EKS                          | Trade-off                            |
+| ------------------ | --------------------------------- | ---------------------------- | ------------------------------------ |
+| **Ops burden**     | None (managed)                    | High (nodes, upgrades, CNI)  | Pay $ for simplicity                 |
+| **Learning curve** | 2 hours (ALB, IAM, ECS)           | 2 weeks (K8s API, CRDs)      | Fargate focuses on patterns, not ops |
+| **Cost (dev)**     | ~$85/month                        | ~$100+/month                 | Fargate cheaper + Spot = 70% savings |
+| **CI/CD**          | `aws ecs update-service` (1 call) | `kubectl set image` + GitOps | Fargate is simpler                   |
+| **Suitable for**   | 1–10 services                     | 50+ services, platform team  | This project is 5 services           |
 
 **Decision**: Kubernetes is a separate dedicated learning project. Fargate lets us focus on distributed systems patterns (service-to-service communication, resilience, observability) without the distraction of cluster administration.
 
@@ -42,21 +42,22 @@ Data Zoo runs perfectly on `docker-compose` locally. Now it needs to run on AWS 
 
 **Location**: `infra/terraform/modules/`
 
-| Module | Responsibility | Key Resources |
-|--------|----------------|-------------------|
-| `network/` | VPC, subnets, IGW, NAT, security groups | 2 public + 2 private subnets (2 AZs), 5 security groups (least-privilege) |
-| `ecr/` | Container registry | ECR repos for all 5 services |
-| `iam/` | GitHub Actions OIDC provider | No long-lived AWS keys in CI/CD; trust policy scoped to main/develop branches |
-| `database/` | RDS PostgreSQL 17 | gp3 encrypted storage, managed password (Secrets Manager), Multi-AZ toggle |
-| `cache/` | ElastiCache Redis 7.1 | TLS in-transit, AUTH token, automatic failover (prod) |
-| `messaging/` | MSK Serverless (Kafka) | IAM auth (no passwords), private subnets |
-| `compute/` | ECS cluster, ALB, task definitions | ALB with HTTPS listener, ingestor + 4 service task defs, circuit breaker for safe deployments |
+| Module       | Responsibility                          | Key Resources                                                                                 |
+| ------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `network/`   | VPC, subnets, IGW, NAT, security groups | 2 public + 2 private subnets (2 AZs), 5 security groups (least-privilege)                     |
+| `ecr/`       | Container registry                      | ECR repos for all 5 services                                                                  |
+| `iam/`       | GitHub Actions OIDC provider            | No long-lived AWS keys in CI/CD; trust policy scoped to main/develop branches                 |
+| `database/`  | RDS PostgreSQL 17                       | gp3 encrypted storage, managed password (Secrets Manager), Multi-AZ toggle                    |
+| `cache/`     | ElastiCache Redis 7.1                   | TLS in-transit, AUTH token, automatic failover (prod)                                         |
+| `messaging/` | MSK Serverless (Kafka)                  | IAM auth (no passwords), private subnets                                                      |
+| `compute/`   | ECS cluster, ALB, task definitions      | ALB with HTTPS listener, ingestor + 4 service task defs, circuit breaker for safe deployments |
 
 ### 2. Environment Configurations (dev/prod)
 
 **Location**: `infra/terraform/environments/dev/` and `environments/prod/`
 
 **dev (cost-optimized)**:
+
 - Fargate Spot (saves 70% on compute)
 - db.t3.micro (512 MB RAM, suitable for ~100 concurrent connections)
 - 1 NAT Gateway (shared)
@@ -64,6 +65,7 @@ Data Zoo runs perfectly on `docker-compose` locally. Now it needs to run on AWS 
 - Cost: ~$85/month
 
 **prod (reliability-focused)**:
+
 - Fargate On-Demand (guaranteed capacity)
 - db.t3.medium Multi-AZ (high availability, automatic failover)
 - 3 NAT Gateways (one per AZ, no single point of failure)
@@ -113,6 +115,7 @@ Manual CD deploy workflow
 **Main guide**: [docs/cloud-deployment.md](../cloud-deployment.md)
 
 Covers:
+
 - Why ECS Fargate (with cost/ops comparison table)
 - First-time setup (AWS profiles, S3 backend, GitHub secrets)
 - Terraform module structure and parameterization
@@ -124,6 +127,7 @@ Covers:
 **Architecture doc**: [docs/design/architecture.md](../design/architecture.md)
 
 Covers:
+
 - Phase 7 section with infrastructure diagram
 - Terraform module patterns and reusability
 - CI/CD workflow flow chart
@@ -133,6 +137,7 @@ Covers:
 **Decision document**: [docs/design/decisions.md](../design/decisions.md)
 
 Added Phase 7 decision entries:
+
 - ECS Fargate vs EKS trade-off analysis
 - RDS PostgreSQL vs Aurora vs DocumentDB
 - ElastiCache Redis vs Memcached vs DynamoDB
@@ -188,6 +193,7 @@ backend "s3" {
 ### Secrets Management Strategy
 
 **Never in code or state files**:
+
 - Sensitive values passed via environment variables: `export TF_VAR_redis_auth_token=$(openssl rand -hex 32)`
 - RDS password managed by AWS Secrets Manager (auto-rotated)
 - ElastiCache AUTH token stored in SSM Parameter Store
@@ -250,17 +256,18 @@ deployment_configuration {
 
 ### Monthly Breakdown (USD)
 
-| Service | Dev | Prod | Rationale |
-|---------|-----|------|-----------|
-| **ECS Fargate (compute)** | $15–20 (Spot) | $50–60 (On-Demand) | Spot 70% cheaper; prod needs reliability |
-| **RDS PostgreSQL** | $20 (t3.micro) | $50 (t3.medium, Multi-AZ) | Prod reads replicate to standby |
-| **ElastiCache Redis** | $10 (t3.micro) | $25 (t3.small) | Prod runs replica in different AZ |
-| **NAT Gateway** | $32 (1 GW × 24h) | $100 (3 GWs × 24h) | Prod needs HA (egress from each AZ) |
-| **MSK Serverless** | ~$5 (low throughput) | ~$30 (higher throughput) | Scales with msg volume |
-| **CloudWatch Logs** | ~$3 | ~$10 | 14-day (dev) vs 90-day (prod) retention |
-| **Total/month** | **~$85** | **~$280** | 70% savings in dev via Spot + smaller instances |
+| Service                   | Dev                  | Prod                      | Rationale                                       |
+| ------------------------- | -------------------- | ------------------------- | ----------------------------------------------- |
+| **ECS Fargate (compute)** | $15–20 (Spot)        | $50–60 (On-Demand)        | Spot 70% cheaper; prod needs reliability        |
+| **RDS PostgreSQL**        | $20 (t3.micro)       | $50 (t3.medium, Multi-AZ) | Prod reads replicate to standby                 |
+| **ElastiCache Redis**     | $10 (t3.micro)       | $25 (t3.small)            | Prod runs replica in different AZ               |
+| **NAT Gateway**           | $32 (1 GW × 24h)     | $100 (3 GWs × 24h)        | Prod needs HA (egress from each AZ)             |
+| **MSK Serverless**        | ~$5 (low throughput) | ~$30 (higher throughput)  | Scales with msg volume                          |
+| **CloudWatch Logs**       | ~$3                  | ~$10                      | 14-day (dev) vs 90-day (prod) retention         |
+| **Total/month**           | **~$85**             | **~$280**                 | 70% savings in dev via Spot + smaller instances |
 
 **Annual savings**:
+
 - Shared environment (always prod-sized): $280 × 12 = $3,360/year
 - Separate dev/prod: ($85 × 12) + ($280 × 12) = $4,380/year
 - Break-even: When you have enough deployments that Spot interruptibility costs more than savings
@@ -318,28 +325,28 @@ deployment_configuration {
 
 ## Files Created/Modified
 
-| File | Type | Purpose |
-|------|------|---------|
-| `infra/terraform/main.tf` | Created | Provider config, backend template |
-| `infra/terraform/variables.tf` | Created | Shared variables (region, CIDR, instance types) |
-| `infra/terraform/outputs.tf` | Created | Exports (ALB DNS, ECR URLs, IAM role ARN) |
-| `infra/terraform/modules/network/*` | Created | VPC, subnets, IGW, NAT, 5 security groups |
-| `infra/terraform/modules/ecr/*` | Created | ECR repositories |
-| `infra/terraform/modules/iam/*` | Created | GitHub OIDC provider + role |
-| `infra/terraform/modules/database/*` | Created | RDS PostgreSQL 17 |
-| `infra/terraform/modules/cache/*` | Created | ElastiCache Redis 7.1 |
-| `infra/terraform/modules/messaging/*` | Created | MSK Serverless |
-| `infra/terraform/modules/compute/*` | Created | ECS cluster, ALB, task definitions |
-| `infra/terraform/environments/dev/*` | Created | Dev environment variables and tfvars example |
-| `infra/terraform/environments/prod/*` | Created | Prod environment variables and tfvars example |
-| `.github/workflows/ci.yml` | Modified | Queued CI gates plus build validation for all service images |
-| `.github/workflows/docker-build.yml` | Modified | Manual per-service or all-service build, optional push/sign |
-| `.github/workflows/release-promote.yml` | Created | Manual digest/tag promotion for one service or all services |
-| `.github/workflows/cd-deploy.yml` | Modified | Manual per-service deploy target resolution |
-| `docs/cloud-deployment.md` | Created | Comprehensive Phase 7 guide (setup, secrets, costs) |
-| `docs/design/architecture.md` | Modified | Added Phase 7 section with infrastructure diagrams |
-| `docs/design/decisions.md` | Modified | Added 7 Phase 7 decision entries + matrix |
-| `README.md` | Modified | Updated phase status and docs index |
+| File                                    | Type     | Purpose                                                      |
+| --------------------------------------- | -------- | ------------------------------------------------------------ |
+| `infra/terraform/main.tf`               | Created  | Provider config, backend template                            |
+| `infra/terraform/variables.tf`          | Created  | Shared variables (region, CIDR, instance types)              |
+| `infra/terraform/outputs.tf`            | Created  | Exports (ALB DNS, ECR URLs, IAM role ARN)                    |
+| `infra/terraform/modules/network/*`     | Created  | VPC, subnets, IGW, NAT, 5 security groups                    |
+| `infra/terraform/modules/ecr/*`         | Created  | ECR repositories                                             |
+| `infra/terraform/modules/iam/*`         | Created  | GitHub OIDC provider + role                                  |
+| `infra/terraform/modules/database/*`    | Created  | RDS PostgreSQL 17                                            |
+| `infra/terraform/modules/cache/*`       | Created  | ElastiCache Redis 7.1                                        |
+| `infra/terraform/modules/messaging/*`   | Created  | MSK Serverless                                               |
+| `infra/terraform/modules/compute/*`     | Created  | ECS cluster, ALB, task definitions                           |
+| `infra/terraform/environments/dev/*`    | Created  | Dev environment variables and tfvars example                 |
+| `infra/terraform/environments/prod/*`   | Created  | Prod environment variables and tfvars example                |
+| `.github/workflows/ci.yml`              | Modified | Queued CI gates plus build validation for all service images |
+| `.github/workflows/docker-build.yml`    | Modified | Manual per-service or all-service build, optional push/sign  |
+| `.github/workflows/release-promote.yml` | Created  | Manual digest/tag promotion for one service or all services  |
+| `.github/workflows/cd-deploy.yml`       | Modified | Manual per-service deploy target resolution                  |
+| `docs/cloud-deployment.md`              | Created  | Comprehensive Phase 7 guide (setup, secrets, costs)          |
+| `docs/design/architecture.md`           | Modified | Added Phase 7 section with infrastructure diagrams           |
+| `docs/design/decisions.md`              | Modified | Added 7 Phase 7 decision entries + matrix                    |
+| `README.md`                             | Modified | Updated phase status and docs index                          |
 
 ---
 

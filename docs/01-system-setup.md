@@ -20,6 +20,8 @@ Data Zoo requires several system-level packages for development, testing, and op
 | **mkcert**                | Local HTTPS certificate generation             | Local development (optional but recommended) |
 | **GitHub CLI (`gh`)**     | Manage GitHub Actions vars/secrets/OIDC config | CI/CD operations                             |
 | **jq**                    | JSON parsing for API/script automation         | CI/CD operations                             |
+| **k3d**                   | Local Kubernetes cluster runtime               | Local K8s deployment testing                 |
+| **kubectl**               | Kubernetes API CLI                             | Local K8s operations                         |
 | **MongoDB Tools**         | Database backup/restore                        | Operations (optional)                        |
 | **util-linux + iproute2** | Chaos testing (network delays, packet loss)    | Advanced testing (optional)                  |
 
@@ -35,6 +37,9 @@ brew install python@3.14 uv postgresql redis docker mkcert mongodb-database-tool
 
 # CI/CD automation tools
 brew install gh jq
+
+# Local Kubernetes tooling (optional, recommended for infra work)
+brew install k3d kubectl helm
 ```
 
 ### Ubuntu / Debian
@@ -50,6 +55,7 @@ sudo apt-get install -y \
   docker.io docker-compose \
   mkcert \
   gh jq \
+  k3d kubectl helm \
   mongodb-tools \
   util-linux iproute2
 ```
@@ -63,6 +69,7 @@ sudo dnf install -y \
   docker docker-compose \
   mkcert \
   gh jq \
+  k3d kubectl helm \
   mongodb-database-tools \
   util-linux iproute2-utils
 ```
@@ -97,6 +104,10 @@ mkcert --version
 # GitHub CLI and jq (used by scripts/ops/01-gh-actions-config.sh)
 gh --version
 jq --version
+
+# Local Kubernetes tooling
+k3d version
+kubectl version --client
 ```
 
 ---
@@ -250,6 +261,17 @@ sudo apt-get install k6
 
 # Or via Docker:
 docker run grafana/k6 run script.js
+```
+
+### For Local Kubernetes Validation
+
+```bash
+# Bootstrap local k3d cluster and namespace
+bash scripts/setup/03-bootstrap-k3d.sh
+
+# Verify context and nodes
+kubectl config current-context
+kubectl get nodes
 ```
 
 ### For Debugging & Profiling

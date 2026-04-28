@@ -318,7 +318,7 @@ async def client_isolated(
     Each HTTP request gets independent DB connection. Skips if PostgreSQL unavailable.
     """
     # Store the sessionmaker from the isolated session so we can create fresh sessions
-    SessionLocal = postgresql_async_session_isolated._sessionmaker  # type: ignore
+    SessionLocal = postgresql_async_session_isolated._sessionmaker
 
     async def _override() -> AsyncGenerator[AsyncSession]:
         # Create a FRESH session for each HTTP request (critical for concurrent tests!)

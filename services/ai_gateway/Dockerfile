@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.4
 FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -13,7 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean
 
 # Install Python packages
-RUN pip install --no-cache-dir \
+RUN uv pip install --system \
     fastapi==0.104.1 \
     uvicorn[standard]==0.24.0 \
     pydantic==2.5.0 \

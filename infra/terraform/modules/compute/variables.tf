@@ -106,7 +106,7 @@ variable "ec2_max_capacity" {
 variable "ec2_use_spot" {
   description = "Use EC2 Spot instances (cost-optimized, interruptible). Only used if compute_type='ecs-ec2'."
   type        = bool
-  default     = var.environment == "prod" ? false : true
+  default     = false
 }
 
 # ── EKS Backend ────────────────────────────────────────────────────────────────

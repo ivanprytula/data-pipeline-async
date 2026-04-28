@@ -46,6 +46,23 @@ on:
         required: false
         type: string
         default: https://token.actions.githubusercontent.com
+      environment:
+        description: Target deployment environment (dev or prod).
+        required: false
+        type: string
+        default: ""
+      image-name:
+        type: string
+      dockerfile:
+        type: string
+      context:
+        type: string
+      push-image:
+        type: boolean
+    secrets:
+      aws_account_id:
+        required: true
+        description: AWS account ID for image registry
 
 permissions:
   contents: read
@@ -57,6 +74,7 @@ jobs:
   deploy:
     name: Deploy to ECS
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     permissions:
       contents: read
       id-token: write

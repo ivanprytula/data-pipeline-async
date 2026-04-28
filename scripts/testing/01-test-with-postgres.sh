@@ -27,6 +27,7 @@ PASSWORD=postgres
 DB=test_database
 
 DB_URL="postgresql+asyncpg://${USER}:${PASSWORD}@${HOST}:${PORT}/${DB}"
+DB_URL_REDACTED="postgresql+asyncpg://${USER}:***@${HOST}:${PORT}/${DB}"
 
 echo "🐘 Starting PostgreSQL test database..."
 docker compose --profile test up -d db-test
@@ -51,7 +52,7 @@ fi
 # Run pytest with PostgreSQL connection
 echo ""
 echo " Running tests with PostgreSQL..."
-echo "   DATABASE_URL_TEST=$DB_URL"
+echo "   DATABASE_URL_TEST=$DB_URL_REDACTED"
 echo ""
 
 DATABASE_URL_TEST="$DB_URL" uv run pytest "${@:-.}" tests/integration/records/test_concurrency.py
@@ -60,7 +61,7 @@ echo ""
 echo "✅ Tests complete!"
 echo ""
 echo "📝 To manually run with PostgreSQL:"
-echo "   export DATABASE_URL_TEST='$DB_URL'"
+echo "   export DATABASE_URL_TEST='postgresql+asyncpg://${USER}:<password>@${HOST}:${PORT}/${DB}'"
 echo "   pytest tests/integration/records/test_concurrency.py -v"
 echo ""
 echo "🛑 To stop the container:"

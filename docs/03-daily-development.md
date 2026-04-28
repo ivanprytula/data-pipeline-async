@@ -12,12 +12,18 @@ Most workflows are available as bash scripts:
 
 ```bash
 bash scripts/daily/01-start-dev-services.sh          # Start all dev services
+bash scripts/ops/02-compose-profile.sh dev up -d     # Dev resource profile (override file)
+bash scripts/ops/02-compose-profile.sh prod-like up -d  # Prod-like resource profile
+docker compose --profile monitoring up -d            # Optional monitoring stack
+docker compose --profile vector up -d                # Optional vector stack (qdrant + ai-gateway)
+docker compose --profile worker up -d                # Optional processor worker
 bash scripts/daily/03-run-tests.sh all         # Run all tests
 bash scripts/daily/03-run-tests.sh unit        # Run unit tests only
 bash scripts/daily/03-run-tests.sh integration # Run integration tests only
 uv run alembic upgrade head                   # Apply migrations
 uv run alembic downgrade -1                   # Rollback migration
 bash scripts/daily/04-quality-checks.sh   # Lint, format, type-check
+bash scripts/setup/03-bootstrap-k3d.sh        # Bootstrap local k3d cluster
 bash scripts/daily/06-guarded-merge.sh --discover-required --pr <pr-number-or-branch>  # Validate required checks before merge
 ```
 

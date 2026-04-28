@@ -13,7 +13,7 @@ services:
           cpus: '1.0'          # Tight (prod-like)
           memory: '1G'         # Tight (prod-like)
 
-  app:
+  ingestor:
     deploy:
       resources:
         reservations:

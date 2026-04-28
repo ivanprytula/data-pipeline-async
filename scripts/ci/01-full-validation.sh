@@ -35,7 +35,7 @@ if [ $OVERALL_SUCCESS -eq 0 ]; then
   echo "Next steps:"
   echo "  • Commit your changes"
   echo "  • Push to remote"
-  echo "  • Deploy to staging/production"
+  echo "  • Deploy to dev/production"
   exit 0
 else
   echo "✗ One or more phases failed (see above)"

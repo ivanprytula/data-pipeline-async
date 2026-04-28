@@ -75,10 +75,12 @@ Then access:
     - [Job Search \& Career Path](#job-search--career-path)
     - [Additional Reference Docs](#additional-reference-docs)
   - [Tech Stack](#tech-stack)
+    - [CI Pipeline (`.github/workflows/ci.yml`)](#ci-pipeline-githubworkflowsciyml)
   - [8-Phase Roadmap](#8-phase-roadmap)
   - [Project Layout](#project-layout)
     - [Architecture Records](#architecture-records)
     - [Pillars, Portfolio \& Weekly Progress](#pillars-portfolio--weekly-progress)
+  - [Dependency Cooldown Policy](#dependency-cooldown-policy)
 
 ### Core Learning Path (for developers)
 
@@ -124,6 +126,27 @@ Then access:
 | **Testing**         | pytest + aiosqlite                                 |
 | **CI/CD**           | GitHub Actions                                     |
 | **IaC**             | Terraform (AWS)                                    |
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+
+Jobs execute in dependency waves:
+
+```text
+Wave 0   01 change-impact               — detect what changed
+Wave 1   02 build-ci-image              — build prebuilt container (unconditional)
+         03 service-matrix              — build Docker image matrix from changed paths
+         04 docs-impact-gate            — PR-only docs check
+         05 impact-summary              — PR-only change summary
+         06 contracts-versioning-gate   — schema/contract guard
+Wave 2   07 prechecks                   — ruff lint/format, ty check, compileall
+Wave 3   08 unit                        — unit tests
+Wave 4   09 migrations                  — slow-checks only
+         10 integration                 — slow-checks only, after migrations
+         11 e2e                         — slow-checks only, after integration
+Wave 5   12 dependency-audit            — pip-audit
+         13 build-images                — Docker image builds (matrix)
+Wave 6   14 build-summary               — final summary
+```
 
 ---
 
@@ -182,3 +205,14 @@ pyproject.toml         # Python dependencies
 | [docs/progress/weekly-progress-phase-3.md](docs/progress/weekly-progress-phase-3.md)                 | Weekly progress — Phase 3                                               |
 | [docs/progress/weekly-progress-phase-4.md](docs/progress/weekly-progress-phase-4.md)                 | Weekly progress — Phase 4                                               |
 | [docs/templates/](docs/templates/)                                                                   | LinkedIn, portfolio, and commit templates                               |
+
+## Dependency Cooldown Policy
+
+To reduce noise from short-lived package releases and keep the team's focus on features and interview preparation, this repository applies a conservative "dependency cooldown" approach:
+
+- **Reduced Dependabot cadence:** Python package updates (both `pip` and `uv`) run on a monthly schedule to avoid frequent dependency PR churn.
+- **Early-release labeling:** Dependabot PRs for newly published releases are automatically labeled `early-dependency` by the repository age-guard. Labels indicate the package release is still within the 7‑day maturation window.
+- **Local validation workflow:** Maintain contributors' local `uv` configuration uses `exclude-newer = "7 days"` for manual verification of new releases before merging. This lets you install and test a candidate release locally while protecting CI from automatic early adoption.
+- **Non-blocking:** Early releases are labeled (not closed) so reviewers can opt to test and merge if the package is acceptable, or wait until the release matures.
+
+This approach balances safety (avoid immediate adoption of potentially unstable new releases) with developer autonomy (you can still test a release locally using `uv` and merge when ready).

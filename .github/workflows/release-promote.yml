@@ -19,7 +19,7 @@ on:
         required: true
         type: string
       target-tag:
-        description: Target promotion tag (for example dev, staging, prod)
+        description: Target promotion tag (for example dev, prod)
         required: true
         type: string
       image-repository:
@@ -33,7 +33,6 @@ on:
         type: choice
         options:
           - dev
-          - staging
           - prod
 
 permissions:

@@ -132,9 +132,9 @@ class VectorStore:
         )
         return [
             {
-                "id": result.id,  # ty:ignore[unresolved-attribute]
-                "score": result.score,  # ty:ignore[unresolved-attribute]
-                "metadata": result.payload,  # ty:ignore[unresolved-attribute]
+                "id": result.id,
+                "score": result.score,
+                "metadata": result.payload,
             }
             for result in results
         ]

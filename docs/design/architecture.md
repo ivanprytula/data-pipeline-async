@@ -1217,7 +1217,7 @@ Manual docker-build.yml
     ↓
 Manual release-promote.yml
     - promote digest/tag for one service or all services
-    - apply target tag: dev / staging / prod
+  - apply target tag: dev / prod
     ↓
 Manual cd-deploy.yml
     - select environment

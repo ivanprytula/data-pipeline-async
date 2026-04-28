@@ -252,7 +252,7 @@ class TestHandlerWrapper:
             await wrapped()
 
         assert job._health.failure_count == 1
-        assert "timeout" in job._health.last_error.lower()  # type: ignore
+        assert "timeout" in job._health.last_error.lower()
 
     @pytest.mark.asyncio
     async def test_handler_cancellation_preserves_status(self) -> None:

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'release/*'
   pull_request:
     branches:
       - main
@@ -14,6 +15,17 @@ on:
       - synchronize
       - ready_for_review
   workflow_dispatch:
+    inputs:
+      run_slow_checks:
+        description: Run slow checks (migrations/integration/e2e/dependency audit)
+        required: true
+        type: boolean
+        default: false
+      run_docker_build:
+        description: Run Docker build matrix (requires run_slow_checks=true)
+        required: true
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -26,67 +38,43 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   PYTHON_VERSION: '3.14'
+  PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
+  UV_LINK_MODE: 'copy'
 
 jobs:
-  quality:
-    name: 01 Quality checks — Python 3.14
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
-          uv sync --frozen
-
-      - name: Run quality checks
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-
+  # ---------------------------------------------------------------------------
+  # Wave 0 — no upstream deps, starts immediately on trigger
+  # ---------------------------------------------------------------------------
   change-impact:
-    name: 01b Change impact routing
+    name: 01 Change impact routing
     runs-on: ubuntu-latest
     outputs:
       backend_change: ${{ steps.filter.outputs.backend_change }}
       db_change: ${{ steps.filter.outputs.db_change }}
-      docs_change: ${{ steps.filter.outputs.docs_change }}
-      docs_files: ${{ steps.filter.outputs.docs_change_files }}
-      prompts_change: ${{ steps.filter.outputs.prompts_change }}
       infra_change: ${{ steps.filter.outputs.infra_change }}
+      docs_change: ${{ steps.filter.outputs.docs_change }}
+      docs_files: ${{ steps.docs_files.outputs.files }}
+      prompts_change: ${{ steps.filter.outputs.prompts_change }}
+      shared_libs_change: ${{ steps.filter.outputs.shared_libs_change }}
+      ingestor_change: ${{ steps.filter.outputs.ingestor_change }}
+      ai_gateway_change: ${{ steps.filter.outputs.ai_gateway_change }}
+      query_api_change: ${{ steps.filter.outputs.query_api_change }}
+      processor_change: ${{ steps.filter.outputs.processor_change }}
+      dashboard_change: ${{ steps.filter.outputs.dashboard_change }}
+      contracts_change: ${{ steps.filter.outputs.contracts_change }}
+      contracts_version_change: ${{ steps.filter.outputs.contracts_version_change }}
+      contracts_changelog_change: ${{ steps.filter.outputs.contracts_changelog_change }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Detect changed areas
+      - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
-          list-files: shell
           filters: |
             backend_change:
-              - 'ingestor/**'
               - 'services/**'
               - 'tests/**'
               - 'pyproject.toml'
@@ -108,37 +96,115 @@ jobs:
               - '.github/workflows/**'
               - 'infra/**'
               - 'scripts/**'
+            shared_libs_change:
+              - 'libs/platform/**'
+              - 'libs/contracts/**'
+            ingestor_change:
+              - 'ingestor/**'
+              - 'Dockerfile'
+            ai_gateway_change:
+              - 'services/ai_gateway/**'
+              - 'services/ai_gateway/Dockerfile'
+            query_api_change:
+              - 'services/query_api/**'
+              - 'services/query_api/Dockerfile'
+            processor_change:
+              - 'services/processor/**'
+              - 'services/processor/Dockerfile'
+            dashboard_change:
+              - 'services/dashboard/**'
+              - 'services/dashboard/Dockerfile'
+            contracts_change:
+              - 'libs/contracts/**/*.py'
+            contracts_version_change:
+              - 'libs/contracts/VERSION'
+            contracts_changelog_change:
+              - 'libs/contracts/CHANGELOG.md'
 
-  docs-quality:
-    name: 01c Docs quality checks
+      - name: Extract changed docs files
+        id: docs_files
+        run: |
+          if [[ "${{ steps.filter.outputs.docs_change }}" != "true" ]]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only origin/main HEAD 2>/dev/null | grep -E '^(docs/|README\.md|\.github/pull_request_template\.md)' | tr '\n' ' ' | xargs > files.txt || true
+            echo "files=$(cat files.txt)" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Wave 1 — parallel, all need only change-impact
+  # ---------------------------------------------------------------------------
+  build-prebuilt-image:
+    name: 02 Build CI image
+    needs:
+      - change-impact
+    uses: ./.github/workflows/build-ci-image.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets:
+      CALLER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  service-matrix:
+    name: 03 Service matrix from changed paths
     runs-on: ubuntu-latest
     needs:
-      - quality
       - change-impact
-    if: ${{ needs.change-impact.outputs.docs_change == 'true' }}
+    outputs:
+      changed_services_matrix: ${{ steps.matrix.outputs.changed_services_matrix }}
+      has_changed_services: ${{ steps.matrix.outputs.has_changed_services }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Run docs quality script on changed docs only
+      - name: Build changed-service matrix
+        id: matrix
         env:
-          DOCS_FILES: ${{ needs.change-impact.outputs.docs_files }}
+          SHARED_LIBS_CHANGE: ${{ needs.change-impact.outputs.shared_libs_change }}
+          INGESTOR_CHANGE: ${{ needs.change-impact.outputs.ingestor_change }}
+          AI_GATEWAY_CHANGE: ${{ needs.change-impact.outputs.ai_gateway_change }}
+          QUERY_API_CHANGE: ${{ needs.change-impact.outputs.query_api_change }}
+          PROCESSOR_CHANGE: ${{ needs.change-impact.outputs.processor_change }}
+          DASHBOARD_CHANGE: ${{ needs.change-impact.outputs.dashboard_change }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(printf '%s\n' "$DOCS_FILES" | sed '/^$/d')
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No high-priority docs files changed; skipping docs quality check."
-            exit 0
+
+          include_service() {
+            local service_json="$1"
+            matrix_json=$(jq --argjson svc "$service_json" '. + [$svc]' <<< "$matrix_json")
+          }
+
+          matrix_json='[]'
+          include_all='false'
+          if [[ "$SHARED_LIBS_CHANGE" == "true" ]]; then
+            include_all='true'
           fi
-          python scripts/ci/docs_quality_check.py --profile ci "${files[@]}"
+
+          if [[ "$include_all" == "true" || "$INGESTOR_CHANGE" == "true" ]]; then
+            include_service '{"name":"ingestor","path":"ingestor","dockerfile":"Dockerfile","image_name":"data-zoo/ingestor"}'
+          fi
+          if [[ "$include_all" == "true" || "$AI_GATEWAY_CHANGE" == "true" ]]; then
+            include_service '{"name":"ai_gateway","path":"services/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile","image_name":"data-zoo/ai_gateway"}'
+          fi
+          if [[ "$include_all" == "true" || "$QUERY_API_CHANGE" == "true" ]]; then
+            include_service '{"name":"query_api","path":"services/query_api","dockerfile":"services/query_api/Dockerfile","image_name":"data-zoo/query_api"}'
+          fi
+          if [[ "$include_all" == "true" || "$PROCESSOR_CHANGE" == "true" ]]; then
+            include_service '{"name":"processor","path":"services/processor","dockerfile":"services/processor/Dockerfile","image_name":"data-zoo/processor"}'
+          fi
+          if [[ "$include_all" == "true" || "$DASHBOARD_CHANGE" == "true" ]]; then
+            include_service '{"name":"dashboard","path":"services/dashboard","dockerfile":"services/dashboard/Dockerfile","image_name":"data-zoo/dashboard"}'
+          fi
+
+          count=$(jq 'length' <<< "$matrix_json")
+          if [[ "$count" -gt 0 ]]; then
+            echo "has_changed_services=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changed_services=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          matrix_json="$(jq -c . <<<"$matrix_json")"
+          echo "changed_services_matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   docs-impact-gate:
-    name: 01d Docs impact gate (PR)
+    name: 04 Docs impact gate (PR)
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -174,7 +240,7 @@ jobs:
           exit 1
 
   impact-summary:
-    name: 01e Impact summary
+    name: 05 Impact summary
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -188,34 +254,82 @@ jobs:
           echo "- Docs change: ${{ needs.change-impact.outputs.docs_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prompts change: ${{ needs.change-impact.outputs.prompts_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Infra change: ${{ needs.change-impact.outputs.infra_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contracts change: ${{ needs.change-impact.outputs.contracts_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Shared libs change: ${{ needs.change-impact.outputs.shared_libs_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, ai_gateway=${{ needs.change-impact.outputs.ai_gateway_change }}, query_api=${{ needs.change-impact.outputs.query_api_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
 
-  unit:
-    name: 02 Unit tests — Python 3.14
+  contracts-versioning-gate:
+    name: 06 Contracts versioning gate
     runs-on: ubuntu-latest
     needs:
-      - quality
-      - docs-quality
+      - change-impact
+    steps:
+      - name: Enforce contracts version bump and changelog update
+        env:
+          CONTRACTS_CHANGE: ${{ needs.change-impact.outputs.contracts_change }}
+          CONTRACTS_VERSION_CHANGE: ${{ needs.change-impact.outputs.contracts_version_change }}
+          CONTRACTS_CHANGELOG_CHANGE: ${{ needs.change-impact.outputs.contracts_changelog_change }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CONTRACTS_CHANGE" != "true" ]]; then
+            echo "No contracts changes detected; skipping version/changelog gate."
+            exit 0
+          fi
+
+          if [[ "$CONTRACTS_VERSION_CHANGE" != "true" ]]; then
+            echo "Contracts changed but libs/contracts/VERSION was not updated." >&2
+            exit 1
+          fi
+
+          if [[ "$CONTRACTS_CHANGELOG_CHANGE" != "true" ]]; then
+            echo "Contracts changed but libs/contracts/CHANGELOG.md was not updated." >&2
+            exit 1
+          fi
+
+          echo "Contracts versioning gate passed."
+
+  # ---------------------------------------------------------------------------
+  # Wave 2 — after build-prebuilt-image (container image must exist)
+  # ---------------------------------------------------------------------------
+  prechecks:
+    name: 07 Prechecks — lint, guardrails, compile, type
+    runs-on: ubuntu-latest
+    needs:
+      - build-prebuilt-image
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+      - name: Prechecks — lint, guardrails, compile, type
+        run: |
+          set -euo pipefail
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run python scripts/ci/check_service_boundaries.py
+          uv run ty check
+          uv run python -m compileall -q .
 
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-
+  # `service-boundaries` merged into `prechecks` above
+  # `service-lint-test` removed — ran identical full-repo commands; use
+  #   `ruff check ${{ matrix.service.path }}` if per-service scoping is needed
+
+  # ---------------------------------------------------------------------------
+  # Wave 3 — parallel after prechecks
+  # ---------------------------------------------------------------------------
+  unit:
+    name: 08 Unit tests — Python 3.14
+    runs-on: ubuntu-latest
+    needs:
+      - prechecks
+      - contracts-versioning-gate
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Cache pytest results
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -223,12 +337,6 @@ jobs:
           path: .pytest_cache
           key: ${{ runner.os }}-pytest-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: ${{ runner.os }}-pytest-
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
-          uv sync --frozen
 
       - name: Run unit tests
         run: uv run pytest -q -m "unit"
@@ -240,23 +348,28 @@ jobs:
           name: coverage-unit-py${{ env.PYTHON_VERSION }}
           path: htmlcov
 
+  # ---------------------------------------------------------------------------
+  # Wave 4+ — sequential slow checks (workflow_dispatch only)
+  # ---------------------------------------------------------------------------
   migrations:
-    name: 03 Verify Alembic migrations (PostgreSQL 17)
+    name: 09 Verify Alembic migrations (PostgreSQL 17)
     runs-on: ubuntu-latest
     needs:
+      - prechecks
       - unit
       - change-impact
-    if: ${{ github.event_name != 'pull_request' || needs.change-impact.outputs.backend_change == 'true' || needs.change-impact.outputs.db_change == 'true' }}
+      - build-prebuilt-image
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 15
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/data_pipeline
-      DATABASE_URL_RAW: postgresql://postgres:postgres@127.0.0.1:5432/data_pipeline
+      DATABASE_URL: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/data_pipeline
+      DATABASE_URL_RAW: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/data_pipeline
     services:
       postgres:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: data_pipeline
         ports:
           - 5432:5432
@@ -265,38 +378,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
-          uv sync --frozen
 
       - name: Wait for Postgres
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Test fresh migrations (upgrade from base to head)
@@ -510,19 +603,21 @@ jobs:
           PYTHON
 
   integration:
-    name: 04 Integration tests — Python 3.14
+    name: 10 Integration tests — Python 3.14
     runs-on: ubuntu-latest
     needs:
+      - prechecks
       - migrations
       - change-impact
-    if: ${{ github.event_name != 'pull_request' || needs.change-impact.outputs.backend_change == 'true' || needs.change-impact.outputs.db_change == 'true' }}
+      - build-prebuilt-image
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 60
     services:
       postgres:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: test_database
         ports:
           - 5432:5432
@@ -534,46 +629,22 @@ jobs:
       redis:
         image: redis:7
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml') }}
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
-          uv sync --frozen
 
       - name: Wait for Postgres
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Run integration tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "integration"
@@ -586,19 +657,21 @@ jobs:
           path: htmlcov
 
   e2e:
-    name: 05 E2E tests — Python 3.14
+    name: 11 E2E tests — Python 3.14
     runs-on: ubuntu-latest
     needs:
+      - prechecks
       - integration
       - change-impact
-    if: ${{ github.event_name != 'pull_request' || needs.change-impact.outputs.backend_change == 'true' || needs.change-impact.outputs.db_change == 'true' }}
+      - build-prebuilt-image
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 90
     services:
       postgres:
         image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: test_database
         ports:
           - 5432:5432
@@ -610,120 +683,72 @@ jobs:
       redis:
         image: redis:7
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml') }}
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }}
-          uv sync --frozen
 
       - name: Wait for Postgres
         run: |
           echo "Waiting for Postgres to be ready..."
           for i in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break || sleep 1
+            pg_isready -h postgres -p 5432 -U postgres && break || sleep 1
           done
 
       - name: Run E2E tests
         env:
-          DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/test_database
+          DATABASE_URL_TEST: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@postgres:5432/test_database
         run: |
           set -euo pipefail
           uv run pytest -q -m "e2e"
 
+  # ---------------------------------------------------------------------------
+  # Wave 5 — parallel after e2e
+  # ---------------------------------------------------------------------------
   dependency-audit:
-    name: 06 Dependency Audit
+    name: 12 Dependency Audit
     runs-on: ubuntu-latest
-    needs: e2e
-    if: ${{ github.event_name == 'pull_request' }}
+    needs:
+      - prechecks
+      - e2e
+      - build-prebuilt-image
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Export locked dependencies for audit
+        run: uv export --frozen --all-groups --no-hashes --format requirements-txt > requirements-audit.txt
+
+      - name: Run pip-audit (official GH action)
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Cache pip / uv wheel
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-${{ env.PYTHON_VERSION }}-
-            ${{ runner.os }}-pip-uv-${{ env.UV_VERSION }}-
-            ${{ runner.os }}-pip-
-
-      - name: Install uv and sync dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==${{ env.UV_VERSION }} pip-audit
-          uv sync --frozen
-
-      - name: Run pip-audit
-        run: pip-audit --progress-spinner off --desc
+          inputs: requirements-audit.txt
 
   build-images:
-    name: 07 Docker build — ${{ matrix.image.name }}
+    name: 13 Docker build — ${{ matrix.service.name }}
     strategy:
+      fail-fast: false
       matrix:
-        image:
-          - name: ingestor
-            image_name: data-zoo/ingestor
-            dockerfile: Dockerfile
-          - name: ai_gateway
-            image_name: data-zoo/ai_gateway
-            dockerfile: services/ai_gateway/Dockerfile
-          - name: query_api
-            image_name: data-zoo/query_api
-            dockerfile: services/query_api/Dockerfile
-          - name: processor
-            image_name: data-zoo/processor
-            dockerfile: services/processor/Dockerfile
-          - name: dashboard
-            image_name: data-zoo/dashboard
-            dockerfile: services/dashboard/Dockerfile
+        service: ${{ fromJson(needs.service-matrix.outputs.changed_services_matrix) }}
     needs:
-      - quality
+      - prechecks
       - unit
       - migrations
       - integration
       - e2e
-    if: ${{ github.event_name != 'pull_request' }}
+      - service-matrix
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.service-matrix.outputs.has_changed_services == 'true' }}
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
-      image-name: ${{ matrix.image.image_name }}
-      dockerfile: ${{ matrix.image.dockerfile }}
+      image-name: ${{ matrix.service.image_name }}
+      dockerfile: ${{ matrix.service.dockerfile }}
       context: .
       aws-region: ${{ vars.AWS_REGION }}
       aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
@@ -731,19 +756,18 @@ jobs:
     secrets:
       aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
 
+  # ---------------------------------------------------------------------------
+  # Wave 6 — after build-images
+  # ---------------------------------------------------------------------------
   build-summary:
-    name: 07 Docker build summary
+    name: 14 Docker build summary
     runs-on: ubuntu-latest
     needs: build-images
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.build-images.result != 'skipped' }}
     steps:
       - name: Report build matrix
         run: |
           echo "### Docker Build Result" >> "$GITHUB_STEP_SUMMARY"
-          echo "Built images:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/ingestor" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/ai_gateway" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/query_api" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/processor" >> "$GITHUB_STEP_SUMMARY"
-          echo "- data-zoo/dashboard" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changed services built: ${{ needs.service-matrix.outputs.changed_services_matrix }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Push mode: disabled (CI build-only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build result: ${{ needs.build-images.result }}" >> "$GITHUB_STEP_SUMMARY"
