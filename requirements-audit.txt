@@ -72,7 +72,7 @@ coverage==7.13.5
     # via pytest-cov
 cuda-bindings==13.2.0 ; sys_platform == 'linux'
     # via torch
-cuda-pathfinder==1.5.3 ; sys_platform == 'linux'
+cuda-pathfinder==1.5.4 ; sys_platform == 'linux'
     # via cuda-bindings
 cuda-toolkit==13.2.1 ; sys_platform == 'linux'
     # via torch
@@ -120,7 +120,7 @@ googleapis-common-protos==1.74.0
     # via
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-greenlet==3.4.0
+greenlet==3.5.0
     # via
     #   gevent
     #   playwright
@@ -392,7 +392,7 @@ python-engineio==4.13.1
     #   python-socketio
 python-json-logger==4.1.0
     # via data-pipeline-async
-python-multipart==0.0.26
+python-multipart==0.0.27
     # via data-pipeline-async
 python-socketio==5.16.1
     # via locust
@@ -460,7 +460,7 @@ sympy==1.14.0
     # via torch
 threadpoolctl==3.6.0
     # via scikit-learn
-tokenizers==0.22.2
+tokenizers==0.23.1
     # via transformers
 torch==2.11.0
     # via sentence-transformers
@@ -473,7 +473,7 @@ transformers==5.6.2
     # via sentence-transformers
 triton==3.6.0 ; sys_platform == 'linux'
     # via torch
-ty==0.0.32
+ty==0.0.33
 typer==0.25.0
     # via
     #   huggingface-hub
@@ -520,7 +520,7 @@ uvicorn==0.46.0
     # via data-pipeline-async
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-virtualenv==21.2.4
+virtualenv==21.3.0
     # via pre-commit
 watchfiles==1.1.1
     # via uvicorn
@@ -544,7 +544,7 @@ yarl==1.23.0
     # via aiohttp
 zipp==3.23.1
     # via importlib-metadata
-zope-event==6.1
+zope-event==6.2
     # via gevent
 zope-interface==8.4
     # via gevent
