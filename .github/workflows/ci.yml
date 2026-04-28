@@ -45,25 +45,36 @@ jobs:
   prechecks:
     name: 01 Prechecks — lint, guardrails, compile, type
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
+    # Do not rely on prebuilt container image (may be missing in GHCR).
+    # Install required dev tools at runtime to ensure CI runs even if the image is not published.
     steps:
       - name: Checkout  # ← Code enters the container here
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff>=0.15.10" "ty>=0.0.29"
+
       - name: Ruff lint + format check
         run: |
           set -euo pipefail
-          uv run ruff check .
-          uv run ruff format --check .
+          ruff check .
+          ruff format --check .
 
       - name: Service boundary guardrails
-        run: uv run python scripts/ci/check_service_boundaries.py
+        run: python scripts/ci/check_service_boundaries.py
 
       - name: Type check & compile
         run: |
-          uv run ty check
-          uv run python -m compileall -q .
+          set -euo pipefail
+          ty check
+          python -m compileall -q .
 
   # `service-boundaries` merged into `prechecks` above
 
@@ -154,6 +165,21 @@ jobs:
             echo "files=$(cat files.txt)" >> "$GITHUB_OUTPUT"
           fi
 
+  build-prebuilt-image:
+    name: 01g Build prebuilt CI image
+    needs:
+      - prechecks
+      - change-impact
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && (needs.change-impact.outputs.backend_change == 'true' || needs.change-impact.outputs.infra_change == 'true'))
+    uses: ./.github/workflows/build-ci-image.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   service-matrix:
     name: 01ba Service matrix from changed paths
     runs-on: ubuntu-latest
@@ -218,6 +244,7 @@ jobs:
     needs:
       - prechecks
       - service-matrix
+      - build-prebuilt-image
     if: ${{ needs.service-matrix.outputs.has_changed_services == 'true' }}
     strategy:
       fail-fast: false
@@ -242,6 +269,7 @@ jobs:
     needs:
       - prechecks
       - change-impact
+      - build-prebuilt-image
     if: ${{ needs.change-impact.outputs.docs_change == 'true' }}
     container:
       image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
@@ -353,6 +381,7 @@ jobs:
     needs:
       - prechecks
       - contracts-versioning-gate
+      - build-prebuilt-image
     container:
       image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
     steps:
@@ -383,6 +412,7 @@ jobs:
       - prechecks
       - unit
       - change-impact
+      - build-prebuilt-image
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 15
     env:
@@ -633,6 +663,7 @@ jobs:
       - prechecks
       - migrations
       - change-impact
+      - build-prebuilt-image
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 60
     services:
@@ -686,6 +717,7 @@ jobs:
       - prechecks
       - integration
       - change-impact
+      - build-prebuilt-image
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 90
     services:
@@ -731,6 +763,7 @@ jobs:
     needs:
       - prechecks
       - e2e
+      - build-prebuilt-image
     container:
       image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
