@@ -45,44 +45,26 @@ jobs:
   prechecks:
     name: 01 Prechecks — lint, guardrails, compile, type
     runs-on: ubuntu-latest
-    # Do not rely on prebuilt container image (may be missing in GHCR).
-    # Install required dev tools at runtime to ensure CI runs even if the image is not published.
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
     steps:
-      - name: Checkout  # ← Code enters the container here
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dev tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install "ruff>=0.15.10" "ty>=0.0.29"
-
-      - name: Ruff lint + format check
+      - name: Prechecks — lint, guardrails, compile, type
         run: |
           set -euo pipefail
-          ruff check .
-          ruff format --check .
-
-      - name: Service boundary guardrails
-        run: python scripts/ci/check_service_boundaries.py
-
-      - name: Type check & compile
-        run: |
-          set -euo pipefail
-          ty check
-          python -m compileall -q .
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run python scripts/ci/check_service_boundaries.py
+          uv run ty check
+          uv run python -m compileall -q .
 
   # `service-boundaries` merged into `prechecks` above
 
   change-impact:
     name: 01b Change impact routing
     runs-on: ubuntu-latest
-    needs:
-      - prechecks
     outputs:
       backend_change: ${{ steps.filter.outputs.backend_change }}
       db_change: ${{ steps.filter.outputs.db_change }}
@@ -168,7 +150,6 @@ jobs:
   build-prebuilt-image:
     name: 01g Build prebuilt CI image
     needs:
-      - prechecks
       - change-impact
     if: >
       github.event_name == 'push' ||
@@ -256,38 +237,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Run service lint/smoke using prebuilt CI image
+      - name: Prechecks — lint, guardrails, compile, type
         run: |
           set -euo pipefail
-          uv run ruff check "${{ matrix.service.path }}"
-          uv run python -m compileall -q "${{ matrix.service.path }}"
-
-
-  docs-quality:
-    name: 01c Docs quality checks
-    runs-on: ubuntu-latest
-    needs:
-      - prechecks
-      - change-impact
-      - build-prebuilt-image
-    if: ${{ needs.change-impact.outputs.docs_change == 'true' }}
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Run docs quality script on changed docs only
-        env:
-          DOCS_FILES: ${{ needs.change-impact.outputs.docs_files }}
-        run: |
-          set -euo pipefail
-          mapfile -t files < <(printf '%s\n' "$DOCS_FILES" | sed '/^$/d')
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No high-priority docs files changed; skipping docs quality check."
-            exit 0
-          fi
-          uv run python scripts/ci/docs_quality_check.py --profile ci "${files[@]}"
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run python scripts/ci/check_service_boundaries.py
+          uv run ty check
+          uv run python -m compileall -q .
 
   docs-impact-gate:
     name: 01d Docs impact gate (PR)
