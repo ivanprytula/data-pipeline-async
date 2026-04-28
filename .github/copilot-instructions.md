@@ -39,7 +39,14 @@ When creating shell scripts or other `*.sh` files, keep comments minimal and avo
 
 - Avoid embedding literal environment variable names or secret identifiers in descriptions or comments; keep descriptions generic and do not reveal secret identifiers in human-readable text.
 
+- Avoid embedding literal environment variable names or secret identifiers in descriptions or comments; keep descriptions generic and do not reveal secret identifiers in human-readable text.
+
 ## Build and Test
+
+Execution note: always invoke Python scripts using `uv run` so the project's pinned
+environment is used (for example `uv run python scripts/ci/dependabot_age_gate.py` or
+`uv run pytest`). Avoid calling `python` or `python3` directly in CI, scripts, or
+developer commands — use `uv run` to ensure reproducible dependencies.
 
 Execution note: always invoke Python scripts using `uv run` so the project's pinned
 environment is used (for example `uv run python scripts/ci/dependabot_age_gate.py` or

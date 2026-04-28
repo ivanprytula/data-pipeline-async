@@ -17,6 +17,11 @@ bash scripts/ops/02-compose-profile.sh prod-like up -d  # Prod-like resource pro
 docker compose --profile monitoring up -d            # Optional monitoring stack
 docker compose --profile vector up -d                # Optional vector stack (qdrant + ai-gateway)
 docker compose --profile worker up -d                # Optional processor worker
+bash scripts/ops/02-compose-profile.sh dev up -d     # Dev resource profile (override file)
+bash scripts/ops/02-compose-profile.sh prod-like up -d  # Prod-like resource profile
+docker compose --profile monitoring up -d            # Optional monitoring stack
+docker compose --profile vector up -d                # Optional vector stack (qdrant + ai-gateway)
+docker compose --profile worker up -d                # Optional processor worker
 bash scripts/daily/03-run-tests.sh all         # Run all tests
 bash scripts/daily/03-run-tests.sh unit        # Run unit tests only
 bash scripts/daily/03-run-tests.sh integration # Run integration tests only
