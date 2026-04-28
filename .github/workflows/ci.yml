@@ -40,7 +40,6 @@ env:
   PYTHON_VERSION: '3.14'
   PIP_VERSION: '26.0'
   UV_VERSION: '0.11.7'
-  CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -297,10 +296,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-prebuilt-image
-    env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -327,10 +324,8 @@ jobs:
     needs:
       - prechecks
       - contracts-versioning-gate
-    env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -366,7 +361,6 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 15
     env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/data_pipeline
       DATABASE_URL_RAW: postgresql://postgres:postgres@127.0.0.1:5432/data_pipeline
     services:
@@ -384,7 +378,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -617,8 +611,6 @@ jobs:
       - build-prebuilt-image
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 60
-    env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -637,7 +629,7 @@ jobs:
         image: redis:7
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -673,8 +665,6 @@ jobs:
       - build-prebuilt-image
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     timeout-minutes: 90
-    env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -693,7 +683,7 @@ jobs:
         image: redis:7
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -722,10 +712,8 @@ jobs:
       - prechecks
       - e2e
       - build-prebuilt-image
-    env:
-      CI_IMAGE: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     container:
-      image: ${{ env.CI_IMAGE }}
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:${{ github.sha }}
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
     steps:
       - name: Checkout
