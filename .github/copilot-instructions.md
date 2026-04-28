@@ -36,6 +36,8 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 
 When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
 
+- Avoid embedding literal environment variable names or secret identifiers in descriptions or comments; keep descriptions generic and do not reveal secret identifiers in human-readable text.
+
 ## Build and Test
 
 ```bash

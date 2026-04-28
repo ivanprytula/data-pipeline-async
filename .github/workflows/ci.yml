@@ -178,7 +178,7 @@ jobs:
       contents: read
       packages: write
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CALLER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   service-matrix:
     name: 01ba Service matrix from changed paths
