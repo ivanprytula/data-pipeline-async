@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload image artifact
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: data-pipeline-ci-image-${{ github.run_id }}
           path: data-pipeline-ci-${{ github.run_id }}.tar
