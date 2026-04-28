@@ -24,8 +24,16 @@ uv run alembic upgrade head                   # Apply migrations
 uv run alembic downgrade -1                   # Rollback migration
 bash scripts/daily/04-quality-checks.sh   # Lint, format, type-check
 bash scripts/setup/03-bootstrap-k3d.sh        # Bootstrap local k3d cluster
-bash scripts/daily/06-guarded-merge.sh --discover-required --pr <pr-number-or-branch>  # Validate required checks before merge
+## Validate PR checks (manual merge via GitHub UI)
+
+Use the GitHub web UI to review required checks and perform merges. Alternatively you can inspect check-run status with the `gh` CLI:
+
+```bash
+gh pr checks <pr-number-or-branch>                      # Show checks for the PR
+gh pr checks <pr-number-or-branch> --watch --interval 10  # Watch checks until completion
 ```
+
+```text
 
 ## Practical Cadence
 

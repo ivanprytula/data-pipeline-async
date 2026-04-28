@@ -32,6 +32,7 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 - Omit "Changes Made" sections; user sees diffs directly.
 - Omit tool names, reasoning traces, or "I'm going to do X now."
 - Skip examples unless explicitly asked.
+- Process files one-by-one: complete and write/update each file fully before moving to the next. Avoid accumulating many open file edits or retaining large file contents in memory — this reduces context growth and token usage.
 - No internal monologue about task planning, skill loading, or process steps.
 
 When creating shell scripts or other `*.sh` files, keep comments minimal and avoid embedding specific file or folder names or paths in comments (this reduces future refactoring churn).
