@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     # Web framework
     "fastapi>=0.136.1",
-    "uvicorn[standard]>=0.34.0",
+    "uvicorn[standard]>=0.46.0",
     # Rate limiting
     "slowapi>=0.1.9",
     # Database (async)
