@@ -1,9 +1,7 @@
 FROM python:3.14-slim
 
-# Install system deps used by tests/linting and migrations
+# Install system deps: curl for health checks, postgresql-client for migrations
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
     curl \
     ca-certificates \
     postgresql-client \
@@ -22,10 +20,7 @@ COPY uv.lock pyproject.toml .python-version ./
 # Sync pinned dependencies into the image to speed CI jobs (may be large)
 RUN uv sync --frozen || true
 
-# Create non-root user and switch
-RUN useradd --create-home --shell /bin/bash ciuser && chown -R ciuser:ciuser /workspace
-WORKDIR /home/ciuser
-USER ciuser
+# Keep root user for GitHub Actions to write to temp dirs (CI-only image)
 
 # Default entrypoint: print versions
 ENTRYPOINT ["sh", "-lc", "python --version && pip --version && uv --version"]
