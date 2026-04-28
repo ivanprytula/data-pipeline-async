@@ -186,8 +186,8 @@ GitHub Actions (ci.yml) triggers
       needs: [lint, test]
       steps:
         - uses: actions/checkout@v4
-        - uses: docker/setup-buildx-action@v2
-        - uses: docker/build-push-action@v4
+        - uses: docker/setup-buildx-action@v3
+        - uses: docker/build-push-action@v5
           with:
             context: .
             push: false
@@ -222,10 +222,10 @@ This reduces per-job setup time and guarantees Python 3.14 parity for cp314 whee
             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws-region: eu-central-1
-        - uses: docker/setup-buildx-action@v2
+        - uses: docker/setup-buildx-action@v3
         - uses: aws-actions/amazon-ecr-login@v1
           id: login-ecr
-        - uses: docker/build-push-action@v4
+        - uses: docker/build-push-action@v5
           with:
             context: .
             push: true
