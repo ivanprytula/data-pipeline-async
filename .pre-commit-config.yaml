@@ -53,10 +53,12 @@
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
     hooks:
-      - id: pip-audit
-        args: ["-r", "requirements-audit.txt", "--no-deps"]
-        files: 'pyproject\.toml|uv\.lock|requirements-audit\.txt'
-        pass_filenames: false
+        - id: pip-audit
+          name: pip-audit (wrapper)
+          entry: uv run python scripts/ci/pip_audit_wrapper.py
+          language: system
+          files: 'pyproject\\.toml|uv\\.lock|requirements-audit\\.txt'
+          pass_filenames: false
 
   ci:
     # pre-commit.ci does not allow network calls

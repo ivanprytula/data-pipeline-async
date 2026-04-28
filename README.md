@@ -79,6 +79,7 @@ Then access:
   - [Project Layout](#project-layout)
     - [Architecture Records](#architecture-records)
     - [Pillars, Portfolio \& Weekly Progress](#pillars-portfolio--weekly-progress)
+  - [Dependency Cooldown Policy](#dependency-cooldown-policy)
 
 ### Core Learning Path (for developers)
 
@@ -182,3 +183,14 @@ pyproject.toml         # Python dependencies
 | [docs/progress/weekly-progress-phase-3.md](docs/progress/weekly-progress-phase-3.md)                 | Weekly progress — Phase 3                                               |
 | [docs/progress/weekly-progress-phase-4.md](docs/progress/weekly-progress-phase-4.md)                 | Weekly progress — Phase 4                                               |
 | [docs/templates/](docs/templates/)                                                                   | LinkedIn, portfolio, and commit templates                               |
+
+## Dependency Cooldown Policy
+
+To reduce noise from short-lived package releases and keep the team's focus on features and interview preparation, this repository applies a conservative "dependency cooldown" approach:
+
+- **Reduced Dependabot cadence:** Python package updates (both `pip` and `uv`) run on a monthly schedule to avoid frequent dependency PR churn.
+- **Early-release labeling:** Dependabot PRs for newly published releases are automatically labeled `early-dependency` by the repository age-guard. Labels indicate the package release is still within the 7‑day maturation window.
+- **Local validation workflow:** Maintain contributors' local `uv` configuration uses `exclude-newer = "7 days"` for manual verification of new releases before merging. This lets you install and test a candidate release locally while protecting CI from automatic early adoption.
+- **Non-blocking:** Early releases are labeled (not closed) so reviewers can opt to test and merge if the package is acceptable, or wait until the release matures.
+
+This approach balances safety (avoid immediate adoption of potentially unstable new releases) with developer autonomy (you can still test a release locally using `uv` and merge when ready).
