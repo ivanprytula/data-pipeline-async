@@ -10,6 +10,7 @@ Note: Database session is injected by main.py at router include time.
 """
 
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -20,6 +21,7 @@ from services.query_api.dependencies import get_db
 
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/summary")
@@ -239,9 +241,13 @@ async def refresh_materialized_view(
         await db.commit()
 
         return {"status": "success", "message": "Materialized view refreshed"}
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        return {"status": "error", "message": str(e)}
+        logger.exception("Failed to refresh materialized view")
+        return {
+            "status": "error",
+            "message": "Failed to refresh materialized view",
+        }
 
 
 @router.get("/materialized-view-stats")
