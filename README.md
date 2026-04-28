@@ -75,6 +75,7 @@ Then access:
     - [Job Search \& Career Path](#job-search--career-path)
     - [Additional Reference Docs](#additional-reference-docs)
   - [Tech Stack](#tech-stack)
+    - [CI Pipeline (`.github/workflows/ci.yml`)](#ci-pipeline-githubworkflowsciyml)
   - [8-Phase Roadmap](#8-phase-roadmap)
   - [Project Layout](#project-layout)
     - [Architecture Records](#architecture-records)
@@ -125,6 +126,27 @@ Then access:
 | **Testing**         | pytest + aiosqlite                                 |
 | **CI/CD**           | GitHub Actions                                     |
 | **IaC**             | Terraform (AWS)                                    |
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+
+Jobs execute in dependency waves:
+
+```text
+Wave 0   01 change-impact               — detect what changed
+Wave 1   02 build-ci-image              — build prebuilt container (unconditional)
+         03 service-matrix              — build Docker image matrix from changed paths
+         04 docs-impact-gate            — PR-only docs check
+         05 impact-summary              — PR-only change summary
+         06 contracts-versioning-gate   — schema/contract guard
+Wave 2   07 prechecks                   — ruff lint/format, ty check, compileall
+Wave 3   08 unit                        — unit tests
+Wave 4   09 migrations                  — slow-checks only
+         10 integration                 — slow-checks only, after migrations
+         11 e2e                         — slow-checks only, after integration
+Wave 5   12 dependency-audit            — pip-audit
+         13 build-images                — Docker image builds (matrix)
+Wave 6   14 build-summary               — final summary
+```
 
 ---
 

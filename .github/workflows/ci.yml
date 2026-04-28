@@ -42,28 +42,11 @@ env:
   UV_VERSION: '0.11.7'
 
 jobs:
-  prechecks:
-    name: 01 Prechecks — lint, guardrails, compile, type
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Prechecks — lint, guardrails, compile, type
-        run: |
-          set -euo pipefail
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run python scripts/ci/check_service_boundaries.py
-          uv run ty check
-          uv run python -m compileall -q .
-
-  # `service-boundaries` merged into `prechecks` above
-
+  # ---------------------------------------------------------------------------
+  # Wave 0 — no upstream deps, starts immediately on trigger
+  # ---------------------------------------------------------------------------
   change-impact:
-    name: 01b Change impact routing
+    name: 01 Change impact routing
     runs-on: ubuntu-latest
     outputs:
       backend_change: ${{ steps.filter.outputs.backend_change }}
@@ -147,13 +130,13 @@ jobs:
             echo "files=$(cat files.txt)" >> "$GITHUB_OUTPUT"
           fi
 
+  # ---------------------------------------------------------------------------
+  # Wave 1 — parallel, all need only change-impact
+  # ---------------------------------------------------------------------------
   build-prebuilt-image:
-    name: 01g Build prebuilt CI image
+    name: 02 Build CI image
     needs:
       - change-impact
-    if: >
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && (needs.change-impact.outputs.backend_change == 'true' || needs.change-impact.outputs.infra_change == 'true'))
     uses: ./.github/workflows/build-ci-image.yml
     permissions:
       contents: read
@@ -162,7 +145,7 @@ jobs:
       CALLER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   service-matrix:
-    name: 01ba Service matrix from changed paths
+    name: 03 Service matrix from changed paths
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -219,35 +202,8 @@ jobs:
           matrix_json="$(jq -c . <<<"$matrix_json")"
           echo "changed_services_matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
-  service-lint-test:
-    name: 01bb Service lint/smoke — ${{ matrix.service.name }}
-    runs-on: ubuntu-latest
-    needs:
-      - prechecks
-      - service-matrix
-      - build-prebuilt-image
-    if: ${{ needs.service-matrix.outputs.has_changed_services == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJson(needs.service-matrix.outputs.changed_services_matrix) }}
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Prechecks — lint, guardrails, compile, type
-        run: |
-          set -euo pipefail
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run python scripts/ci/check_service_boundaries.py
-          uv run ty check
-          uv run python -m compileall -q .
-
   docs-impact-gate:
-    name: 01d Docs impact gate (PR)
+    name: 04 Docs impact gate (PR)
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -283,7 +239,7 @@ jobs:
           exit 1
 
   impact-summary:
-    name: 01e Impact summary
+    name: 05 Impact summary
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -302,7 +258,7 @@ jobs:
           echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, ai_gateway=${{ needs.change-impact.outputs.ai_gateway_change }}, query_api=${{ needs.change-impact.outputs.query_api_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
 
   contracts-versioning-gate:
-    name: 01f Contracts versioning gate
+    name: 06 Contracts versioning gate
     runs-on: ubuntu-latest
     needs:
       - change-impact
@@ -332,13 +288,42 @@ jobs:
 
           echo "Contracts versioning gate passed."
 
+  # ---------------------------------------------------------------------------
+  # Wave 2 — after build-prebuilt-image (container image must exist)
+  # ---------------------------------------------------------------------------
+  prechecks:
+    name: 07 Prechecks — lint, guardrails, compile, type
+    runs-on: ubuntu-latest
+    needs:
+      - build-prebuilt-image
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Prechecks — lint, guardrails, compile, type
+        run: |
+          set -euo pipefail
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run python scripts/ci/check_service_boundaries.py
+          uv run ty check
+          uv run python -m compileall -q .
+
+  # `service-boundaries` merged into `prechecks` above
+  # `service-lint-test` removed — ran identical full-repo commands; use
+  #   `ruff check ${{ matrix.service.path }}` if per-service scoping is needed
+
+  # ---------------------------------------------------------------------------
+  # Wave 3 — parallel after prechecks
+  # ---------------------------------------------------------------------------
   unit:
-    name: 02 Unit tests — Python 3.14
+    name: 08 Unit tests — Python 3.14
     runs-on: ubuntu-latest
     needs:
       - prechecks
       - contracts-versioning-gate
-      - build-prebuilt-image
     container:
       image: ghcr.io/${{ github.repository_owner }}/data-pipeline-ci:latest
     steps:
@@ -362,8 +347,11 @@ jobs:
           name: coverage-unit-py${{ env.PYTHON_VERSION }}
           path: htmlcov
 
+  # ---------------------------------------------------------------------------
+  # Wave 4+ — sequential slow checks (workflow_dispatch only)
+  # ---------------------------------------------------------------------------
   migrations:
-    name: 03 Verify Alembic migrations (PostgreSQL 17)
+    name: 09 Verify Alembic migrations (PostgreSQL 17)
     runs-on: ubuntu-latest
     needs:
       - prechecks
@@ -614,7 +602,7 @@ jobs:
           PYTHON
 
   integration:
-    name: 04 Integration tests — Python 3.14
+    name: 10 Integration tests — Python 3.14
     runs-on: ubuntu-latest
     needs:
       - prechecks
@@ -668,7 +656,7 @@ jobs:
           path: htmlcov
 
   e2e:
-    name: 05 E2E tests — Python 3.14
+    name: 11 E2E tests — Python 3.14
     runs-on: ubuntu-latest
     needs:
       - prechecks
@@ -714,8 +702,11 @@ jobs:
           set -euo pipefail
           uv run pytest -q -m "e2e"
 
+  # ---------------------------------------------------------------------------
+  # Wave 5 — parallel after e2e
+  # ---------------------------------------------------------------------------
   dependency-audit:
-    name: 06 Dependency Audit
+    name: 12 Dependency Audit
     runs-on: ubuntu-latest
     needs:
       - prechecks
@@ -737,7 +728,7 @@ jobs:
           inputs: requirements-audit.txt
 
   build-images:
-    name: 07 Docker build — ${{ matrix.service.name }}
+    name: 13 Docker build — ${{ matrix.service.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -764,8 +755,11 @@ jobs:
     secrets:
       aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
 
+  # ---------------------------------------------------------------------------
+  # Wave 6 — after build-images
+  # ---------------------------------------------------------------------------
   build-summary:
-    name: 07 Docker build summary
+    name: 14 Docker build summary
     runs-on: ubuntu-latest
     needs: build-images
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.build-images.result != 'skipped' }}
