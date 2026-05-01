@@ -165,7 +165,7 @@ services:
       jaeger:
         condition: service_started
     healthcheck:
-      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8000/readyz']
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/readyz", timeout=3)']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -262,6 +262,11 @@ services:
         condition: service_started
     profiles:
       - worker
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/processor
+          target: /app
     deploy:
       restart_policy:
         condition: on-failure
@@ -291,7 +296,7 @@ services:
     profiles:
       - vector
     healthcheck:
-      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8001/health']
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8001/health", timeout=5)']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -356,7 +361,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8005/health']
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8005/health", timeout=5)']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -394,7 +399,7 @@ services:
       ingestor:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:8003/health']
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8003/health", timeout=5)']
       interval: 10s
       timeout: 5s
       retries: 5

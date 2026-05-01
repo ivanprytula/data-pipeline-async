@@ -145,6 +145,7 @@ Existing `dependabot.yml` already has `package-ecosystem: docker` with `director
 **Phase 8: `docker-compose.yml` fixes** *(independent)*
 
 26. Replace all `curl`-based healthchecks with Python stdlib pattern for `ai-gateway`, `dashboard`, `query-api` *(fixes Bug 3)*
+26a. Also fixed `ingestor` healthcheck (same Bug 3 — originally out of scope, fixed alongside Phase 8)
 27. Add `develop.watch` to `processor` service (only service currently missing it): `action: sync+restart`, `path: ./services/processor`, `target: /app/services/processor`
 
 **Phase 9: SHA maintenance script** *(new tooling)*
