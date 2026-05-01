@@ -23,12 +23,18 @@ build/
 .eggs/
 *.egg-info/
 *.egg
-alembic/versions/
 # Exclude test and local dev files
 *.md
 learning_docs/
 tests/
 scripts/
+# Exclude repo metadata and docs (large, never needed in images)
+.git/
+.github/
+docs/
+_archive/
+# Exclude sensitive and generated root files
+secrets-findings.json
 # Exclude Docker artifacts
 Dockerfile*
 .dockerignore
