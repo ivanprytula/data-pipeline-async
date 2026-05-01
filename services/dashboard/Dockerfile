@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # ── Stage 1: builder ──────────────────────────────────────────────────────────
-FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
+FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033 AS builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -17,7 +17,7 @@ COPY services/dashboard/pyproject.toml ./services/dashboard/pyproject.toml
 RUN uv sync --package dashboard --no-dev --no-install-project
 
 # ── Stage 2: final ────────────────────────────────────────────────────────────
-FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN groupadd --gid 1001 appgroup && \
