@@ -3,8 +3,38 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-04-21T12:20:58.500740593Z"
+exclude-newer = "2026-04-24T23:02:00.993010946Z"
 exclude-newer-span = "P7D"
+
+[manifest]
+members = [
+    "ai-gateway",
+    "dashboard",
+    "data-pipeline-async",
+    "processor",
+    "query-api",
+]
+
+[[package]]
+name = "ai-gateway"
+version = "0.1.0"
+source = { virtual = "services/ai_gateway" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "qdrant-client" },
+    { name = "sentence-transformers" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.135.2" },
+    { name = "pydantic", specifier = ">=2.13.3" },
+    { name = "qdrant-client", specifier = ">=1.12.0" },
+    { name = "sentence-transformers", specifier = ">=5.4.1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
+]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -489,6 +519,29 @@ nvtx = [
 ]
 
 [[package]]
+name = "dashboard"
+version = "0.1.0"
+source = { virtual = "services/dashboard" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "python-json-logger" },
+    { name = "python-multipart" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.12" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "jinja2", specifier = ">=3.1" },
+    { name = "python-json-logger", specifier = ">=3.3.0" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
+]
+
+[[package]]
 name = "data-pipeline-async"
 version = "1.0.0"
 source = { virtual = "." }
@@ -501,7 +554,6 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "jinja2" },
     { name = "motor" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -514,10 +566,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "python-json-logger" },
-    { name = "python-multipart" },
-    { name = "qdrant-client" },
     { name = "redis" },
-    { name = "sentence-transformers" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "slowapi" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -550,7 +599,6 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "fastapi", specifier = ">=0.135.2" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "jinja2", specifier = ">=3.1" },
     { name = "motor", specifier = ">=3.3" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.41.0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.46b0" },
@@ -563,10 +611,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-json-logger", specifier = ">=4.1.0" },
-    { name = "python-multipart", specifier = ">=0.0.9" },
-    { name = "qdrant-client", specifier = ">=1.12.0" },
     { name = "redis", specifier = ">=5.2.0" },
-    { name = "sentence-transformers", specifier = ">=5.4.1" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.19.2" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
@@ -1723,6 +1768,23 @@ wheels = [
 ]
 
 [[package]]
+name = "processor"
+version = "0.1.0"
+source = { virtual = "services/processor" }
+dependencies = [
+    { name = "aiokafka" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiokafka", specifier = ">=0.11" },
+    { name = "opentelemetry-exporter-otlp", specifier = ">=1.41.0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.41.0" },
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2207,6 +2269,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/30/dd/f8a8261b83946af3cd65943c93c4f83e044f01184e8525404989d22a81a5/qdrant_client-1.17.1.tar.gz", hash = "sha256:22f990bbd63485ed97ba551a4c498181fcb723f71dcab5d6e4e43fe1050a2bc0", size = 344979, upload-time = "2026-03-13T17:13:44.678Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/68/69/77d1a971c4b933e8c79403e99bcbb790463da5e48333cc4fd5d412c63c98/qdrant_client-1.17.1-py3-none-any.whl", hash = "sha256:6cda4064adfeaf211c751f3fbc00edbbdb499850918c7aff4855a9a759d56cbd", size = 389947, upload-time = "2026-03-13T17:13:43.156Z" },
+]
+
+[[package]]
+name = "query-api"
+version = "0.1.0"
+source = { virtual = "services/query_api" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "python-json-logger" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "fastapi", specifier = ">=0.135.2" },
+    { name = "python-json-logger", specifier = ">=4.1.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
 ]
 
 [[package]]
