@@ -20,8 +20,9 @@ ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# Install only ai-gateway deps into an isolated venv
-COPY services/ai_gateway/pyproject.toml ./
+# Workspace root + lock file needed for uv sync --package
+COPY pyproject.toml uv.lock ./
+COPY services/ai_gateway/pyproject.toml ./services/ai_gateway/pyproject.toml
 RUN uv sync --package ai-gateway --no-dev --no-install-project
 
 # ── Stage 2: final ────────────────────────────────────────────────────────────

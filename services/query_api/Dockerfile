@@ -1,37 +1,48 @@
 # syntax=docker/dockerfile:1.4
-# Multi-stage build for query-api service
+
+# ── Stage 1: builder ──────────────────────────────────────────────────────────
 FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Install system dependencies
+# build-essential needed in case asyncpg wheel is unavailable for this platform
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml and install Python dependencies via uv
+ARG UV_EXCLUDE_NEWER
+ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
 COPY pyproject.toml uv.lock ./
-RUN uv pip install --system -e .
+COPY services/query_api/pyproject.toml ./services/query_api/pyproject.toml
+RUN uv sync --package query-api --no-dev --no-install-project
 
-# Production stage
+# ── Stage 2: final ────────────────────────────────────────────────────────────
 FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --shell /bin/false --no-create-home appuser
+
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
 
-# Copy only query_api source to keep service image independent
-COPY services/query_api ./services/query_api
+COPY --chown=appuser:appgroup services/query_api ./services/query_api
 
-# Health check
+USER appuser
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8005/health', timeout=5).raise_for_status()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health', timeout=5)"
 
-# Run query API
-CMD ["uvicorn", "services.query_api.main:app", "--host", "0.0.0.0", "--port", "8005"]
+EXPOSE 8005
+
+CMD ["/app/.venv/bin/uvicorn", "services.query_api.main:app", "--host", "0.0.0.0", "--port", "8005"]

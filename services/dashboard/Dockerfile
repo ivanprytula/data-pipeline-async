@@ -12,7 +12,8 @@ ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-COPY services/dashboard/pyproject.toml ./
+COPY pyproject.toml uv.lock ./
+COPY services/dashboard/pyproject.toml ./services/dashboard/pyproject.toml
 RUN uv sync --package dashboard --no-dev --no-install-project
 
 # ── Stage 2: final ────────────────────────────────────────────────────────────
