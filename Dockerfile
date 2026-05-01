@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033 AS builder
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa AS builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # uv — fast dependency installer
@@ -8,22 +8,24 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Install system dependencies for asyncpg/postgresql
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
+ARG UV_EXCLUDE_NEWER
+ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 # Install deps first (better layer caching)
 COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --frozen --no-install-project
 
 # Stage 2: Final image — slim, no build tools, non-root user
-FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /app
 
@@ -49,7 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libxext6 \
     libxfixes3 \
     fonts-noto \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy Python environment from builder
 COPY --from=builder /app/.venv /app/.venv
