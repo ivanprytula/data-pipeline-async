@@ -14,9 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-ARG UV_EXCLUDE_NEWER
-ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
-    UV_COMPILE_BYTECODE=1 \
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock ./

@@ -15,9 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
-ARG UV_EXCLUDE_NEWER
-ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER \
-    UV_COMPILE_BYTECODE=1 \
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
 # Install deps first (better layer caching)

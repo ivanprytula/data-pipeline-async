@@ -51,21 +51,23 @@ Zero image bloat. Already available in every Python image.
 
 ---
 
-### Architecture Decision: `exclude-newer` — Option B (dynamic env var)
+### Architecture Decision: Dependency Lock — Use `uv.lock` as Single Source of Truth
 
-Do NOT add `[tool.uv] exclude-newer` to any `pyproject.toml`.
+Do NOT add `[tool.uv] exclude-newer` to any `pyproject.toml`. Do NOT use `ARG UV_EXCLUDE_NEWER`.
 
-In every Dockerfile builder stage, add:
+**Strategy:**
+- `pyproject.toml` uses `>=` version ranges (flexible, expresses intent)
+- `uv.lock` is the immutable source of truth (reproducible builds)
+- Local dev config: `~/.config/uv/uv.toml` has `exclude_newer = "7 days"` (controls freshness locally)
+- All builds (Docker, CI, local): `uv sync --frozen` reads from `uv.lock`
+- **Never regenerate `uv.lock` in CI** — only via `uv lock --upgrade` locally after testing
 
+All Dockerfiles simplify to:
 ```dockerfile
-ARG UV_EXCLUDE_NEWER
-ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER
+RUN uv sync --package <service_name> --no-dev
 ```
 
-CI passes: `--build-arg UV_EXCLUDE_NEWER=$(date -d '-7 days' --iso-8601=seconds)Z`
-
-Local builds without the arg have no time restriction (fine; uv.lock pins versions).
-`scripts/bump-exclude-newer.sh` is NOT needed.
+No build args. No conditional logic. Pure determinism from `uv.lock`.
 
 ---
 
@@ -113,33 +115,33 @@ Existing `dependabot.yml` already has `package-ecosystem: docker` with `director
 
 **Phase 3: `ai_gateway/Dockerfile` — Full rewrite** *(depends on step 3)*
 
-10. Builder stage: keep `build-essential` + `libopenblas-dev`; add `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`, `ARG UV_EXCLUDE_NEWER`, `ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER`; `uv sync --package ai_gateway --no-dev`
+10. Builder stage: keep `build-essential` + `libopenblas-dev`; add `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`; `uv sync --package ai-gateway --no-dev --no-install-project`
 11. Final stage: `libopenblas0` runtime only (~20 MB vs 300 MB build tools); copy `.venv` from builder; non-root `appuser:appgroup (1001:1001)`; `PYTHONUNBUFFERED=1`; `ENV PATH="/app/.venv/bin:$PATH"`
 12. HEALTHCHECK: `CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5)"`
 13. Replace existing `CMD ["uvicorn", ...]` with `CMD ["/app/.venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]`
 
 **Phase 4: `dashboard/Dockerfile` — Multi-stage + non-root** *(depends on step 6)*
 
-14. Builder stage: `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`, `ARG UV_EXCLUDE_NEWER`, `ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER`; `uv sync --package dashboard --no-dev`
+14. Builder stage: `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`; `uv sync --package dashboard --no-dev --no-install-project`
 15. Final stage: non-root `appuser:appgroup (1001:1001)`; copy `.venv` from builder; `EXPOSE 8003`; `PYTHONUNBUFFERED=1`; `ENV PATH="/app/.venv/bin:$PATH"`
 16. Replace `CMD ["uv", "run", "uvicorn", ...]` → `CMD ["/app/.venv/bin/uvicorn", ...]`
 17. HEALTHCHECK: `CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health', timeout=5)"`
 
 **Phase 5: `query_api/Dockerfile` — Fix root user + healthcheck + deps** *(depends on step 5)*
 
-18. Builder stage: add `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`, `ARG UV_EXCLUDE_NEWER`, `ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER`; replace `uv pip install --system -e .` with `uv sync --package query_api --no-dev`
+18. Builder stage: add `UV_COMPILE_BYTECODE=1`, `UV_LINK_MODE=copy`; replace `uv pip install --system -e .` with `uv sync --package query-api --no-dev --no-install-project`
 19. Final stage: add non-root `appuser:appgroup (1001:1001)` *(critical security fix)*; replace `COPY site-packages` → `COPY --from=builder /app/.venv /app/.venv`; `EXPOSE 8005`
 20. Remove `-e` flag entirely (editable installs break in multi-stage — source directory not copied to final)
 21. HEALTHCHECK: `CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health', timeout=5)"` *(fixes Bug 2)*
 
 **Phase 6: `processor/Dockerfile` — Minor fixes** *(depends on step 4)*
 
-22. Builder stage: add `UV_LINK_MODE=copy`, `ARG UV_EXCLUDE_NEWER`, `ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER`; switch to `uv sync --package processor --no-dev` (4 packages instead of 50+)
+22. Builder stage: add `UV_LINK_MODE=copy`; switch to `uv sync --package processor --no-dev --no-install-project` (4 packages instead of 50+)
 23. HEALTHCHECK: processor has no HTTP endpoint — use process liveness `CMD python -c "import sys; sys.exit(0)"` as heartbeat, or omit and rely on restart policy
 
 **Phase 7: `Dockerfile` (ingestor) — Minor alignment** *(independent)*
 
-24. Builder stage: add `UV_LINK_MODE=copy`, `ARG UV_EXCLUDE_NEWER`, `ENV UV_EXCLUDE_NEWER=$UV_EXCLUDE_NEWER`
+24. Builder stage: add `UV_LINK_MODE=copy`; ensure `uv sync --no-dev --frozen --no-install-project`
 25. Align Python digest: `sha256:5b3879b6...` (ingestor) vs `sha256:bc389f7d...` (services) — standardize to one (run `docker buildx imagetools inspect python:3.14-slim` to get current, update all)
 
 **Phase 8: `docker-compose.yml` fixes** *(independent)*
@@ -175,16 +177,74 @@ Existing `dependabot.yml` already has `package-ecosystem: docker` with `director
 
 ### Verification
 
-1. `docker build -f services/ai_gateway/Dockerfile . --build-arg UV_EXCLUDE_NEWER=$(date -d '-7 days' --iso-8601=seconds)Z` — builds; image < 1.2 GB; `docker inspect` shows non-root user
-2. `docker build -f services/dashboard/Dockerfile .` — `docker run` process starts as uid 1001
-3. `docker build -f services/query_api/Dockerfile .` — health check passes; no `requests` import error
-4. `docker build -f services/processor/Dockerfile .` — no hardlink warnings in output
-5. `docker build .` (ingestor) — `docker run --rm <image> ls /app/alembic/versions/` shows migration `.py` files *(Bug 1 verified)*
-6. `docker compose up` → `docker compose ps` — all 5 app service healthchecks show `healthy`
-7. `docker compose watch` — code change in `services/processor/` triggers `sync+restart`
-8. `uv sync --all-packages` on localhost — single `.venv` resolves all 4 workspace members + root
-9. `uv sync --package ai_gateway --no-dev` — installs 5 packages, not 50+
-10. `docker buildx imagetools inspect python:3.14-slim` — digest matches what is in all Dockerfiles
+**Local builds (deterministic from `uv.lock`):**
+
+```bash
+# ai-gateway only
+docker compose build ai-gateway
+
+# dashboard only
+docker compose build dashboard
+
+# query-api only
+docker compose build query-api
+
+# processor only
+docker compose build processor
+
+# all services
+docker compose build
+
+# all services + ingestor
+docker compose build && docker build -f Dockerfile .
+```
+
+**CI builds (same as local — both use `uv.lock`):**
+
+No build-arg passing needed. All builds read deterministically from `uv.lock`.
+
+```bash
+# ai-gateway
+docker compose build ai-gateway
+
+# dashboard
+docker compose build dashboard
+
+# query-api
+docker compose build query-api
+
+# processor
+docker compose build processor
+
+# ingestor (root Dockerfile)
+docker build -f Dockerfile .
+
+# all services at once
+docker compose build
+```
+
+**Upgrading dependencies (controlled via `uv lock --upgrade`):**
+
+```bash
+# On local dev machine, update lock file
+uv lock --upgrade
+
+# Test thoroughly, then commit uv.lock
+git add uv.lock
+git commit -m "chore: update dependencies"
+
+# CI and all downstream builds automatically use new versions from uv.lock
+```
+
+**Runtime tests:**
+
+1. Healthchecks: `docker compose up --build` → `docker compose ps` — all app services show `healthy`
+2. Non-root: `docker run --rm data-pipeline-async-ai-gateway id` — output shows `uid=1001(appuser) gid=1001(appgroup)`
+3. Migrations included: `docker run --rm data-pipeline-async ls /app/alembic/versions/` — shows `.py` files *(Bug 1 verified)*
+4. Deterministic from lock: `docker compose build ai-gateway` uses exact versions from `uv.lock` every time
+5. Code sync: `docker compose watch` — change in `services/processor/main.py` triggers auto-restart
+6. Workspace resolution: `uv sync --all-packages` on localhost — single `.venv` resolves 188 packages (4 workspace members + root)
+7. Service-scoped sync: `uv sync --package ai_gateway --no-dev` — installs only 5 packages (ai-gateway deps)
 
 ---
 
@@ -192,7 +252,7 @@ Existing `dependabot.yml` already has `package-ecosystem: docker` with `director
 
 - **Python stdlib urllib for all health checks**: zero image bloat, consistent across Dockerfile and docker-compose, forward-compatible with K8s (`httpGet` probe ignores Dockerfile HEALTHCHECK entirely)
 - **`http://127.0.0.1` not `http://localhost`**: avoids `/etc/hosts` lookup and IPv6 fallback; deterministic
-- **`exclude-newer` Option B (ARG)**: CI freshness enforcement without touching pyproject.toml; local builds unaffected; `scripts/bump-exclude-newer.sh` not needed
+- **`uv.lock` as source of truth**: All builds deterministic; no build-args needed; freshness controlled via `~/.config/uv/uv.toml` on dev machine; `uv lock --upgrade` for upgrades
 - **uv workspaces**: lean Docker images per-service + one localhost `.venv` via `--all-packages`; root loses 2 dep entries
 - **dependabot.yml**: existing `docker` entry with `directory: "/"` already scans all service Dockerfiles recursively; no new entries needed
 - **Out of scope**: application logic, docker-compose network topology, CI workflow jobs
@@ -209,7 +269,7 @@ Existing `dependabot.yml` already has `package-ecosystem: docker` with `director
 | HIGH | No non-root user | `ai_gateway`, `dashboard`, `query_api` Dockerfiles |
 | HIGH | Single-stage — 300 MB+ build tools in final image | `ai_gateway`, `dashboard` |
 | HIGH | Editable `-e` in multi-stage — source not in final stage, imports fail | `query_api/Dockerfile` |
-| MEDIUM | `UV_LINK_MODE=copy` missing — hardlink errors across layer boundaries | all services + ingestor |
+| MEDIUM | `UV_LINK_MODE=copy` + `UV_COMPILE_BYTECODE=1` missing — hardlink/startup errors | all services + ingestor |
 | MEDIUM | `processor` missing `develop.watch` | `docker-compose.yml` |
 | MEDIUM | Full monorepo deps (50+) in lightweight services | `processor`, `query_api` |
 | MEDIUM | Stale inline dep pinning (2023 versions, no lockfile) | `ai_gateway/Dockerfile` |

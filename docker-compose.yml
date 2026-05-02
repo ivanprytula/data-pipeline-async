@@ -140,7 +140,8 @@ services:
           memory: '512M'
 
   ingestor:
-    build: .
+    build:
+      context: .
     container_name: data-pipeline-ingestor
     env_file: .env
     environment:
@@ -227,7 +228,7 @@ services:
     profiles:
       - vector
     healthcheck:
-      test: ['CMD', 'curl', '-f', '-s', 'http://localhost:6333/health']
+      test: ['CMD-SHELL', 'bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/6333"']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -282,8 +283,8 @@ services:
 
   ai-gateway:
     build:
-      context: services/ai-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/ai_gateway/Dockerfile
     container_name: data-pipeline-ai-gateway
     environment:
       QDRANT_URL: http://qdrant:6333
@@ -304,7 +305,7 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./services/ai-gateway
+          path: ./services/ai_gateway
           target: /app
     deploy:
       restart_policy:
@@ -350,7 +351,7 @@ services:
   query-api:
     build:
       context: .
-      dockerfile: services/query-api/Dockerfile
+      dockerfile: services/query_api/Dockerfile
     container_name: data-pipeline-query-api
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline

@@ -227,6 +227,49 @@ Key environment variables (see `ingestor/config.py`, defaults from `.env`):
 | `DB_ECHO` | `False` | SQLAlchemy query logging |
 | `LOG_LEVEL` | `INFO` | Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL |
 
+## Dependency Lock Strategy
+
+**Source of Truth: `uv.lock` (immutable, deterministic)**
+
+- `pyproject.toml` uses `>=` version ranges (flexible, expresses intent)
+- `uv.lock` pins exact versions (reproducible builds, committed to repo)
+- Local dev freshness: `~/.config/uv/uv.toml` has `exclude_newer = "7 days"` (optional, personal machine only)
+- **All builds (Docker, CI, local)** use `uv sync --frozen` → reads deterministically from `uv.lock`
+- **Never regenerate `uv.lock` in CI** — only via `uv lock --upgrade` on local dev, test thoroughly, then commit
+
+### Workflow
+
+**Local Development:**
+```bash
+uv sync              # Install deps — reads uv.lock
+uv tree              # Verify actual installed versions
+uv lock --upgrade    # Intentionally bump dependencies (generates new uv.lock)
+# → Test thoroughly before committing uv.lock
+git add uv.lock && git commit -m "chore: update dependencies"
+```
+
+**Docker Builds:**
+```bash
+# All builds use uv.lock deterministically — no build args needed
+docker compose build              # Local build
+docker build -f Dockerfile .      # Ingestor local build
+```
+
+**CI Builds:**
+```bash
+# CI also uses uv.lock — same as local
+# No UV_EXCLUDE_NEWER or freshness args required
+```
+
+**Key Principles:**
+- ✅ Version ranges in `pyproject.toml` (intent layer)
+- ✅ Exact pins in `uv.lock` (fact layer)
+- ✅ Local freshness optional (dev machine config)
+- ✅ All builds read from lock file (reproducibility)
+- ✅ Upgrades intentional (local `uv lock --upgrade` + commit)
+- ❌ Never commit build-args or exclude-newer logic to Dockerfiles
+- ❌ Never regenerate lock file in CI pipelines
+
 ## Namespaces & Module Decomposition
 
 > *"Namespaces are one honking great idea — let's do more of those!"* — PEP 20
