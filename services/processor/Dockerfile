@@ -23,8 +23,10 @@ RUN groupadd --gid 1001 appgroup && \
 # Copy Python dependencies from builder
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
     PYTHONUNBUFFERED=1
 
+COPY --chown=appuser:appgroup libs/ ./libs/
 COPY --chown=appuser:appgroup services/processor/main.py .
 
 USER appuser

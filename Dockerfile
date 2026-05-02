@@ -53,7 +53,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Copy Python environment from builder
 COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 # Install Playwright browsers as root (required for appuser to use them)
 RUN playwright install chromium && \
@@ -67,6 +68,7 @@ RUN groupadd --gid 1001 appgroup && \
 RUN chown -R appuser:appgroup /app
 
 # Copy source code and migration files
+COPY --chown=appuser:appgroup libs/ ./libs/
 COPY --chown=appuser:appgroup ingestor/ ./ingestor/
 COPY --chown=appuser:appgroup alembic/ ./alembic/
 COPY --chown=appuser:appgroup alembic.ini ./

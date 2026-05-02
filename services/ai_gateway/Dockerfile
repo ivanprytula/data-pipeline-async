@@ -41,8 +41,10 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
     PYTHONUNBUFFERED=1
 
+COPY --chown=appuser:appgroup libs/ ./libs/
 COPY --chown=appuser:appgroup services/ai_gateway/embeddings.py \
                                services/ai_gateway/vector_store.py \
                                services/ai_gateway/main.py ./

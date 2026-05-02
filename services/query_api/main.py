@@ -34,13 +34,46 @@ if not DATABASE_URL:
     )
 
 # Create async engine with read-only semantics
+#
+# POOLING STRATEGY: NullPool (No Connection Pooling)
+# ─────────────────────────────────────────────────
+# Why NullPool for query_api instead of default QueuePool?
+#
+# 1. READ-ONLY WORKLOAD
+#    Each HTTP request executes independent SELECT queries.
+#    No transaction spans multiple operations or request boundaries.
+#    Connection reuse via pooling provides zero benefit.
+#
+# 2. STATELESS HORIZONTAL SCALING
+#    Query API is deployed as stateless HTTP service (N replicas).
+#    Each replica can connect/disconnect freely without coordination.
+#    No shared connection pool state between replicas.
+#    QueuePool would waste memory on pool_size per replica.
+#
+# 3. ZERO OVERHEAD
+#    NullPool creates a fresh connection per query, discards immediately.
+#    No background pool management, no pool warmup, minimal memory.
+#    Ideal for serverless/FaaS deployment patterns (scales to zero).
+#
+# 4. HORIZONTAL AUTOSCALING
+#    Database connection limit is predictable: fixed per request.
+#    Can safely scale to 100 replicas without pool explosion.
+#    QueuePool with pool_size=10 would exhaust connections at 10 replicas.
+#
+# INGESTOR (CRUD service) USES QueuePool:
+# ─────────────────────────────────────
+# Ingestor has persistent CRUD sessions spanning multiple operations:
+#   - Multi-row inserts with error handling
+#   - Transaction management (rollback on failure)
+#   - Connection reuse across request lifecycle
+#   - Stateful workers processing pipeline tasks
+# QueuePool with pool_size=10, max_overflow=20 optimizes this pattern.
+#
+# Reference: See ingestor/database.py for production QueuePool config.
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-    poolclass=NullPool,  # No connection pooling (async-safe)
+    poolclass=NullPool,  # No connection pooling for stateless read-only service
 )
 
 AsyncSessionLocal = async_sessionmaker(

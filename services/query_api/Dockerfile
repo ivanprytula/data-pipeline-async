@@ -32,8 +32,10 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
     PYTHONUNBUFFERED=1
 
+COPY --chown=appuser:appgroup libs/ ./libs/
 COPY --chown=appuser:appgroup services/query_api ./services/query_api
 
 USER appuser

@@ -27,6 +27,11 @@ This ensures I follow **current guidance**, not stale context. Show the read in 
 - Code/specifics if needed (no markdown block for simple output; use file tools for large changes).
 - Brief rationale only if non-obvious (one sentence).
 
+**Action vs. Suggestion — CRITICAL**:
+- When user asks "update X", "fix Y", "add Z", "remove W" — **use tools immediately** to make the change in the file. Do not output code blocks as suggestions.
+- Never output "Here's what you should change:" followed by code blocks. Always invoke `replace_string_in_file`, `create_file`, `run_in_terminal`, `edit_notebook_file`, etc. to perform the action directly.
+- User should see diffs in the editor automatically, not prose suggestions in chat. This applies equally in normal mode, Agent mode, or any mode.
+
 **Token optimization rules**:
 - Direct all code changes to files via file tools, never chat code blocks.
 - Omit "Changes Made" sections; user sees diffs directly.
