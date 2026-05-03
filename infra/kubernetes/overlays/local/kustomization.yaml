@@ -10,6 +10,8 @@ resources:
   - ai-gateway-service.yaml
   - processor-deployment.yaml
   - processor-service.yaml
+  - webhook-deployment.yaml
+  - webhook-service.yaml
   - dashboard-deployment.yaml
   - dashboard-service.yaml
   - ingress.yaml

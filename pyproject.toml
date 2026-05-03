@@ -51,6 +51,7 @@ members = [
     "services/dashboard",
     "services/processor",
     "services/query_api",
+    "services/webhook",
 ]
 
 [dependency-groups]

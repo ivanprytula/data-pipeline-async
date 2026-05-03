@@ -1,0 +1,18 @@
+[project]
+name = "webhook"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "aiokafka>=0.11",
+    "asyncpg>=0.30",
+    "fastapi>=0.115",
+    "python-json-logger>=3.3",
+    "sqlalchemy[asyncio]>=2.0",
+    "uvicorn[standard]>=0.34",
+]
+
+[project.optional-dependencies]
+aws = [
+    "boto3>=1.28.0",
+    "botocore>=1.31.0",
+]

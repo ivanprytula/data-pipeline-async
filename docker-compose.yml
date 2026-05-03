@@ -289,6 +289,54 @@ services:
           cpus: '0.5'
           memory: '256M'
 
+  webhook:
+    build:
+      context: .
+      dockerfile: services/webhook/Dockerfile
+    container_name: data-pipeline-webhook
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
+      KAFKA_BROKER_URL: redpanda:29092
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: webhook
+      ADMIN_TOKEN: dev-only-change-me
+    ports:
+      - '8004:8004'
+    depends_on:
+      db:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    profiles:
+      - webhook
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/webhook
+          target: /app
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: '128M'
+        limits:
+          cpus: '0.5'
+          memory: '256M'
+
+
   ai-gateway:
     build:
       context: .
