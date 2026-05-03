@@ -111,6 +111,7 @@ jobs:
             processor_change:
               - 'services/processor/**'
               - 'services/processor/Dockerfile'
+              - 'services/processor/pyproject.toml'
             dashboard_change:
               - 'services/dashboard/**'
               - 'services/dashboard/Dockerfile'
@@ -704,6 +705,111 @@ jobs:
           uv run pytest -q -m "e2e"
 
   # ---------------------------------------------------------------------------
+  # Wave 4+ — compose smoke-test (workflow_dispatch + run_slow_checks only)
+  # ---------------------------------------------------------------------------
+  compose-smoke-test:
+    name: Compose smoke-test — health + JSON logs
+    runs-on: ubuntu-latest
+    needs:
+      - prechecks
+      - unit
+      - change-impact
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Build service images
+        run: docker compose --profile worker --profile vector build
+
+      - name: Start services
+        run: docker compose --profile worker --profile vector up -d
+
+      - name: Wait for all services — readyz 200
+        run: |
+          set -euo pipefail
+          declare -A PORTS=([ingestor]=8000 [ai-gateway]=8001 [processor]=8002 [dashboard]=8003 [query-api]=8005)
+          for svc in "${!PORTS[@]}"; do
+            port="${PORTS[$svc]}"
+            echo "Polling $svc /readyz on port $port (90s timeout)..."
+            ok=false
+            for attempt in $(seq 1 18); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${port}/readyz" || true)
+              if [[ "$code" == "200" ]]; then
+                echo "  ✓ $svc readyz=200 (attempt $attempt)"
+                ok=true
+                break
+              fi
+              echo "  ○ $svc attempt $attempt: $code — retrying in 5s"
+              sleep 5
+            done
+            [[ "$ok" == "true" ]] || { echo "✗ $svc did not reach readyz within 90s" >&2; exit 1; }
+          done
+
+      - name: Assert readyz response body has status key
+        run: |
+          set -euo pipefail
+          declare -A PORTS=([ingestor]=8000 [ai-gateway]=8001 [processor]=8002 [dashboard]=8003 [query-api]=8005)
+          for svc in "${!PORTS[@]}"; do
+            port="${PORTS[$svc]}"
+            body=$(curl -s "http://localhost:${port}/readyz")
+            BODY="$body" SVC="$svc" python3 -c "
+          import os, sys, json
+          body = os.environ['BODY']
+          svc = os.environ['SVC']
+          try:
+              obj = json.loads(body)
+          except json.JSONDecodeError:
+              print(f'✗ {svc} /readyz is not JSON: {body!r}', file=sys.stderr)
+              sys.exit(1)
+          if 'status' not in obj:
+              print(f'✗ {svc} /readyz missing status key: {obj}', file=sys.stderr)
+              sys.exit(1)
+          status = obj.get('status')
+          print(f'✓ {svc} /readyz status={status}')
+          "
+          done
+
+      - name: Validate structured JSON logs — schema assertion
+        run: |
+          set -euo pipefail
+          for svc in ingestor ai-gateway processor dashboard query-api; do
+            echo "Validating log schema for $svc..."
+            raw=$(docker compose logs --no-log-prefix "$svc" 2>/dev/null | head -10 || true)
+            if [[ -z "$raw" ]]; then
+              echo "  ⚠ No log output captured for $svc; skipping"
+              continue
+            fi
+            echo "$raw" | SVC="$svc" python3 -c "
+          import os, sys, json
+          svc = os.environ['SVC']
+          required = ['service', 'level', 'message']
+          lines = [l for l in sys.stdin.read().splitlines() if l.strip()]
+          if not lines:
+              print(f'  ⚠ {svc}: no non-empty log lines; skipping')
+              sys.exit(0)
+          parsed = 0
+          for line in lines:
+              try:
+                  obj = json.loads(line)
+              except json.JSONDecodeError:
+                  print(f'✗ {svc}: non-JSON log line: {line!r}', file=sys.stderr)
+                  sys.exit(1)
+              for field in required:
+                  if field not in obj:
+                      print(f'✗ {svc}: log line missing field {field!r}: {line!r}', file=sys.stderr)
+                      sys.exit(1)
+              parsed += 1
+          print(f'✓ {svc}: {parsed} log line(s) valid JSON with required fields')
+          "
+          done
+
+      - name: Tear down services
+        if: always()
+        run: docker compose --profile worker --profile vector down -v
+
+  # ---------------------------------------------------------------------------
   # Wave 5 — parallel after e2e
   # ---------------------------------------------------------------------------
   dependency-audit:
@@ -740,6 +846,7 @@ jobs:
       - migrations
       - integration
       - e2e
+      - compose-smoke-test
       - service-matrix
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_slow_checks && inputs.run_docker_build && needs.service-matrix.outputs.has_changed_services == 'true' }}
     permissions:

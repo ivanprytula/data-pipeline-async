@@ -87,6 +87,15 @@ jobs:
               default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_QUERY_API"
               default_container_name="query_api"
               ;;
+            # NOTE (Phase 11.3 / Phase 13 pending):
+            # processor now runs as FastAPI on port 8002 (since Phase 10.4).
+            # The ECS task definition for processor MUST include:
+            #   portMappings: [{containerPort: 8002, protocol: tcp}]
+            #   healthCheck.command: ["CMD-SHELL",
+            #     "python -c \"import urllib.request; urllib.request.urlopen(
+            #       'http://127.0.0.1:8002/health', timeout=5)\""]
+            # This infrastructure change is tracked in Phase 13 (Terraform/CDK).
+            # Until Phase 13 lands, processor ECS tasks will lack a health gate.
             processor)
               default_ecs_service="$ECS_SERVICE_NAME_PROCESSOR"
               default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_PROCESSOR"

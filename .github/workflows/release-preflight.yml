@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -131,4 +132,90 @@ jobs:
                   handle.write("\n".join(summary_lines) + "\n")
 
           print("Preflight checks passed.")
+          PYTHON
+
+      - name: Configure AWS credentials (prod only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'prod' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Verify all service images exist in ECR (prod only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'prod' }}
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_INGESTOR_URI: ${{ vars.ECR_INGESTOR_URI }}
+          ECR_AI_GATEWAY_URI: ${{ vars.ECR_AI_GATEWAY_URI }}
+          ECR_QUERY_API_URI: ${{ vars.ECR_QUERY_API_URI }}
+          ECR_PROCESSOR_URI: ${{ vars.ECR_PROCESSOR_URI }}
+          ECR_DASHBOARD_URI: ${{ vars.ECR_DASHBOARD_URI }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PYTHON'
+          from __future__ import annotations
+
+          import os
+          import shutil
+          import subprocess
+          import sys
+
+          region = os.environ.get("AWS_REGION", "").strip()
+          if not region:
+              print("AWS_REGION not set; skipping ECR image existence check.")
+              sys.exit(0)
+
+          if not shutil.which("aws"):
+              print("aws CLI not found in CI image; skipping ECR image existence check.")
+              sys.exit(0)
+
+          service_uris: dict[str, str] = {
+              "ingestor": os.environ.get("ECR_INGESTOR_URI", "").strip(),
+              "ai_gateway": os.environ.get("ECR_AI_GATEWAY_URI", "").strip(),
+              "query_api": os.environ.get("ECR_QUERY_API_URI", "").strip(),
+              "processor": os.environ.get("ECR_PROCESSOR_URI", "").strip(),
+              "dashboard": os.environ.get("ECR_DASHBOARD_URI", "").strip(),
+          }
+
+          missing_vars = [svc for svc, uri in service_uris.items() if not uri]
+          if missing_vars:
+              print(
+                  f"Missing ECR URI environment vars for: {', '.join(missing_vars)}. "
+                  "Set ECR_<SERVICE>_URI in the GitHub environment.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          all_present = True
+          for svc, uri in service_uris.items():
+              image_ref = uri.split("/", 1)[-1] if "/" in uri else uri
+              if ":" not in image_ref:
+                  print(f"\u2717 {svc}: URI has no image tag \u2014 {uri}", file=sys.stderr)
+                  all_present = False
+                  continue
+              repo_name, tag = image_ref.rsplit(":", 1)
+              result = subprocess.run(
+                  [
+                      "aws", "ecr", "describe-images",
+                      "--region", region,
+                      "--repository-name", repo_name,
+                      "--image-ids", f"imageTag={tag}",
+                  ],
+                  capture_output=True,
+                  text=True,
+              )
+              if result.returncode == 0:
+                  print(f"\u2713 {svc}: image confirmed in ECR ({uri})")
+              else:
+                  print(f"\u2717 {svc}: image NOT found in ECR ({uri})", file=sys.stderr)
+                  all_present = False
+
+          if not all_present:
+              print(
+                  "\nProd release blocked: one or more service images are missing from ECR.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print("\nAll 5 service images confirmed present in ECR.")
           PYTHON
