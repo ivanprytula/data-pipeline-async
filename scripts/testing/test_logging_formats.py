@@ -19,8 +19,8 @@ from pathlib import Path
 # Add repo root to path so we can import ingestor
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ingestor.config import settings
-from ingestor.core.logging import set_cid, setup_logging
+from services.ingestor.config import settings
+from services.ingestor.core.logging import set_cid, setup_logging
 
 
 def separator(title: str) -> None:

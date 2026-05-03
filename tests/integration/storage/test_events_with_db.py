@@ -7,7 +7,7 @@ with actual AsyncSession against test database.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.storage.events import (
+from services.ingestor.storage.events import (
     create_processed_event,
     get_events_by_status,
     mark_event_completed,

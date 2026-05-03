@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-import ingestor.notifications as notifications
-from ingestor.config import settings
+import services.ingestor.notifications as notifications
+from services.ingestor.config import settings
 
 
 class _FakeResponse:

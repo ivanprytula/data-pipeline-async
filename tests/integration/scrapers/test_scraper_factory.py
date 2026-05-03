@@ -5,7 +5,7 @@ Tests factory registration, scraper instantiation, and error handling.
 
 import pytest
 
-from ingestor.scrapers import Scraper, ScraperFactory
+from services.ingestor.scrapers import Scraper, ScraperFactory
 
 
 @pytest.mark.integration

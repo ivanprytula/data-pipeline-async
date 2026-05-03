@@ -17,9 +17,9 @@ import pytest
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.core.handlers import wrap_job_handler
-from ingestor.core.scheduler import Job, JobHealthMetrics, JobScheduler
-from ingestor.jobs_registry import register_jobs
+from services.ingestor.core.handlers import wrap_job_handler
+from services.ingestor.core.scheduler import Job, JobHealthMetrics, JobScheduler
+from services.ingestor.jobs_registry import register_jobs
 
 
 # ============================================================================

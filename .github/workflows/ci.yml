@@ -84,8 +84,8 @@ jobs:
             db_change:
               - 'alembic/**'
               - 'infra/database/**'
-              - 'ingestor/models.py'
-              - 'ingestor/database.py'
+              - 'services/ingestor/models.py'
+              - 'services/ingestor/database.py'
             docs_change:
               - 'docs/**'
               - 'README.md'
@@ -100,7 +100,7 @@ jobs:
               - 'libs/platform/**'
               - 'libs/contracts/**'
             ingestor_change:
-              - 'ingestor/**'
+              - 'services/ingestor/**'
               - 'Dockerfile'
             ai_gateway_change:
               - 'services/ai_gateway/**'
@@ -179,7 +179,7 @@ jobs:
           fi
 
           if [[ "$include_all" == "true" || "$INGESTOR_CHANGE" == "true" ]]; then
-            include_service '{"name":"ingestor","path":"ingestor","dockerfile":"Dockerfile","image_name":"data-zoo/ingestor"}'
+            include_service '{"name":"ingestor","path":"services/ingestor","dockerfile":"Dockerfile","image_name":"data-zoo/ingestor"}'
           fi
           if [[ "$include_all" == "true" || "$AI_GATEWAY_CHANGE" == "true" ]]; then
             include_service '{"name":"ai_gateway","path":"services/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile","image_name":"data-zoo/ai_gateway"}'

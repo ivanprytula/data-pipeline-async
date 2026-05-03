@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from ingestor.core.background_workers import BackgroundWorkerPool
-from ingestor.schemas import RecordRequest
+from services.ingestor.core.background_workers import BackgroundWorkerPool
+from services.ingestor.schemas import RecordRequest
 
 
 def _record(source: str) -> RecordRequest:

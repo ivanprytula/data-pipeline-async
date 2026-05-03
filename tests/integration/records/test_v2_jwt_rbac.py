@@ -26,7 +26,7 @@ async def test_v2_jwt_create_requires_writer_or_admin_role(client: AsyncClient) 
 @pytest.mark.integration
 async def test_v2_jwt_create_denies_viewer_role(client: AsyncClient) -> None:
     """JWT viewer role is rejected with 403 on write endpoint."""
-    import ingestor.auth as auth_module
+    import services.ingestor.auth as auth_module
 
     viewer_token = auth_module.create_jwt_token("viewer", {"roles": ["viewer"]})
     response = await client.post(

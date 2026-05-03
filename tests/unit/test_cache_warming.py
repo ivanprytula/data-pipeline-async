@@ -8,9 +8,9 @@ from typing import TypedDict
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from ingestor.database import Base
-from ingestor.models import Record
-from ingestor.services_lifecycle import _warm_list_cache
+from services.ingestor.database import Base
+from services.ingestor.models import Record
+from services.ingestor.services_lifecycle import _warm_list_cache
 
 
 class WarmCall(TypedDict):
@@ -88,7 +88,9 @@ async def test_warm_list_cache_populates_top_sources(
         )
         await session.commit()
 
-    monkeypatch.setattr("ingestor.database.AsyncSessionLocal", session_factory_fixture)
+    monkeypatch.setattr(
+        "services.ingestor.database.AsyncSessionLocal", session_factory_fixture
+    )
 
     calls: list[WarmCall] = []
 
@@ -104,7 +106,9 @@ async def test_warm_list_cache_populates_top_sources(
             }
         )
 
-    monkeypatch.setattr("ingestor.cache.set_records_list", fake_set_records_list)
+    monkeypatch.setattr(
+        "services.ingestor.cache.set_records_list", fake_set_records_list
+    )
 
     await _warm_list_cache()
 
@@ -126,7 +130,9 @@ async def test_warm_list_cache_fails_open_on_query_error(
         def __call__(self):
             raise RuntimeError("db unavailable")
 
-    monkeypatch.setattr("ingestor.database.AsyncSessionLocal", BrokenSessionFactory())
+    monkeypatch.setattr(
+        "services.ingestor.database.AsyncSessionLocal", BrokenSessionFactory()
+    )
 
     # Should not raise.
     await _warm_list_cache()

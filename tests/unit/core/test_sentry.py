@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from ingestor.config import settings
-from ingestor.core import sentry as sentry_module
+from services.ingestor.config import settings
+from services.ingestor.core import sentry as sentry_module
 
 
 def test_setup_sentry_returns_false_when_disabled() -> None:

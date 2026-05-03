@@ -8,9 +8,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import ingestor.vector_search as vector_search
-from ingestor import crud
-from ingestor.schemas import RecordRequest
+import services.ingestor.vector_search as vector_search
+from services.ingestor import crud
+from services.ingestor.schemas import RecordRequest
 
 
 @pytest.mark.integration

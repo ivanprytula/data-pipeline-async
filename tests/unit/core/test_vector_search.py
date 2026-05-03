@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-import ingestor.vector_search as vector_search
-from ingestor.models import Record
+import services.ingestor.vector_search as vector_search
+from services.ingestor.models import Record
 
 
 class _FakeResponse:

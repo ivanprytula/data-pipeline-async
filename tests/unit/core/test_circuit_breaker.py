@@ -13,7 +13,7 @@ import asyncio
 
 import pytest
 
-from ingestor.core.circuit_breaker import (
+from services.ingestor.core.circuit_breaker import (
     CircuitOpenError,
     CircuitState,
     circuit_breaker,

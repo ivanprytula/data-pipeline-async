@@ -5,8 +5,8 @@ from __future__ import annotations
 import fakeredis.aioredis
 import pytest
 
-import ingestor.cache as cache_module
-from ingestor.constants import CACHE_LIST_MAX_LIMIT, CACHE_LIST_MAX_SKIP
+import services.ingestor.cache as cache_module
+from services.ingestor.constants import CACHE_LIST_MAX_LIMIT, CACHE_LIST_MAX_SKIP
 
 
 @pytest.fixture(autouse=True)

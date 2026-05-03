@@ -174,8 +174,8 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./ingestor
-          target: /app/ingestor
+          path: ./services/ingestor
+          target: /app/services/ingestor
     deploy:
       restart_policy:
         condition: on-failure

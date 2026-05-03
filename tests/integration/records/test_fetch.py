@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from ingestor.fetch import (
+from services.ingestor.fetch import (
     close_http_client,
     fetch_with_retry,
     get_http_client,
@@ -64,7 +64,9 @@ async def test_fetch_success_without_failures(cleanup_http_client) -> None:
     async def mock_fetch(url: str, simulate_failures: bool = False) -> dict:
         return MOCK_POST_RESPONSE
 
-    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "services.ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch
+    ):
         result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
         assert result["title"] == "Test Post"
 
@@ -82,7 +84,9 @@ async def test_fetch_retry_on_transient_failure(cleanup_http_client) -> None:
             raise httpx.TimeoutException("Timeout on call 1")
         return MOCK_POST_SUCCESS
 
-    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "services.ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch
+    ):
         result = await fetch_with_retry(TEST_POST_URL, max_retries=3)
         assert result["title"] == "Success after retry"
         assert call_count == 2
@@ -99,8 +103,10 @@ async def test_fetch_retry_exhaustion(cleanup_http_client) -> None:
         raise Exception("Persistent API error")
 
     with (
-        patch("ingestor.fetch.fetch_from_external_api", side_effect=always_fail),
-        patch("ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "services.ingestor.fetch.fetch_from_external_api", side_effect=always_fail
+        ),
+        patch("services.ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(Exception, match="Persistent API error"):
             await fetch_with_retry(TEST_POST_URL, max_retries=3)
@@ -115,8 +121,10 @@ async def test_fetch_timeout_error_handling(cleanup_http_client) -> None:
         raise httpx.TimeoutException("Request timeout")
 
     with (
-        patch("ingestor.fetch.fetch_from_external_api", side_effect=timeout_fetch),
-        patch("ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "services.ingestor.fetch.fetch_from_external_api", side_effect=timeout_fetch
+        ),
+        patch("services.ingestor.fetch.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(httpx.TimeoutException):
             await fetch_with_retry(TEST_POST_URL, max_retries=1)
@@ -130,7 +138,9 @@ async def test_concurrent_fetches(cleanup_http_client) -> None:
         post_id = int(url.split("/")[-1])
         return {"id": post_id, "title": f"Post {post_id}"}
 
-    with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
+    with patch(
+        "services.ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch
+    ):
         # Launch 5 concurrent fetches
         tasks = [
             fetch_with_retry(f"{API_BASE}/posts/{i}", max_retries=3)

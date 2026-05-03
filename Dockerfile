@@ -69,7 +69,7 @@ RUN chown -R appuser:appgroup /app
 
 # Copy source code and migration files
 COPY --chown=appuser:appgroup libs/ ./libs/
-COPY --chown=appuser:appgroup ingestor/ ./ingestor/
+COPY --chown=appuser:appgroup services/ingestor/ ./services/ingestor/
 COPY --chown=appuser:appgroup alembic/ ./alembic/
 COPY --chown=appuser:appgroup alembic.ini ./
 
@@ -78,4 +78,4 @@ USER appuser
 # Port for FastAPI
 EXPOSE 8000
 
-CMD ["uvicorn", "ingestor.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "services.ingestor.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

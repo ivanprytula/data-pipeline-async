@@ -78,7 +78,7 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # Limit coverage collection to the package under test to avoid "module X was never imported" warnings
-addopts = "--cov=ingestor --cov-report=term-missing --cov-report=html -q -m 'not e2e'"
+addopts = "--cov=services/ingestor --cov-report=term-missing --cov-report=html -q -m 'not e2e'"
 filterwarnings = [
     "ignore::DeprecationWarning:slowapi",
     "ignore::DeprecationWarning:fastapi.routing",
@@ -109,9 +109,9 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["ingestor"]
+source = ["services.ingestor"]
 omit = [
-    "ingestor/__main__.py",
+    "services/ingestor/__main__.py",
     "*/migrations/*",
     "*/alembic/*",
 ]
@@ -151,7 +151,7 @@ max-doc-length = 100
 max-line-length = 100
 
 [[tool.ty.overrides]]
-include = ["ingestor", "tests"]
+include = ["services/ingestor", "tests"]
 
 [tool.ty.rules]
 unresolved-attribute = "ignore"

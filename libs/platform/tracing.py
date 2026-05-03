@@ -5,7 +5,7 @@ any OTLP collector) and auto-instruments FastAPI.
 
 Usage (from app/main.py lifespan):
 
-    from ingestor.core.tracing import setup_tracing
+    from services.ingestor.core.tracing import setup_tracing
     setup_tracing(app, endpoint=settings.otel_endpoint, service_name=settings.otel_service_name)
 
 The module degrades gracefully: if OTel packages are missing or the endpoint

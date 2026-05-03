@@ -10,11 +10,11 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from ingestor.constants import (
+from services.ingestor.constants import (
     SLIDING_WINDOW_LIMIT,
     TOKEN_BUCKET_CAPACITY,
 )
-from ingestor.routers import records_v2
+from services.ingestor.routers import records_v2
 from tests.shared.payloads import RECORD_API
 
 

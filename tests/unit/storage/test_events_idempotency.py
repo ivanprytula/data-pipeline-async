@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.models import ProcessedEvent
-from ingestor.storage.events import (
+from services.ingestor.models import ProcessedEvent
+from services.ingestor.storage.events import (
     create_processed_event,
     mark_event_failed,
 )

@@ -13,9 +13,9 @@ from datetime import datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.crud import create_record, get_record, mark_processed
-from ingestor.models import _utcnow
-from ingestor.schemas import RecordRequest
+from services.ingestor.crud import create_record, get_record, mark_processed
+from services.ingestor.models import _utcnow
+from services.ingestor.schemas import RecordRequest
 
 
 @pytest.mark.integration
@@ -173,7 +173,7 @@ class TestProcessedAtTimestamp:
         self, db: AsyncSession
     ) -> None:
         """Soft-deleting a processed record should preserve processed_at."""
-        from ingestor.crud import soft_delete_record
+        from services.ingestor.crud import soft_delete_record
 
         request = RecordRequest(
             source="test-source",

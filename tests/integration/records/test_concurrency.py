@@ -15,7 +15,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.schemas import RecordRequest
+from services.ingestor.schemas import RecordRequest
 from tests.shared.payloads import RECORD_API
 
 
@@ -44,7 +44,7 @@ class TestAsyncGather:
 
         Real-world: Data pipeline enriches 50 records by hitting an external API.
         Test: 5 concurrent POST /api/v2/records/enrich calls."""
-        from ingestor import crud
+        from services.ingestor import crud
 
         # Create 5 records
         records = []
@@ -89,7 +89,7 @@ class TestAsyncGather:
         Note: This test is designed for SQLite. On PostgreSQL with shared
         sessions, use client_isolated fixture instead (see postgresonly tests).
         """
-        from ingestor import crud
+        from services.ingestor import crud
 
         # Create 20 records
         records = []

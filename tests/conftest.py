@@ -60,9 +60,9 @@ os.environ["ENVIRONMENT"] = "testing"
 os.environ.setdefault("DOCS_USERNAME", "")
 os.environ.setdefault("DOCS_PASSWORD", "")
 
-from ingestor.config import Settings  # noqa: E402
-from ingestor.database import Base, get_db  # noqa: E402
-from ingestor.main import app  # noqa: E402
+from services.ingestor.config import Settings  # noqa: E402
+from services.ingestor.database import Base, get_db  # noqa: E402
+from services.ingestor.main import app  # noqa: E402
 from tests.shared.payloads import RECORD_API  # noqa: E402
 
 
@@ -125,14 +125,21 @@ def _alembic_upgrade(sync_url: str) -> None:
 
 
 def _alembic_downgrade(sync_url: str) -> None:
-    """Downgrade all migrations to base (sync, called via asyncio.to_thread)."""
-    from alembic.config import Config
+    """Downgrade all migrations to base (sync, called via asyncio.to_thread).
 
-    from alembic import command
+    Drops and recreates the public schema to guarantee a clean slate,
+    even when a prior session was interrupted before teardown ran (which
+    leaves orphan tables/indexes that fool Alembic's downgrade logic).
+    """
+    import sqlalchemy as sa
 
-    cfg = Config(str(_ALEMBIC_INI))
-    cfg.set_main_option("sqlalchemy.url", sync_url)
-    command.downgrade(cfg, "base")
+    engine = sa.create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+    finally:
+        engine.dispose()
 
 
 async def _clear_records(session: AsyncSession) -> None:
@@ -194,8 +201,8 @@ async def client_with_cache(
 
     Injects fakeredis into app cache module so cache operations work in tests.
     """
-    from ingestor import cache
-    from ingestor.main import app  # Import here to avoid circular imports
+    from services.ingestor import cache
+    from services.ingestor.main import app  # Import here to avoid circular imports
 
     _ensure_sessionmaker()
 
@@ -241,6 +248,10 @@ def apply_migrations() -> Generator[None]:
 
     _ensure_sessionmaker()
     _sync_url = _TEST_DB_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+    # Drop + recreate schema first so setup is idempotent even if a previous
+    # session was interrupted before teardown ran (avoids DuplicateTable errors
+    # on tables/indexes created by migrations but unknown to ORM metadata).
+    _alembic_downgrade(_sync_url)
     _alembic_upgrade(_sync_url)
     yield
     _alembic_downgrade(_sync_url)
@@ -407,8 +418,8 @@ async def sample_records_with_tags(db: AsyncSession) -> list:
     Useful for N+1 demo and other query optimization tests.
     Creates records with 0, 2, 4, 6, 8 tags respectively.
     """
-    from ingestor.crud import create_record
-    from ingestor.schemas import RecordRequest
+    from services.ingestor.crud import create_record
+    from services.ingestor.schemas import RecordRequest
 
     records = []
     for i in range(5):

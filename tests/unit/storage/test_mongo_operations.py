@@ -5,7 +5,7 @@ Tests Motor async client interactions: insert, find, update, delete operations.
 
 import pytest
 
-from ingestor.storage.mongo import (
+from services.ingestor.storage.mongo import (
     find_by_source,
     insert_scraped_doc,
 )

@@ -28,7 +28,7 @@ async def demo_httpx():
     logger.info("HTTPX DEMO: Fetching blog posts from jsonplaceholder.typicode.com")
     logger.info("=" * 70)
 
-    from ingestor.fetch import close_http_client, fetch_with_retry
+    from services.ingestor.fetch import close_http_client, fetch_with_retry
 
     try:
         # Fetch a blog post
@@ -59,7 +59,7 @@ async def demo_aiohttp():
     logger.info("AIOHTTP DEMO: Fetching country data from restcountries.com")
     logger.info("=" * 70)
 
-    from ingestor.fetch_aiohttp import close_http_session, fetch_with_retry
+    from services.ingestor.fetch_aiohttp import close_http_session, fetch_with_retry
 
     try:
         # Fetch country data
@@ -100,12 +100,12 @@ async def demo_concurrent_requests():
     logger.info("CONCURRENT DEMO: Multiple requests in parallel")
     logger.info("=" * 70)
 
-    from ingestor.fetch import close_http_client
-    from ingestor.fetch import fetch_with_retry as httpx_fetch
-    from ingestor.fetch_aiohttp import (
+    from services.ingestor.fetch import close_http_client
+    from services.ingestor.fetch import fetch_with_retry as httpx_fetch
+    from services.ingestor.fetch_aiohttp import (
         close_http_session,
     )
-    from ingestor.fetch_aiohttp import (
+    from services.ingestor.fetch_aiohttp import (
         fetch_with_retry as aiohttp_fetch,
     )
 

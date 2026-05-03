@@ -12,10 +12,10 @@ from logging.config import fileConfig
 
 from sqlalchemy import create_engine, pool
 
-import ingestor.models  # noqa: F401 — registers all ORM models to Base.metadata
+import services.ingestor.models  # noqa: F401 — registers all ORM models to Base.metadata
 from alembic import context
-from ingestor.config import settings
-from ingestor.database import Base
+from services.ingestor.config import settings
+from services.ingestor.database import Base
 
 
 config = context.config

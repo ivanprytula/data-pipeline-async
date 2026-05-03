@@ -10,7 +10,7 @@ Tests for:
 import pytest
 from httpx import AsyncClient
 
-from ingestor.config import Settings
+from services.ingestor.config import Settings
 
 
 # ---------------------------------------------------------------------------

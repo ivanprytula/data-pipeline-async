@@ -8,11 +8,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.crud import (
+from services.ingestor.crud import (
     get_records_with_tag_counts,
     get_records_with_tag_counts_naive,
 )
-from ingestor.models import Record
+from services.ingestor.models import Record
 
 
 @pytest.mark.integration
@@ -96,8 +96,8 @@ class TestNPlusOneCRUD:
         self, db: AsyncSession, record_timestamp
     ) -> None:
         """Records with empty tag lists return tag_count=0."""
-        from ingestor.crud import create_record
-        from ingestor.schemas import RecordRequest
+        from services.ingestor.crud import create_record
+        from services.ingestor.schemas import RecordRequest
 
         # Create a record with empty tags
         request = RecordRequest(
@@ -124,8 +124,8 @@ class TestNPlusOneCRUD:
         self, db: AsyncSession, record_timestamp
     ) -> None:
         """Tag counts match the actual number of tags."""
-        from ingestor.crud import create_record
-        from ingestor.schemas import RecordRequest
+        from services.ingestor.crud import create_record
+        from services.ingestor.schemas import RecordRequest
 
         # Create a record with 5 tags
         tags = ["tag1", "tag2", "tag3", "tag4", "tag5"]
@@ -150,7 +150,7 @@ class TestNPlusOneCRUD:
         self, db: AsyncSession, sample_records_with_tags: list[Record]
     ) -> None:
         """Soft-deleted records are excluded from both functions."""
-        from ingestor.crud import soft_delete_record
+        from services.ingestor.crud import soft_delete_record
 
         if not sample_records_with_tags:
             pytest.skip("No sample records with tags created")

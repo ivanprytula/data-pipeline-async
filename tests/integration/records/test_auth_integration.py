@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.schemas import RecordRequest
+from services.ingestor.schemas import RecordRequest
 
 
 @pytest.mark.integration
@@ -33,7 +33,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure requires valid session cookie."""
-        from ingestor import crud
+        from services.ingestor import crud
 
         record = await crud.create_record(
             db,
@@ -48,7 +48,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """GET /api/v1/records/{id}/secure succeeds with valid session cookie."""
-        from ingestor import crud
+        from services.ingestor import crud
 
         # Create a record
         record = await crud.create_record(
@@ -76,8 +76,8 @@ class TestSessionAuth:
         import uuid
         from datetime import UTC, datetime, timedelta
 
-        from ingestor import crud
-        from ingestor.auth import _session_store
+        from services.ingestor import crud
+        from services.ingestor.auth import _session_store
 
         # Create a record
         record = await crud.create_record(
@@ -103,7 +103,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """RBAC secure archive endpoint denies viewer role and allows writer role."""
-        from ingestor import crud
+        from services.ingestor import crud
 
         record = await crud.create_record(
             db,
@@ -134,7 +134,7 @@ class TestSessionAuth:
         self, client: AsyncClient, db: AsyncSession, record_timestamp
     ) -> None:
         """RBAC secure delete endpoint allows only admin role."""
-        from ingestor import crud
+        from services.ingestor import crud
 
         record = await crud.create_record(
             db,

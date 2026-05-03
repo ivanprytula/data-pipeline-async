@@ -14,8 +14,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from ingestor.config import settings
-from ingestor.main import app
+from services.ingestor.config import settings
+from services.ingestor.main import app
 
 
 _BACKGROUND_BATCH = {
@@ -73,11 +73,11 @@ async def client_with_background_workers(
     settings.background_max_tracked_tasks = 100
 
     monkeypatch.setattr(
-        "ingestor.core.background_workers.AsyncSessionLocal",
+        "services.ingestor.core.background_workers.AsyncSessionLocal",
         lambda: _DummyAsyncSessionContext(),
     )
     monkeypatch.setattr(
-        "ingestor.core.background_workers.jobs.ingest_api_batch",
+        "services.ingestor.core.background_workers.jobs.ingest_api_batch",
         _fake_ingest_api_batch,
     )
 

@@ -226,7 +226,7 @@ class TestRequestLifecycleLogging:
         """GET /readyz emits request_start and request_end log entries."""
         from unittest.mock import patch
 
-        with patch("ingestor.main.logger") as mock_logger:
+        with patch("services.ingestor.main.logger") as mock_logger:
             await client.get("/readyz")
 
         call_args = [c[0][0] for c in mock_logger.info.call_args_list]
@@ -237,7 +237,7 @@ class TestRequestLifecycleLogging:
         """request_end log entry includes duration_ms field in extra."""
         from unittest.mock import patch
 
-        with patch("ingestor.main.logger") as mock_logger:
+        with patch("services.ingestor.main.logger") as mock_logger:
             await client.get("/readyz")
 
         end_calls = [
@@ -253,7 +253,7 @@ class TestRequestLifecycleLogging:
         """request_end log entry includes status_code field in extra."""
         from unittest.mock import patch
 
-        with patch("ingestor.main.logger") as mock_logger:
+        with patch("services.ingestor.main.logger") as mock_logger:
             r = await client.get("/readyz")
 
         end_calls = [
@@ -268,7 +268,7 @@ class TestRequestLifecycleLogging:
         """request_start log entry includes method and path in extra."""
         from unittest.mock import patch
 
-        with patch("ingestor.main.logger") as mock_logger:
+        with patch("services.ingestor.main.logger") as mock_logger:
             await client.get("/readyz")
 
         start_calls = [

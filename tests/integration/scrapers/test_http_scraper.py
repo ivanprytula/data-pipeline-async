@@ -5,7 +5,7 @@ Tests async httpx client, exponential backoff, timeout handling, and item extrac
 
 import pytest
 
-from ingestor.scrapers.http_scraper import HttpScraper
+from services.ingestor.scrapers.http_scraper import HttpScraper
 
 
 @pytest.mark.integration

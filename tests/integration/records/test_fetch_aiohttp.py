@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 import pytest
 
-from ingestor.fetch_aiohttp import (
+from services.ingestor.fetch_aiohttp import (
     close_http_session,
     fetch_with_retry,
     get_http_session,
@@ -75,7 +75,8 @@ async def test_fetch_success_without_failures(cleanup_http_session) -> None:
         return MOCK_COUNTRY_RESPONSE
 
     with patch(
-        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+        "services.ingestor.fetch_aiohttp.fetch_from_external_api",
+        side_effect=mock_fetch,
     ):
         result = await fetch_with_retry(TEST_RESOURCE, max_retries=3)
         assert result["name"]["common"] == "United States"
@@ -95,7 +96,8 @@ async def test_fetch_retry_on_transient_failure(cleanup_http_session) -> None:
         return MOCK_COUNTRY_SUCCESS
 
     with patch(
-        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+        "services.ingestor.fetch_aiohttp.fetch_from_external_api",
+        side_effect=mock_fetch,
     ):
         result = await fetch_with_retry(TEST_RESOURCE, max_retries=3)
         assert result["name"]["common"] == "Germany"
@@ -114,9 +116,10 @@ async def test_fetch_retry_exhaustion(cleanup_http_session) -> None:
 
     with (
         patch(
-            "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=always_fail
+            "services.ingestor.fetch_aiohttp.fetch_from_external_api",
+            side_effect=always_fail,
         ),
-        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
+        patch("services.ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(Exception, match="Persistent API error"):
             await fetch_with_retry(TEST_RESOURCE, max_retries=3)
@@ -132,9 +135,10 @@ async def test_fetch_timeout_error_handling(cleanup_http_session) -> None:
 
     with (
         patch(
-            "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=timeout_fetch
+            "services.ingestor.fetch_aiohttp.fetch_from_external_api",
+            side_effect=timeout_fetch,
         ),
-        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
+        patch("services.ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(asyncio.TimeoutError):
             await fetch_with_retry(TEST_RESOURCE, max_retries=1)
@@ -149,7 +153,8 @@ async def test_concurrent_fetches(cleanup_http_session) -> None:
         return {"name": {"common": country_name}, "region": "Test"}
 
     with patch(
-        "ingestor.fetch_aiohttp.fetch_from_external_api", side_effect=mock_fetch
+        "services.ingestor.fetch_aiohttp.fetch_from_external_api",
+        side_effect=mock_fetch,
     ):
         # Launch 5 concurrent fetches
         countries = ["France", "Spain", "Italy", "Greece", "Portugal"]
@@ -202,10 +207,10 @@ async def test_client_error_handling_aiohttp_style(cleanup_http_session) -> None
 
     with (
         patch(
-            "ingestor.fetch_aiohttp.fetch_from_external_api",
+            "services.ingestor.fetch_aiohttp.fetch_from_external_api",
             side_effect=client_error_fetch,
         ),
-        patch("ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
+        patch("services.ingestor.fetch_aiohttp.asyncio.sleep", new_callable=AsyncMock),
     ):
         with pytest.raises(aiohttp.ClientError):
             await fetch_with_retry(TEST_RESOURCE, max_retries=2)

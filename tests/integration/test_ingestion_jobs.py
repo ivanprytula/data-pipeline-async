@@ -16,15 +16,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ingestor.core.retry import IdempotencyKeyTracker
-from ingestor.jobs import (
+from services.ingestor.core.retry import IdempotencyKeyTracker
+from services.ingestor.jobs import (
     archive_old_records,
     ingest_api_batch,
     ingest_api_single,
     ingest_scheduled_batch_example,
 )
-from ingestor.models import Record
-from ingestor.schemas import RecordRequest
+from services.ingestor.models import Record
+from services.ingestor.schemas import RecordRequest
 
 
 # ============================================================================
@@ -106,7 +106,7 @@ class TestApiIngestion:
         )
 
         with patch(
-            "ingestor.jobs.crud.create_record", new_callable=AsyncMock
+            "services.ingestor.jobs.crud.create_record", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = test_record
 
@@ -127,7 +127,7 @@ class TestApiIngestion:
         """Test single record ingestion with idempotency key."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        with patch("ingestor.jobs._dedup_tracker") as mock_tracker:
+        with patch("services.ingestor.jobs._dedup_tracker") as mock_tracker:
             # Simulate duplicate
             mock_tracker.is_duplicate.return_value = True
 
@@ -162,7 +162,7 @@ class TestApiIngestion:
         ]
 
         with patch(
-            "ingestor.jobs.crud.create_records_batch", new_callable=AsyncMock
+            "services.ingestor.jobs.crud.create_records_batch", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = mock_records
 
@@ -188,7 +188,7 @@ class TestApiIngestion:
         mock_db = AsyncMock(spec=AsyncSession)
 
         with patch(
-            "ingestor.jobs.crud.create_records_batch", new_callable=AsyncMock
+            "services.ingestor.jobs.crud.create_records_batch", new_callable=AsyncMock
         ) as mock_create:
             mock_create.side_effect = ValueError("DB error")
 
@@ -212,7 +212,7 @@ class TestApiIngestion:
         """Test batch ingestion skips duplicate batches."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        with patch("ingestor.jobs._dedup_tracker") as mock_tracker:
+        with patch("services.ingestor.jobs._dedup_tracker") as mock_tracker:
             # Simulate batch duplicate
             mock_tracker.is_duplicate.return_value = True
 
@@ -247,7 +247,7 @@ class TestScheduledBatchIngestion:
         mock_db = AsyncMock(spec=AsyncSession)
 
         with patch(
-            "ingestor.jobs.ingest_api_batch", new_callable=AsyncMock
+            "services.ingestor.jobs.ingest_api_batch", new_callable=AsyncMock
         ) as mock_ingest:
             mock_ingest.return_value = {
                 "inserted": 1,

@@ -31,7 +31,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from ingestor.fetch import (
+from services.ingestor.fetch import (
     close_all_http_clients,
     close_http_client,
     fetch_from_external_api,
@@ -119,8 +119,11 @@ class TestFetchWithRetry:
             return await original_fetch(url, simulate_failures=False)
 
         with (
-            patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch),
-            patch("ingestor.fetch.logger.warning") as warning_mock,
+            patch(
+                "services.ingestor.fetch.fetch_from_external_api",
+                side_effect=mock_fetch,
+            ),
+            patch("services.ingestor.fetch.logger.warning") as warning_mock,
         ):
             result = await fetch_with_retry(
                 url,
@@ -157,7 +160,8 @@ class TestFetchWithRetry:
             return await original_fetch(url, simulate_failures=False)
 
         with patch(
-            "ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch_with_timing
+            "services.ingestor.fetch.fetch_from_external_api",
+            side_effect=mock_fetch_with_timing,
         ):
             _ = await fetch_with_retry(
                 "https://jsonplaceholder.typicode.com/posts/1",
@@ -198,8 +202,11 @@ class TestFetchWithRetry:
             return await fetch_from_external_api(url, simulate_failures=False)
 
         with (
-            patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch),
-            patch("ingestor.fetch.logger.info") as info_mock,
+            patch(
+                "services.ingestor.fetch.fetch_from_external_api",
+                side_effect=mock_fetch,
+            ),
+            patch("services.ingestor.fetch.logger.info") as info_mock,
         ):
             with pytest.raises(httpx.ConnectError):
                 await fetch_with_retry(
@@ -272,7 +279,9 @@ class TestRetryWithRealWorldScenarios:
         async def mock_fetch(url, simulate_failures=False):
             raise timeout_exception
 
-        with patch("ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch):
+        with patch(
+            "services.ingestor.fetch.fetch_from_external_api", side_effect=mock_fetch
+        ):
             with pytest.raises(httpx.TimeoutException):
                 await fetch_with_retry(
                     "https://example.invalid/slow-endpoint",

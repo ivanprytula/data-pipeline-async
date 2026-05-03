@@ -95,7 +95,7 @@ class TestConnectionPoolBasics:
 
     async def test_pool_configuration_is_set(self) -> None:
         """Verify pool configuration matches settings."""
-        from ingestor.config import settings
+        from services.ingestor.config import settings
 
         # Settings should reflect pool size
         assert settings.db_pool_size == 5

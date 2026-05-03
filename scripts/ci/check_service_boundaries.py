@@ -38,7 +38,7 @@ LIBS_ROOTS: dict[str, Path] = {
 }
 
 SERVICE_ROOTS: dict[str, Path] = {
-    "ingestor": REPO_ROOT / "ingestor",
+    "ingestor": REPO_ROOT / "services" / "ingestor",
     "ai_gateway": REPO_ROOT / "services" / "ai_gateway",
     "query_api": REPO_ROOT / "services" / "query_api",
     "processor": REPO_ROOT / "services" / "processor",
@@ -86,7 +86,12 @@ def module_to_service(module: str) -> str | None:
     ):
         return None
 
-    if module == "ingestor" or module.startswith("ingestor."):
+    if (
+        module == "ingestor"
+        or module.startswith("ingestor.")
+        or module == "services.ingestor"
+        or module.startswith("services.ingestor.")
+    ):
         return "ingestor"
 
     if module == "services" or module.startswith("services."):

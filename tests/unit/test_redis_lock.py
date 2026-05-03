@@ -5,9 +5,9 @@ from __future__ import annotations
 import fakeredis.aioredis
 import pytest
 
-import ingestor.cache as cache_module
-from ingestor.cache import redis_lock
-from ingestor.constants import CACHE_LOCK_PREFIX
+import services.ingestor.cache as cache_module
+from services.ingestor.cache import redis_lock
+from services.ingestor.constants import CACHE_LOCK_PREFIX
 
 
 @pytest.fixture(autouse=True)
