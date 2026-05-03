@@ -159,6 +159,9 @@ class ProductionJsonFormatter(JsonFormatter):
         """Add minimal fields: message + auto-injected cid only."""
         super().add_fields(log_data, record, message_dict)
 
+        # Inject service name for log aggregator filters
+        log_data.setdefault("service", "ingestor")
+
         # Auto-inject correlation ID and trace ID if available
         cid = get_cid()
         if cid:

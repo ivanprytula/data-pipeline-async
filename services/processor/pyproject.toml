@@ -4,6 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "aiokafka>=0.11",
+    "fastapi>=0.115",
     "opentelemetry-sdk>=1.41.0",
     "opentelemetry-exporter-otlp>=1.41.0",
+    "uvicorn[standard]>=0.34",
 ]

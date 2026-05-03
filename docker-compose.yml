@@ -256,11 +256,19 @@ services:
       OTEL_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       OTEL_SERVICE_NAME: processor
+    ports:
+      - '8002:8002'
     depends_on:
       redpanda:
         condition: service_healthy
       jaeger:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     profiles:
       - worker
     develop:
@@ -276,10 +284,10 @@ services:
       resources:
         reservations:
           cpus: '0.1'
-          memory: '64M'
-        limits:
-          cpus: '0.25'
           memory: '128M'
+        limits:
+          cpus: '0.5'
+          memory: '256M'
 
   ai-gateway:
     build:
