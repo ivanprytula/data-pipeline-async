@@ -34,6 +34,11 @@ spec:
                 secretKeyRef:
                   name: data-zoo-app-secrets
                   key: kafka_bootstrap_servers
+            - name: INTERNAL_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: data-zoo-app-secrets
+                  key: internal_jwt_secret
             - name: KAFKA_TOPIC
               valueFrom:
                 configMapKeyRef:
@@ -77,7 +82,13 @@ spec:
             runAsGroup: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

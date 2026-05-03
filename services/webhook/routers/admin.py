@@ -242,3 +242,184 @@ async def replay_webhook_events(
         status_filter=request.status_filter,
         message=f"Enqueued {count} event(s) for replay",
     )
+
+
+# ── Phase 13.3: API Key Lifecycle Endpoints ───────────────────────────────────
+
+
+@router.post(
+    "/sources/{source_id}/api-keys",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_source_api_key(
+    source_id: int,
+    _token: AdminDep,
+    db: DbDep,
+    label: str | None = Query(None, description="Optional label for this key"),
+) -> dict[str, Any]:
+    """Generate a new API key for a webhook source.
+
+    The plaintext key is returned ONCE. Store it securely — it cannot be
+    retrieved again (only its Argon2id hash is stored, OWASP A02).
+
+    Args:
+        source_id: ID of the webhook source.
+        _token: Validated admin Bearer token.
+        db: Async database session.
+        label: Optional human-readable label.
+
+    Returns:
+        JSON with key_id, api_key (plaintext, shown once), key_prefix, created_at.
+
+    Raises:
+        404: Source not found.
+    """
+    from sqlalchemy import select as sa_select
+
+    from services.webhook.models import WebhookSource
+    from services.webhook.services.api_keys import create_api_key
+
+    result = await db.execute(
+        sa_select(WebhookSource).where(WebhookSource.id == source_id)
+    )
+    source = result.scalar_one_or_none()
+    if source is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Webhook source with id={source_id} not found",
+        )
+
+    api_key, plaintext = await create_api_key(db=db, source_id=source_id, label=label)
+    logger.info(
+        "admin_api_key_created",
+        extra={"source_id": source_id, "key_id": api_key.id},
+    )
+    return {
+        "key_id": api_key.id,
+        "api_key": plaintext,
+        "key_prefix": api_key.key_prefix,
+        "label": api_key.label,
+        "created_at": api_key.created_at.isoformat(),
+    }
+
+
+@router.delete(
+    "/sources/{source_id}/api-keys/{key_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def revoke_source_api_key(
+    source_id: int,
+    key_id: int,
+    _token: AdminDep,
+    db: DbDep,
+) -> dict[str, Any]:
+    """Revoke an API key for a webhook source.
+
+    Args:
+        source_id: ID of the webhook source.
+        key_id: ID of the API key to revoke.
+        _token: Validated admin Bearer token.
+        db: Async database session.
+
+    Returns:
+        Confirmation with key_id and revoked_at.
+
+    Raises:
+        404: Key not found or already revoked.
+    """
+    from services.webhook.services.api_keys import revoke_api_key
+
+    api_key = await revoke_api_key(db=db, source_id=source_id, key_id=key_id)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Active API key {key_id} for source {source_id} not found",
+        )
+    logger.info(
+        "admin_api_key_revoked",
+        extra={"source_id": source_id, "key_id": key_id},
+    )
+    return {
+        "key_id": api_key.id,
+        "revoked_at": api_key.revoked_at.isoformat() if api_key.revoked_at else None,
+        "message": "API key revoked successfully",
+    }
+
+
+@router.post(
+    "/sources/{source_id}/rotate-key",
+    status_code=status.HTTP_200_OK,
+)
+async def rotate_signing_key(
+    source_id: int,
+    _token: AdminDep,
+    db: DbDep,
+) -> dict[str, Any]:
+    """Rotate the HMAC signing key for a webhook source.
+
+    Increments signing_key_version and marks the previous version as deprecated
+    with a 7-day grace period. During the grace period, events signed with either
+    the new or deprecated key are accepted.
+
+    The new signing key must be provisioned in Secrets Manager under
+    ``data-zoo/webhook/<source>/v<new_version>/signing-key`` BEFORE calling
+    this endpoint.
+
+    Args:
+        source_id: ID of the webhook source.
+        _token: Validated admin Bearer token.
+        db: Async database session.
+
+    Returns:
+        New key version and deprecation info.
+
+    Raises:
+        404: Source not found.
+    """
+    from sqlalchemy import select as sa_select
+
+    from services.webhook.models import WebhookSource
+
+    result = await db.execute(
+        sa_select(WebhookSource).where(WebhookSource.id == source_id)
+    )
+    source = result.scalar_one_or_none()
+    if source is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Webhook source with id={source_id} not found",
+        )
+
+    from datetime import UTC, datetime
+
+    old_version = source.signing_key_version
+    new_version = old_version + 1
+
+    source.deprecated_key_version = old_version
+    source.key_deprecated_at = datetime.now(UTC).replace(tzinfo=None)
+    source.signing_key_version = new_version
+
+    await db.commit()
+    await db.refresh(source)
+
+    logger.info(
+        "webhook_signing_key_rotated",
+        extra={
+            "source_id": source_id,
+            "source_name": source.name,
+            "old_version": old_version,
+            "new_version": new_version,
+        },
+    )
+    return {
+        "source_id": source_id,
+        "source_name": source.name,
+        "new_version": new_version,
+        "deprecated_version": old_version,
+        "deprecated_at": source.key_deprecated_at.isoformat(),
+        "grace_period_days": 7,
+        "message": (
+            f"Key rotated to v{new_version}. "
+            f"v{old_version} accepted for 7 days during transition."
+        ),
+    }

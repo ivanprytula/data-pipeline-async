@@ -17,11 +17,22 @@ Observability:
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
 
-from ingestor.constants import CACHE_KEY_RECORD, CACHE_TTL_RECORD
+from ingestor.constants import (
+    CACHE_KEY_LIST_PREFIX,
+    CACHE_KEY_RECORD,
+    CACHE_LIST_MAX_LIMIT,
+    CACHE_LIST_MAX_SKIP,
+    CACHE_LOCK_DEFAULT_TTL_SECONDS,
+    CACHE_LOCK_PREFIX,
+    CACHE_TTL_LIST,
+    CACHE_TTL_RECORD,
+)
 
 
 if TYPE_CHECKING:
@@ -147,3 +158,152 @@ async def invalidate_record(record_id: int) -> None:
         from ingestor.metrics import cache_errors_total
 
         cache_errors_total.labels(operation="invalidate").inc()
+
+
+# ── Phase 13.4: List cache ─────────────────────────────────────────────────
+
+
+def _list_cache_key(source: str, skip: int, limit: int) -> str:
+    """Build list cache key for a paginated query.
+
+    Args:
+        source: Record source name.
+        skip: Pagination offset.
+        limit: Page size.
+
+    Returns:
+        Redis key string.
+    """
+    return f"{CACHE_KEY_LIST_PREFIX}:{source}:{skip}:{limit}"
+
+
+def _should_skip_list_cache(skip: int, limit: int) -> bool:
+    """Return True when caching the list page would waste memory or miss too often."""
+    return skip > CACHE_LIST_MAX_SKIP or limit > CACHE_LIST_MAX_LIMIT
+
+
+async def get_records_list(source: str, skip: int, limit: int) -> list | None:
+    """Return a cached list of records for the given source/skip/limit, or None.
+
+    Args:
+        source: Record source filter.
+        skip: Pagination offset.
+        limit: Page size.
+
+    Returns:
+        Deserialized list, or None on cache miss / skip.
+    """
+    import json
+
+    if _client is None or _should_skip_list_cache(skip, limit):
+        return None
+
+    try:
+        key = _list_cache_key(source, skip, limit)
+        raw = await _client.get(key)
+        if raw is None:
+            return None
+        return json.loads(raw)
+    except Exception as e:
+        logger.warning(
+            "cache_list_get_error",
+            extra={"source": source, "skip": skip, "limit": limit, "error": str(e)},
+        )
+        return None
+
+
+async def set_records_list(source: str, skip: int, limit: int, data: list) -> None:
+    """Persist a paginated list to cache with a short TTL.
+
+    Args:
+        source: Record source filter.
+        skip: Pagination offset.
+        limit: Page size.
+        data: Serialisable list of record dicts.
+    """
+    import json
+
+    if _client is None or _should_skip_list_cache(skip, limit):
+        return
+
+    try:
+        key = _list_cache_key(source, skip, limit)
+        await _client.set(key, json.dumps(data), ex=CACHE_TTL_LIST)
+    except Exception as e:
+        logger.warning(
+            "cache_list_set_error",
+            extra={"source": source, "skip": skip, "limit": limit, "error": str(e)},
+        )
+
+
+async def invalidate_records_list_by_source(source: str) -> None:
+    """Delete all list cache entries for a given source using SCAN.
+
+    Args:
+        source: Source name whose list pages should be evicted.
+    """
+    if _client is None:
+        return
+
+    try:
+        pattern = f"{CACHE_KEY_LIST_PREFIX}:{source}:*"
+        keys: list[bytes] = []
+        async for key in _client.scan_iter(match=pattern, count=100):
+            keys.append(key)
+        if keys:
+            await _client.delete(*keys)
+            logger.info(
+                "cache_list_invalidated",
+                extra={"source": source, "deleted_keys": len(keys)},
+            )
+    except Exception as e:
+        logger.warning(
+            "cache_list_invalidate_error",
+            extra={"source": source, "error": str(e)},
+        )
+
+
+# ── Phase 13.4: Distributed lock ──────────────────────────────────────────────
+
+
+@asynccontextmanager
+async def redis_lock(
+    name: str,
+    ttl_seconds: int = CACHE_LOCK_DEFAULT_TTL_SECONDS,
+) -> AsyncGenerator[bool]:
+    """Async context manager providing a non-blocking distributed lock (SET NX PX).
+
+    Uses a single Redis SET NX PX command — safe and atomic on a single Redis node.
+    Does NOT block waiting for the lock; yields ``False`` immediately if not acquired.
+
+    Usage::
+
+        async with redis_lock("job:daily_rollup") as acquired:
+            if not acquired:
+                return  # another instance holds the lock; skip this run
+
+    Args:
+        name: Lock identifier (will be prefixed with ``dp:lock:``).
+        ttl_seconds: Lock expiry in seconds (prevents deadlock on crash).
+
+    Yields:
+        True if the lock was acquired; False otherwise.
+    """
+    if _client is None:
+        # No Redis — yield True so jobs still run in single-instance deployments.
+        yield True
+        return
+
+    lock_key = f"{CACHE_LOCK_PREFIX}:{name}"
+    acquired = await _client.set(lock_key, "1", nx=True, ex=ttl_seconds)
+    try:
+        yield bool(acquired)
+    finally:
+        if acquired:
+            try:
+                await _client.delete(lock_key)
+            except Exception as e:
+                logger.warning(
+                    "redis_lock_release_error",
+                    extra={"lock": name, "error": str(e)},
+                )

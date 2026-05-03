@@ -118,6 +118,16 @@ class Settings(BaseSettings):
         description="JWT token expiration in minutes",
     )
 
+    # ============ Internal Service Auth (M2M) ============
+    internal_jwt_secret: str | None = Field(
+        default=None,
+        description=(
+            "Shared secret for service-to-service JWT signing. "
+            "Required on internal-only routes. "
+            "Set via INTERNAL_JWT_SECRET env variable or Secrets Manager."
+        ),
+    )
+
     # ============ Redis Caching ============
     redis_url: str = Field(
         default="redis://localhost:6379/0",

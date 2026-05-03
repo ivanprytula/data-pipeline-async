@@ -33,11 +33,7 @@ class TimestampMixin:
 
 
 class WebhookSource(Base, TimestampMixin):
-    """Registry of webhook integrations (Stripe, Segment, Zapier, etc.).
-
-    Stores metadata about webhook sources, signing key references, and rate limits.
-    Each source represents an external service that sends webhook events.
-    """
+    """Registry of webhook integrations (Stripe, Segment, Zapier, etc.)."""
 
     __tablename__ = "webhook_sources"
     __table_args__ = (Index("ix_webhook_sources_name_active", "name", "is_active"),)
@@ -56,6 +52,22 @@ class WebhookSource(Base, TimestampMixin):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Phase 13.3: Signing key versioning
+    signing_key_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    deprecated_key_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    key_deprecated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Phase 13.3: Per-source retry config
+    retry_config: Mapped[dict] = mapped_column(
+        JSON,
+        default=lambda: {
+            "max_attempts": 5,
+            "backoff_base_seconds": 30,
+            "backoff_multiplier": 2,
+        },
+        nullable=False,
+    )
+
     def __repr__(self) -> str:
         return (
             f"<WebhookSource id={self.id} name={self.name!r} active={self.is_active}>"
@@ -63,12 +75,7 @@ class WebhookSource(Base, TimestampMixin):
 
 
 class WebhookEvent(Base, TimestampMixin):
-    """Immutable audit log of all webhook deliveries.
-
-    Tracks every webhook delivery with payload, headers, signature validation,
-    processing attempts, and Kafka publish status. Enables deduplication,
-    replay, and complete audit trail.
-    """
+    """Immutable audit log of all webhook deliveries."""
 
     __tablename__ = "webhook_events"
     __table_args__ = (
@@ -76,6 +83,7 @@ class WebhookEvent(Base, TimestampMixin):
         Index("ix_webhook_events_delivery_id", "delivery_id"),
         Index("ix_webhook_events_idempotency_key", "idempotency_key"),
         Index("ix_webhook_events_status", "status"),
+        Index("ix_webhook_events_next_retry_at", "next_retry_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -96,8 +104,40 @@ class WebhookEvent(Base, TimestampMixin):
     kafka_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Phase 13.3: Key version tracking + retry scheduling
+    signing_key_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     def __repr__(self) -> str:
         return (
             f"<WebhookEvent id={self.id} source={self.source!r} "
             f"status={self.status!r} delivery_id={self.delivery_id[:8]}...>"
+        )
+
+
+class WebhookApiKey(Base):
+    """Per-source API key for optional key-based authentication (OWASP A02: hash only)."""
+
+    __tablename__ = "webhook_api_keys"
+    __table_args__ = (
+        Index("ix_webhook_api_keys_source_active", "source_id", "is_active"),
+        Index("ix_webhook_api_keys_key_prefix", "key_prefix"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<WebhookApiKey id={self.id} source_id={self.source_id} "
+            f"prefix={self.key_prefix!r} active={self.is_active}>"
         )

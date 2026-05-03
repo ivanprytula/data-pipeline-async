@@ -32,6 +32,11 @@ spec:
                 secretKeyRef:
                   name: data-zoo-app-secrets
                   key: qdrant_url
+            - name: INTERNAL_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: data-zoo-app-secrets
+                  key: internal_jwt_secret
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:
@@ -75,7 +80,19 @@ spec:
             runAsGroup: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: model-cache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi

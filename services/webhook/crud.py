@@ -125,6 +125,7 @@ async def update_webhook_event_status(
     kafka_offset: int | None = None,
     last_error: str | None = None,
     processed_at: datetime | None = None,
+    next_retry_at: datetime | None = None,
 ) -> WebhookEvent | None:
     """Update webhook event status and processing metadata.
 
@@ -136,6 +137,7 @@ async def update_webhook_event_status(
         kafka_offset: Kafka message offset, if published.
         last_error: Error description, if failed.
         processed_at: Timestamp of final status change.
+        next_retry_at: Next scheduled retry timestamp (None to clear or if not applicable).
 
     Returns:
         Updated WebhookEvent ORM instance, or None if not found.
@@ -157,6 +159,7 @@ async def update_webhook_event_status(
         event.last_error = last_error
     if processed_at is not None:
         event.processed_at = processed_at
+    event.next_retry_at = next_retry_at
 
     await session.commit()
     await session.refresh(event)
@@ -166,17 +169,31 @@ async def update_webhook_event_status(
 async def get_webhook_events_for_replay(
     session: AsyncSession, limit: int = 100
 ) -> list[WebhookEvent]:
-    """Fetch events queued for replay.
+    """Fetch events queued for replay whose next_retry_at is due.
 
     Args:
         session: Active async database session.
         limit: Maximum number of events to return.
 
     Returns:
-        List of WebhookEvent ORM instances with status 'replay_queued'.
+        List of WebhookEvent ORM instances with status 'replay_queued'
+        and next_retry_at <= now (or next_retry_at IS NULL for legacy events).
     """
+    from datetime import UTC, datetime
+
+    from sqlalchemy import or_
+
+    now = datetime.now(UTC).replace(tzinfo=None)
     result = await session.execute(
-        select(WebhookEvent).where(WebhookEvent.status == "replay_queued").limit(limit)
+        select(WebhookEvent)
+        .where(
+            WebhookEvent.status == "replay_queued",
+            or_(
+                WebhookEvent.next_retry_at.is_(None),
+                WebhookEvent.next_retry_at <= now,
+            ),
+        )
+        .limit(limit)
     )
     return list(result.scalars().all())
 

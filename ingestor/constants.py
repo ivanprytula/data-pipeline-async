@@ -79,6 +79,19 @@ UPSERT_MODE_STRICT: str = "strict"  # 201 on create, 409 on conflict
 CACHE_KEY_RECORD: str = "dp:record:{record_id}"  # Redis key namespace
 CACHE_TTL_RECORD: int = 3600  # 1 hour — single records are stable
 
+# List cache (Phase 13.4) — write-heavy workload; short TTL with namespace invalidation
+CACHE_KEY_LIST_PREFIX: str = "dp:records:list"
+CACHE_TTL_LIST: int = 30  # 30 seconds for list pages
+CACHE_LIST_MAX_SKIP: int = 500  # skip cache for large offsets (memory bloat prevention)
+CACHE_LIST_MAX_LIMIT: int = 50  # skip cache for large pages
+
+# Distributed locking (Phase 13.4) — single-node SET NX PX
+CACHE_LOCK_PREFIX: str = "dp:lock"
+CACHE_LOCK_DEFAULT_TTL_SECONDS: int = 300
+
+# Cache warming (Phase 13.4)
+CACHE_WARM_TOP_N_SOURCES: int = 10  # pre-warm top N source keys on startup
+
 # ---------------------------------------------------------------------------
 # Background workers (Pillar 5)
 # ---------------------------------------------------------------------------

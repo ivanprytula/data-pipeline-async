@@ -40,6 +40,8 @@ async def initialize_external_services() -> None:
                 "cache_connected",
                 extra={"service": "redis", "url": settings.redis_url},
             )
+            # Phase 13.4: Warm list cache for top N sources
+            await _warm_list_cache()
         except Exception as e:
             logger.warning(
                 "cache_connection_failed",
@@ -76,6 +78,66 @@ async def initialize_external_services() -> None:
                 extra={"service": "mongodb", "error": str(e)},
             )
             # Non-fatal: scraper routes degrade gracefully without MongoDB
+
+
+async def _warm_list_cache() -> None:
+    """Pre-warm the list cache for the top N most active sources.
+
+    Executes on startup (after Redis connects) to reduce cold-start latency.
+    Fails open — any error is logged but does not prevent startup.
+    """
+    try:
+        from sqlalchemy import func, select, text
+
+        from ingestor.cache import set_records_list
+        from ingestor.constants import CACHE_WARM_TOP_N_SOURCES, DEFAULT_PAGE_SIZE
+        from ingestor.database import AsyncSessionLocal
+        from ingestor.models import Record
+
+        async with AsyncSessionLocal() as session:
+            stmt = (
+                select(Record.source, func.count(Record.id).label("cnt"))
+                .group_by(Record.source)
+                .order_by(text("cnt DESC"))
+                .limit(CACHE_WARM_TOP_N_SOURCES)
+            )
+            result = await session.execute(stmt)
+            rows = result.all()
+
+        for source, _ in rows:
+            try:
+                async with AsyncSessionLocal() as session:
+                    from sqlalchemy import select as sa_select
+
+                    records_result = await session.execute(
+                        sa_select(Record)
+                        .where(Record.source == source)
+                        .order_by(Record.id.desc())
+                        .limit(DEFAULT_PAGE_SIZE)
+                    )
+                    page = records_result.scalars().all()
+                    data = [
+                        {
+                            "id": r.id,
+                            "source": r.source,
+                            "timestamp": r.timestamp.isoformat(),
+                        }
+                        for r in page
+                    ]
+                    await set_records_list(
+                        source=source, skip=0, limit=DEFAULT_PAGE_SIZE, data=data
+                    )
+                    logger.info(
+                        "cache_warm_source", extra={"source": source, "rows": len(data)}
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "cache_warm_source_error",
+                    extra={"source": source, "error": str(exc)},
+                )
+
+    except Exception as exc:
+        logger.warning("cache_warm_error", extra={"error": str(exc)})
 
 
 async def cleanup_external_services() -> None:

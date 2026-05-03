@@ -192,44 +192,54 @@ async def ingest_scheduled_batch_example(db: AsyncSession) -> dict[str, Any]:
     """
     import time
 
-    start_time = time.perf_counter()
+    from ingestor.cache import redis_lock
 
-    # 1. Fetch external data (stub for example)
-    source_name = "example_source"
-    records_data = [
-        {
+    async with redis_lock("job:ingest_scheduled_batch_example") as acquired:
+        if not acquired:
+            logger.info(
+                "job_skipped_lock_held",
+                extra={"job": "ingest_scheduled_batch_example"},
+            )
+            return {"source": "example_source", "skipped": True, "reason": "lock_held"}
+
+        start_time = time.perf_counter()
+
+        # 1. Fetch external data (stub for example)
+        source_name = "example_source"
+        records_data = [
+            {
+                "source": source_name,
+                "timestamp": datetime.now(UTC),
+                "data": {"example": "data"},
+                "tags": ["batch"],
+            }
+        ]
+
+        # 2. Transform to RecordRequest
+        requests = [RecordRequest(**r) for r in records_data]
+
+        # 3. Bulk insert
+        batch_result = await ingest_api_batch(
+            db,
+            requests,
+            idempotency_key_prefix=f"{source_name}_{datetime.now(UTC).date()}",
+        )
+
+        duration = time.perf_counter() - start_time
+
+        result = {
             "source": source_name,
-            "timestamp": datetime.now(UTC),
-            "data": {"example": "data"},
-            "tags": ["batch"],
+            "inserted": batch_result["inserted"],
+            "errors": batch_result["errors"],
+            "duration_seconds": duration,
         }
-    ]
 
-    # 2. Transform to RecordRequest
-    requests = [RecordRequest(**r) for r in records_data]
+        logger.info(
+            "ingest_scheduled_batch_completed",
+            extra=result,
+        )
 
-    # 3. Bulk insert
-    batch_result = await ingest_api_batch(
-        db,
-        requests,
-        idempotency_key_prefix=f"{source_name}_{datetime.now(UTC).date()}",
-    )
-
-    duration = time.perf_counter() - start_time
-
-    result = {
-        "source": source_name,
-        "inserted": batch_result["inserted"],
-        "errors": batch_result["errors"],
-        "duration_seconds": duration,
-    }
-
-    logger.info(
-        "ingest_scheduled_batch_completed",
-        extra=result,
-    )
-
-    return result
+        return result
 
 
 @exponential_backoff(max_retries=2, base_delay=5.0)
@@ -250,17 +260,29 @@ async def archive_old_records(db: AsyncSession) -> dict[str, Any]:
           WHERE created_at < NOW() - INTERVAL '30 days'
         - Placeholder for now (Pillar 5 implementation).
     """
-    # TODO: Implement archive logic using data-retention-archival.md strategy
-    # For now, just return metrics showing no-op
-    logger.info(
-        "archive_old_records_placeholder", extra={"status": "pending_implementation"}
-    )
-    return {
-        "archived": 0,
-        "deleted": 0,
-        "duration_seconds": 0.0,
-        "status": "placeholder (Pillar 5)",
-    }
+    from ingestor.cache import redis_lock
+
+    async with redis_lock("job:archive_old_records", ttl_seconds=600) as acquired:
+        if not acquired:
+            logger.info("job_skipped_lock_held", extra={"job": "archive_old_records"})
+            return {
+                "archived": 0,
+                "deleted": 0,
+                "duration_seconds": 0.0,
+                "skipped": True,
+            }
+
+        # TODO: Implement archive logic using data-retention-archival.md strategy
+        logger.info(
+            "archive_old_records_placeholder",
+            extra={"status": "pending_implementation"},
+        )
+        return {
+            "archived": 0,
+            "deleted": 0,
+            "duration_seconds": 0.0,
+            "status": "placeholder (Pillar 5)",
+        }
 
 
 # ============================================================================

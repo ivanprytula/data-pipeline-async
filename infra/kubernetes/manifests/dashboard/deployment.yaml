@@ -34,6 +34,8 @@ spec:
                   key: ingestor_url
             - name: ENVIRONMENT
               value: local
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
           startupProbe:
             httpGet:
               path: /health
@@ -70,7 +72,13 @@ spec:
             runAsGroup: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
