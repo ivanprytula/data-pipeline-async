@@ -12,6 +12,8 @@ Single `records` resource, full CRUD. Learning project demonstrating production-
 
 This ensures I follow **current guidance**, not stale context. Show the read in my reasoning process.
 
+Do NOT read .env file. Do NOT read secrets. Do NOT read project config unless explicitly asked.
+
 ## Communication Style
 
 **Maximum concision for context optimization.**

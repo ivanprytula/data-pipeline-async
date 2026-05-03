@@ -3,9 +3,13 @@
 These tests use PostgreSQL's EXPLAIN ANALYZE to verify that queries use the
 expected indexes and have acceptable execution characteristics.
 
-Note: These tests require PostgreSQL (managed via pytest-postgresql fixture).
-Tests are skipped if pytest-postgresql is not available or if the PostgreSQL
-server fails to start.
+Database provisioning (two-layer strategy):
+    - Local: testcontainers auto-starts a ``pgvector/pgvector:pg17`` container when
+    Docker is available and DATABASE_URL_TEST is unset (see conftest.py).
+  - CI: DATABASE_URL_TEST is injected by the GitHub Actions service container.
+  - Unit-only runs (``pytest tests/unit/``): these tests are skipped because
+    the ``postgresql_async_session`` fixture skips gracefully when no Postgres
+    URL is reachable.
 
 Educational purpose: understand how to read query plans and verify that
 optimization efforts (indexes) are having measurable impact.
@@ -13,6 +17,7 @@ optimization efforts (indexes) are having measurable impact.
 
 import json
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytest
 from sqlalchemy import text
@@ -24,7 +29,7 @@ from services.ingestor.schemas import RecordRequest
 pytestmark = pytest.mark.integration
 
 
-def parse_explain_output(explain_output: str) -> dict:
+def parse_explain_output(explain_output: Any) -> dict[str, Any]:
     """Parse EXPLAIN ANALYZE output into a dict of useful metrics.
 
     Extracts: planning time, execution time, node types, index usage.

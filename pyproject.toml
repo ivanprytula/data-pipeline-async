@@ -60,7 +60,9 @@ dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=0.25.3",
     "pytest-cov>=6.1.0",
-    "pytest-postgresql>=6.1.0",  # PostgreSQL fixtures for EXPLAIN ANALYZE tests
+    # testcontainers: auto-provision postgres:17-bookworm for local integration tests
+    # (Docker must be running; CI uses GHA service container instead)
+    "testcontainers[postgres]>=4.10.0",
     "pygments>=2.20.0",
     "httpx>=0.28.1",
     "aiosqlite>=0.20.0",  # async SQLite for tests (no real PG needed)
@@ -91,22 +93,6 @@ markers = [
     "mongo: MongoDB-dependent tests (skipped if MongoDB unavailable)",
 ]
 
-# pytest-postgresql configuration for Docker-based testing
-# To use: docker compose --profile test up db-test
-# The fixture will auto-detect the service or skip gracefully
-[tool.postgresql]
-host = "localhost"
-port = 5433
-user = "postgres"
-password = "postgres"
-dbname = "test_database"
-filterwarnings = [
-    # slowapi depends on asyncio.iscoroutinefunction (deprecated in Python 3.15)
-    # Will be fixed when slowapi updates; safe to ignore for now
-    "ignore::DeprecationWarning:slowapi.*",
-    # httpx per-request cookies API works but is deprecated; our test pattern is correct
-    "ignore:Setting per-request cookies.*:DeprecationWarning:httpx.*",
-]
 
 [tool.coverage.run]
 source = ["services.ingestor"]

@@ -98,7 +98,6 @@ bash scripts/daily/01-start-dev-services.sh
 
 ```text
 ✓ PostgreSQL ready (localhost:5432)
-✓ PostgreSQL test ready (localhost:5433)
 ✓ Redis ready (localhost:6379)
 ✓ Services are healthy
 ```
@@ -108,7 +107,7 @@ bash scripts/daily/01-start-dev-services.sh
 After this script:
 
 - PostgreSQL (main) is accepting connections on port 5432
-- PostgreSQL (test) is accepting connections on port 5433 (for parallel tests)
+- PostgreSQL for DB-dependent tests is auto-provisioned by testcontainers when needed
 - Redis is running on port 6379
 - Redpanda (Kafka) is running on port 9092
 - MongoDB is running on port 27017

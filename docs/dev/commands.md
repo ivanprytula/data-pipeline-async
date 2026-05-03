@@ -17,7 +17,6 @@ bash scripts/daily/01-start-dev-services.sh
 
 # What it starts:
 #   - PostgreSQL (main):   localhost:5432  (for app)
-#   - PostgreSQL (test):   localhost:5433  (for concurrent tests)
 #   - Redis:               localhost:6379
 #   - Kafka (Redpanda):    localhost:9092
 #   - MongoDB:             localhost:27017
@@ -29,7 +28,7 @@ uv run pytest tests/integration/ -v        # PostgreSQL tests work
 uv run pytest -m browser                   # Browser tests work (if Playwright installed)
 
 # Stop all services when done:
-docker compose --profile test down
+docker compose down
 ```
 
 **Why use this?** Eliminates the need to manually start services before running tests. All 19 previously-skipped PostgreSQL concurrent tests and browser tests will run automatically.
@@ -160,11 +159,8 @@ Quick method (using script):
 #### Manual Method
 
 ```bash
-# Start test DB
-docker compose --profile test up -d db-test
-
-# Verify health
-docker compose ps
+# Ensure fixture can auto-provision test DB
+unset DATABASE_URL_TEST
 
 # Run tests
 uv run pytest tests/ -v
@@ -174,21 +170,17 @@ uv run pytest tests/integration/records/test_query_analysis.py -v
 
 # Run specific test
 uv run pytest tests/integration/records/test_query_analysis.py::TestQueryAnalysis::test_date_range_query_uses_index -xvs
-
-# Stop container
-docker compose --profile test down
 ```
 
 #### Settings
 
-- Port: 5433 (Docker), 5432 (inside container)
-- Database: test_database
-- User: postgres / Password: postgres
+- DATABASE_URL_TEST unset (recommended): pytest fixtures start an ephemeral Postgres via testcontainers
+- Optional override: set DATABASE_URL_TEST to an existing PostgreSQL URL
 
 #### Notes
 
 - Default: SQLite in-memory tests only -> 192 passed, 10 skipped (PostgreSQL tests)
-- With Docker container running -> 202 passed (all tests including EXPLAIN ANALYZE)
+- With Docker available for testcontainers -> 202 passed (all tests including EXPLAIN ANALYZE)
 - Fixtures use NullPool to avoid cross-loop connection issues
 
 ---
@@ -409,11 +401,11 @@ docker compose --profile vector up -d
 # Start processor worker
 docker compose --profile worker up -d
 
-# Start test database in addition to core services
-docker compose --profile test up -d db-test
+# Start monitoring + vector + worker profiles together
+docker compose --profile monitoring --profile vector --profile worker up -d
 ```
 
-> Available profiles in this repo: `test`, `monitoring`, `vector`, `worker`.
+> Available profiles in this repo: `monitoring`, `vector`, `worker`.
 
 ---
 

@@ -25,6 +25,7 @@ IMPORTANT TESTING NOTE (parallelism):
 
 import datetime
 import os
+import shutil
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -38,17 +39,32 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 
+# ---------------------------------------------------------------------------
+# Two-layer database strategy:
+#   CI    → DATABASE_URL_TEST injected as a real env var by GHA service container
+#   Local → testcontainers auto-provisions pgvector/pgvector:pg17 when Docker is
+#           available and DATABASE_URL_TEST is NOT already a real process env var
+#           (DATABASE_URL_TEST in .env is intentionally ignored here — remove it
+#           from .env; it is no longer needed with testcontainers)
+#   Unit  → sqlite+aiosqlite:///:memory: fallback (no Docker or Postgres needed)
+#
+# IMPORTANT: this block runs BEFORE load_dotenv so that a stale
+# DATABASE_URL_TEST in .env cannot suppress auto-provisioning.
+# ---------------------------------------------------------------------------
+# (Removed module-level testcontainers startup to allow lazy provisioning)
+
+
 # Load .env file for local development (BEFORE app imports)
 #
 # Strategy (production-safe):
 # - Local dev: .env file exists → python-dotenv loads it
 # - CI/CD: .env file missing (not in repo) → load_dotenv is no-op
-#         Environment variables are injected by CI system (GitHub Actions, etc.)
+#          Environment variables are injected by CI system (GitHub Actions, etc.)
 # - Deployed: .env file missing → load_dotenv is no-op
-#            Secrets injected by secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
+#             Secrets injected by secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
 #
-# Key: load_dotenv(..., override=False) means environment variables set by CI/deployment
-# take precedence over .env — this is the correct priority for secrets.
+# Key: load_dotenv(..., override=False) means environment variables already set
+# (by CI or by the testcontainers block above) take precedence over .env.
 _env_file = Path(__file__).parent.parent / ".env"
 if _env_file.exists():
     # Only load .env in development (when file exists locally)
@@ -66,22 +82,31 @@ from services.ingestor.main import app  # noqa: E402
 from tests.shared.payloads import RECORD_API  # noqa: E402
 
 
-# ---------------------------------------------------------------------------
-# Database engine selection (SQLite fallback, PostgreSQL for concurrent tests)
-# ---------------------------------------------------------------------------
-_TEST_DB_URL = os.environ.get(
-    "DATABASE_URL_TEST",
-    "sqlite+aiosqlite:///:memory:",  # Default: in-memory SQLite
-)
-
 # For PostgreSQL, set pool size to match concurrent test load
-_engine_kwargs = {}
-if "postgresql" in _TEST_DB_URL:
-    # Use NullPool in tests to ensure connections are not pooled across
-    # event loop boundaries. Pooling can create connections attached to a
-    # different asyncio event loop, causing "Future attached to a different
-    # loop" RuntimeError when pytest_asyncio switches loops between tests.
-    _engine_kwargs["poolclass"] = NullPool
+def _get_test_db_url() -> str:
+    return os.environ.get("DATABASE_URL_TEST", "sqlite+aiosqlite:///:memory:")
+
+
+def _is_postgres() -> bool:
+    return "postgresql" in _get_test_db_url()
+
+
+def _is_sqlite() -> bool:
+    return "sqlite" in _get_test_db_url()
+
+
+def _get_engine_kwargs() -> dict:
+    kwargs: dict = {}
+    if _is_postgres():
+        # Use NullPool in tests to ensure connections are not pooled across
+        # event loop boundaries. Pooling can create connections attached to a
+        # different asyncio event loop, causing "Future attached to a different
+        # loop" RuntimeError when pytest_asyncio switches loops between tests.
+        # NullPool also makes prepared-statement caching a non-issue (each
+        # connection is independent), so no connect_args override is needed.
+        kwargs["poolclass"] = NullPool
+    return kwargs
+
 
 _engine = None
 _AsyncSessionLocal = None
@@ -97,17 +122,15 @@ def _ensure_sessionmaker() -> None:
     """
     global _engine, _AsyncSessionLocal
     if _AsyncSessionLocal is None:
-        _engine = create_async_engine(_TEST_DB_URL, echo=False, **_engine_kwargs)
+        _engine = create_async_engine(
+            _get_test_db_url(), echo=False, **_get_engine_kwargs()
+        )
         _AsyncSessionLocal = async_sessionmaker(
             bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False
         )
 
 
 _RECORD_TIMESTAMP = datetime.datetime.fromisoformat("2026-01-01T00:00:00")
-
-# Export flag for use in test markers
-IS_POSTGRES = "postgresql" in _TEST_DB_URL
-IS_SQLITE = "sqlite" in _TEST_DB_URL
 
 # Path to alembic.ini (repo root, one level above tests/)
 _ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
@@ -149,12 +172,21 @@ async def _clear_records(session: AsyncSession) -> None:
     across all ORM tables (fast, resets sequences). For SQLite fallback to
     per-table `DELETE` statements because SQLite does not support TRUNCATE.
     """
-    if IS_POSTGRES:
-        # Build a deterministic, comma-separated list of table names from metadata
-        table_names = ", ".join([t.name for t in Base.metadata.sorted_tables])
-        await session.execute(
-            text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE")
-        )
+    if _is_postgres():
+        existing_tables: list[str] = []
+        for table in Base.metadata.sorted_tables:
+            result = await session.execute(
+                text("SELECT to_regclass(:table_name)"),
+                {"table_name": table.name},
+            )
+            if result.scalar_one_or_none() is not None:
+                existing_tables.append(table.name)
+
+        if existing_tables:
+            table_names = ", ".join(existing_tables)
+            await session.execute(
+                text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE")
+            )
     else:
         # SQLite: delete rows from each table in reverse dependency order
         for t in reversed(Base.metadata.sorted_tables):
@@ -229,58 +261,69 @@ async def client_with_cache(
     cache._client = None
 
 
-@pytest.fixture(scope="session", autouse=True)
-def apply_migrations() -> Generator[None]:
+# ---------------------------------------------------------------------------
+# Database Auto-provisioning & Schema Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def _auto_provision_postgres() -> Generator[None]:
+    """Auto-provision a Postgres container if DATABASE_URL_TEST is missing.
+
+    Only starts if a database-dependent fixture is requested.
+    """
+    if "DATABASE_URL_TEST" not in os.environ and shutil.which("docker"):
+        from testcontainers.postgres import PostgresContainer  # noqa: PLC0415
+
+        tc = PostgresContainer("pgvector/pgvector:pg17")
+        tc.start()
+        os.environ["DATABASE_URL_TEST"] = tc.get_connection_url().replace(
+            "postgresql+psycopg2://", "postgresql+asyncpg://"
+        )
+        try:
+            yield
+        finally:
+            tc.stop()
+    else:
+        yield
+
+
+@pytest.fixture(scope="session")
+def apply_migrations(_auto_provision_postgres: None) -> Generator[None]:
     """Apply Alembic migrations once per test session (PostgreSQL only).
 
-    On PostgreSQL, runs ``alembic upgrade head`` before the first test and
-    ``alembic downgrade base`` after the last test.  This ensures the test DB
-    has the exact same schema as production — including materialized views,
-    partitioned tables, and extensions that are not ORM models and are
-    therefore invisible to ``Base.metadata.create_all``.
-
-    On SQLite the fixture is a no-op; the ``db`` fixture handles DDL via
-    ``create_all`` / ``drop_all`` on a per-test basis.
+    Ensures the test DB has the exact same schema as production.
+    No longer 'autouse=True' to avoid side-effects for unit tests.
     """
-    if not IS_POSTGRES:
+    if not _is_postgres():
         yield
         return
 
     _ensure_sessionmaker()
-    _sync_url = _TEST_DB_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://")
-    # Drop + recreate schema first so setup is idempotent even if a previous
-    # session was interrupted before teardown ran (avoids DuplicateTable errors
-    # on tables/indexes created by migrations but unknown to ORM metadata).
-    _alembic_downgrade(_sync_url)
-    _alembic_upgrade(_sync_url)
+    sync_url = _get_test_db_url().replace(
+        "postgresql+asyncpg://", "postgresql+psycopg://"
+    )
+    _alembic_downgrade(sync_url)
+    _alembic_upgrade(sync_url)
     yield
-    _alembic_downgrade(_sync_url)
+    _alembic_downgrade(sync_url)
 
 
 @pytest_asyncio.fixture()
-async def db() -> AsyncGenerator[AsyncSession]:
-    """Yield an async session with a clean-data slate.
-
-    Schema lifecycle:
-    - PostgreSQL: schema is managed by the session-scoped ``apply_migrations``
-      fixture (Alembic).  This fixture only deletes rows between tests so that
-      the migration-created objects (materialized views, partitions, extensions)
-      survive across the whole session.
-    - SQLite: ``create_all`` / ``drop_all`` per test function (no Alembic).
-    """
+async def db(apply_migrations: None) -> AsyncGenerator[AsyncSession]:
+    """Yield an async session with a clean-data slate."""
     _ensure_sessionmaker()
     assert _engine is not None, "_engine not initialized"
     assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
 
-    if not IS_POSTGRES:
+    if not _is_postgres():
         async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
     async with _AsyncSessionLocal() as session:
         yield session
 
-    if IS_POSTGRES:
-        # Wipe data between tests; schema (tables/views/extensions) persists.
+    if _is_postgres():
         async with _AsyncSessionLocal() as cleanup:
             await _clear_records(cleanup)
     else:
@@ -443,110 +486,55 @@ async def record_payload() -> dict:
 # ---------------------------------------------------------------------------
 # PostgreSQL Fixture (for EXPLAIN ANALYZE tests)
 # ---------------------------------------------------------------------------
-# Uses conditional connection to Docker PostgreSQL:
-# 1. If Docker container at localhost:5433 is running: use it
-# 2. Otherwise: skip tests gracefully
-#
-# To enable: docker compose --profile test up db-test
+@pytest_asyncio.fixture()
+async def postgresql_async_session(
+    apply_migrations: None,
+) -> AsyncGenerator[AsyncSession]:
+    """Yield PostgreSQL session for query-plan integration tests.
 
+    Uses the shared test URL selection strategy:
+    - Local: testcontainers sets DATABASE_URL_TEST when Docker is available.
+    - CI: GitHub Actions service container sets DATABASE_URL_TEST explicitly.
+    - SQLite fallback: fixture skips gracefully.
 
-async def _check_postgres_available(
-    host: str, port: int, user: str, password: str, db: str
-) -> bool:
-    """Check if PostgreSQL service is available.
-
-    Args:
-        host: PostgreSQL host
-        port: PostgreSQL port
-        user: PostgreSQL user
-        password: PostgreSQL password
-        db: Database name
-
-    Returns:
-        True if connection successful, False otherwise
+    The migrated schema is managed by the session-scoped apply_migrations
+    fixture, so this fixture only clears test data before/after each test.
     """
-    db_url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
-    test_engine = create_async_engine(db_url, echo=False)
+    if not _is_postgres():
+        pytest.skip(
+            "PostgreSQL not available for EXPLAIN ANALYZE tests. "
+            "Set DATABASE_URL_TEST or run with Docker enabled for testcontainers."
+        )
+
+    test_engine = create_async_engine(_get_test_db_url(), echo=False)
     try:
         async with test_engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
-        return True
     except Exception:
-        return False
+        pytest.skip(
+            "PostgreSQL URL is configured but not reachable. "
+            "Ensure the test DB is up and healthy before running this test file."
+        )
     finally:
         await test_engine.dispose()
 
+    _ensure_sessionmaker()
+    assert _AsyncSessionLocal is not None, "_AsyncSessionLocal not initialized"
 
-@pytest_asyncio.fixture()
-async def postgresql_async_session(request) -> AsyncGenerator[AsyncSession]:
-    """Create PostgreSQL async session for EXPLAIN ANALYZE tests.
+    async with _AsyncSessionLocal() as cleanup_session:
+        await _clear_records(cleanup_session)
 
-    Tries to connect to Docker PostgreSQL service at localhost:5433.
-    If unavailable, skips tests gracefully.
+    async with _AsyncSessionLocal() as session:
+        yield session
 
-    To enable: docker compose --profile test up db-test
-
-    Yields:
-        AsyncSession connected to PostgreSQL with schema created
-    """
-    # Configuration for Docker PostgreSQL service
-    pg_config = {
-        "host": "localhost",
-        "port": 5433,
-        "user": "postgres",
-        "password": "postgres",
-        "db": "test_database",
-    }
-
-    # Check if PostgreSQL is available
-    available = await _check_postgres_available(
-        pg_config["host"],
-        pg_config["port"],
-        pg_config["user"],
-        pg_config["password"],
-        pg_config["db"],
-    )
-
-    if not available:
-        pytest.skip(
-            f"PostgreSQL not available at {pg_config['host']}:{pg_config['port']}. "
-            "Start with: docker compose --profile test up db-test"
-        )
-        return
-
-    # Connect to Docker PostgreSQL
-    db_url = (
-        f"postgresql+asyncpg://{pg_config['user']}:{pg_config['password']}"
-        f"@{pg_config['host']}:{pg_config['port']}/{pg_config['db']}"
-    )
-    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://")
-
-    pg_engine = create_async_engine(db_url, echo=False)
-    pg_sessionmaker = async_sessionmaker(
-        bind=pg_engine, autocommit=False, autoflush=False, expire_on_commit=False
-    )
-
-    # Ensure PostgreSQL-only objects created by Alembic exist for these tests.
-    try:
-        _alembic_upgrade(sync_url)
-
-        async with pg_sessionmaker() as cleanup_session:
-            await _clear_records(cleanup_session)
-
-        async with pg_sessionmaker() as session:
-            yield session
-    finally:
-        # Cleanup data only. The migrated schema is shared across tests and
-        # owned by Alembic, so dropping tables here would break materialized
-        # views and other dependent objects.
-        async with pg_sessionmaker() as cleanup_session:
-            await _clear_records(cleanup_session)
-        _alembic_downgrade(sync_url)
-        await pg_engine.dispose()
+    async with _AsyncSessionLocal() as cleanup_session:
+        await _clear_records(cleanup_session)
 
 
 @pytest_asyncio.fixture()
-async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
+async def postgresql_async_session_isolated(
+    apply_migrations: None,
+) -> AsyncGenerator[AsyncSession]:
     """PostgreSQL-only fixture: Fresh engine + session per test (no connection pooling).
 
     Use for concurrent tests to avoid asyncpg "another operation in progress" errors.
@@ -560,7 +548,7 @@ async def postgresql_async_session_isolated() -> AsyncGenerator[AsyncSession]:
         pytest.skip(
             "DATABASE_URL_TEST not set or SQLite in use. "
             "Concurrent tests require PostgreSQL. "
-            "Start with: docker compose --profile test up db-test"
+            "Enable Docker/testcontainers or set DATABASE_URL_TEST explicitly."
         )
 
     # Create isolated engine — NO connection pooling (pool_size=1, max_overflow=0)
@@ -645,13 +633,18 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """Auto-skip PostgreSQL-only tests when using SQLite.
 
-    Tests marked with @pytest.mark.postgresonly will skip if DATABASE_URL_TEST
-    is not set or points to SQLite.
+    Tests marked with @pytest.mark.postgresonly will skip if PostgreSQL
+    is not available (no DATABASE_URL_TEST and no Docker for testcontainers).
     """
-    if IS_SQLITE:
+    # If we have a URL already OR we can auto-provision via Docker, we have Postgres.
+    has_postgres = "postgresql" in os.environ.get("DATABASE_URL_TEST", "") or bool(
+        shutil.which("docker")
+    )
+
+    if not has_postgres:
         skip_marker = pytest.mark.skip(
-            reason="PostgreSQL not available. "
-            "Run with: DATABASE_URL_TEST=postgresql+asyncpg://... pytest ..."
+            reason="PostgreSQL not available (no DATABASE_URL_TEST and no Docker). "
+            "Run with Docker enabled or set DATABASE_URL_TEST to enable these tests."
         )
         for item in items:
             if "postgresonly" in item.keywords:

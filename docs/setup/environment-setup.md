@@ -17,14 +17,14 @@ This document explains how environment variables are managed across development,
 ```bash
 # .env file (local development only)
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/data_pipeline
-DATABASE_URL_TEST=postgresql+asyncpg://postgres:postgres@localhost:5433/test_database
+# Leave DATABASE_URL_TEST unset to use auto-provisioned Postgres via testcontainers in tests
 ```
 
-**Start services + tests:**
+Start services + tests:
 
 ```bash
 bash scripts/daily/01-start-dev-services.sh  # Starts all services (services use Docker networking)
-uv run pytest tests/ -v       # Tests load .env automatically → uses DATABASE_URL_TEST
+uv run pytest tests/ -v       # DB-dependent tests auto-provision Postgres if Docker is available
 ```
 
 ### CI/CD Pipeline (GitHub Actions, etc.)
@@ -49,7 +49,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
 ```
 
-**What happens in CI:**
+What happens in CI:
 
 1. `pytest` runs, `conftest.py` calls `load_dotenv()`
 2. `.env` file doesn't exist in CI container → `load_dotenv()` is a no-op
@@ -73,7 +73,7 @@ data:
   REDIS_URL: <base64-encoded-production-redis-url>
 ```
 
-**What happens on deployment:**
+What happens on deployment:
 
 1. Application starts with secrets injected by orchestrator
 2. `conftest.py` (in tests) or `app/config.py` (in app) uses env vars
@@ -98,7 +98,7 @@ if _env_file.exists():
 # override=False: Environment variables set by CI/deployment take precedence
 ```
 
-**Key points:**
+Key points:
 
 - `override=False`: CI/deployment env vars are NOT overwritten by .env
 - Conditional check: Only tries to load if file exists
@@ -118,7 +118,7 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 ```
 
-**Key points:**
+Key points:
 
 - `pydantic-settings` handles `.env` loading automatically
 - Returns error if required env var is missing (good for detecting config issues)
@@ -174,14 +174,14 @@ DATABASE_URL=postgresql://... uv run pytest tests/ -v
 
 ### GitHub Actions Setup
 
-**Store secrets:**
+Store secrets:
 
 ```bash
 gh secret set DATABASE_URL_TEST --body "postgresql+asyncpg://..."
 gh secret set REDIS_PASSWORD --body "secret-redis-pass"
 ```
 
-**Use in workflow:**
+Use in workflow:
 
 ```yaml
 jobs:
@@ -258,7 +258,7 @@ spec:
 
 **Symptom**: Tests fail with `pytest.skip("DATABASE_URL_TEST not set")`
 
-**Solution:**
+Solution:
 
 1. Verify `.env` exists:
 
@@ -288,7 +288,7 @@ spec:
 
 **Symptom**: CI tests fail: `Error: DATABASE_URL_TEST not set`
 
-**Solution:**
+Solution:
 
 1. Verify GitHub secret is set:
 
@@ -378,7 +378,7 @@ DOCKER_BUILDKIT=1 docker build -t test:latest . --progress=plain
 # Output should include: "COPY --mount=type=cache,target=/var/cache/apt,sharing=locked"
 ```
 
-**What to expect:**
+What to expect:
 
 - First build: ~3-5 minutes (downloads apt packages, compiles dependencies)
 - Second build: ~30-60 seconds (reuses cache)
@@ -489,7 +489,7 @@ Base image digests must be reviewed monthly for security patches. See [digest-up
 
 **Schedule**: 1st Monday of each month at 9:00 AM UTC
 
-**What's included**:
+What's included:
 
 - Vulnerability scanning (Trivy) of current base images
 - Research and validation of new digests
@@ -550,6 +550,6 @@ Base image digests must be reviewed monthly for security patches. See [digest-up
 
 - [docker-security-scanning-setup.md](docker-security-scanning-setup.md) — Pre-commit hooks, Trivy, pip-audit setup
 - [docs/adr/004-docker-buildkit-and-security-scanning.md](../../docs/adr/004-docker-buildkit-and-security-scanning.md) — ADR for BuildKit & security scanning decisions
-- [docs/commands.md](commands.md) — Quick command reference
-- [README.md](../README.md) — Getting started
-- [.env.example](../.env.example) — Template
+- [docs/dev/commands.md](../dev/commands.md) — Quick command reference
+- [README.md](../../README.md) — Getting started
+- [.env.example](../../.env.example) — Template

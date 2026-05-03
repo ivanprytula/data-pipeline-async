@@ -9,6 +9,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+import services.dashboard.routers.ops as ops
 import services.dashboard.routers.pages as pages
 import services.dashboard.routers.sse as sse
 from services.dashboard.main import app
@@ -16,7 +17,7 @@ from services.dashboard.main import app
 
 _RECORD = {
     "id": 1,
-    "source": "api.example.com",
+    "source": "http://api.example.com",
     "timestamp": "2024-01-15T10:00:00",
     "data": {"value": 100},
     "tags": ["test"],
@@ -31,7 +32,7 @@ _RECORDS_RESPONSE = {
 
 _SEARCH_RESULT = {
     "id": 1,
-    "source": "api.example.com",
+    "source": "http://api.example.com",
     "timestamp": "2024-01-15T10:00:00",
     "score": 0.95,
 }
@@ -132,6 +133,37 @@ def prometheus_response() -> str:
 
 
 @pytest.fixture()
+def patch_ops_async_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Callable[..., None]:
+    """Patch the dashboard ops router's upstream HTTP client."""
+
+    def _patch(
+        *,
+        json_data: dict[str, Any] | list[Any] | None = None,
+        error: Exception | None = None,
+        status_code: int = 200,
+        text: str = '{"status": "ok"}',
+    ) -> None:
+        # The ops router uses get_http_client() which returns a singleton.
+        # Patch the function to return our fake client.
+        monkeypatch.setattr(
+            ops,
+            "get_http_client",
+            lambda: FakeAsyncClient(
+                response=FakeResponse(
+                    status_code=status_code,
+                    json_data=json_data,
+                    text=text,
+                ),
+                error=error,
+            ),
+        )
+
+    return _patch
+
+
+@pytest.fixture()
 def patch_pages_async_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[..., None]:
@@ -158,6 +190,14 @@ def patch_pages_async_client(
         )
 
     return _patch
+
+
+@pytest.fixture(autouse=True)
+def _patch_ops_default_response(
+    patch_ops_async_client: Callable[..., None],
+) -> None:
+    """Default dashboard ops upstream response (ingestor healthy)."""
+    patch_ops_async_client()
 
 
 @pytest.fixture(autouse=True)

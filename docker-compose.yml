@@ -43,43 +43,6 @@ services:
           cpus: '1.0'
           memory: '1G'
 
-  db-test:
-    build:
-      context: ./infra/database
-      dockerfile: Dockerfile
-    container_name: data-pipeline-db-test
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: test_database
-    ports:
-      - '5433:5432'
-    volumes:
-      - pg_test_data:/var/lib/postgresql/data
-      - ./infra/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-    command: ["postgres"]
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-    profiles:
-      - test
-    # K8s-like resource management
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-      resources:
-        reservations:
-          cpus: '0.25'
-          memory: '256M'
-        limits:
-          cpus: '0.5'
-          memory: '512M'
-
   redis:
     image: redis:7-alpine
     container_name: data-pipeline-redis
@@ -624,7 +587,6 @@ services:
 
 volumes:
   pg_data:
-  pg_test_data:
   mongo_data:
   qdrant_data:
   prometheus_data:

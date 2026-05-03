@@ -61,9 +61,19 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with patch(
-        "services.webhook.routers.webhooks.publish_webhook_event",
-        new=AsyncMock(return_value=42),
+    with (
+        patch(
+            "services.webhook.routers.webhooks.publish_webhook_event",
+            new=AsyncMock(return_value=42),
+        ),
+        patch(
+            "services.webhook.routers.health._check_postgres",
+            new=AsyncMock(return_value=True),
+        ),
+        patch(
+            "services.webhook.routers.health._check_kafka",
+            new=AsyncMock(return_value=True),
+        ),
     ):
         async with AsyncClient(
             transport=ASGITransport(app=app),

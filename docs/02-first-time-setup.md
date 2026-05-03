@@ -159,7 +159,7 @@ scripts/ops/01-gh-actions-config.sh oidc get --repo "$repo"
 
 ```text
 PostgreSQL 17          localhost:5432   → Main application database
-PostgreSQL (test)      localhost:5433   → Separate DB for parallel tests
+PostgreSQL (tests)     auto-provisioned → Ephemeral DB via testcontainers
 Redis                  localhost:6379   → Cache + session store
 Redpanda (Kafka)       localhost:9092   → Event streaming
 MongoDB                localhost:27017  → Document store (for scraper data)
