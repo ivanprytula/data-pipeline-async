@@ -34,11 +34,19 @@ spec:
                   key: database_url
             - name: ENVIRONMENT
               value: local
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 20
+            initialDelaySeconds: 0
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
@@ -46,7 +54,7 @@ spec:
             httpGet:
               path: /readyz
               port: http
-            initialDelaySeconds: 10
+            initialDelaySeconds: 0
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3

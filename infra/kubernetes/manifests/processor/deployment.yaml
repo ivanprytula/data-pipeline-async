@@ -1,37 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: query-api
+  name: processor
+  annotations:
+    data-zoo/replica-constraint: "single-consumer; scale by increasing topic partitions first"
   labels:
-    app.kubernetes.io/name: query-api
-    app.kubernetes.io/component: api
+    app.kubernetes.io/name: processor
+    app.kubernetes.io/component: consumer
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: query-api
+      app.kubernetes.io/name: processor
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: query-api
-        app.kubernetes.io/component: api
+        app.kubernetes.io/name: processor
+        app.kubernetes.io/component: consumer
     spec:
       securityContext:
         fsGroup: 1001
       containers:
-        - name: query-api
-          image: data-zoo/query_api:latest
+        - name: processor
+          image: data-zoo/processor:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8005
+              containerPort: 8002
               protocol: TCP
           env:
-            - name: DATABASE_URL
+            - name: KAFKA_BOOTSTRAP_SERVERS
               valueFrom:
                 secretKeyRef:
                   name: data-zoo-app-secrets
-                  key: database_url
+                  key: kafka_bootstrap_servers
+            - name: KAFKA_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: data-zoo-app-config
+                  key: kafka_topic
             - name: ENVIRONMENT
               value: local
           startupProbe:
@@ -40,14 +47,14 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
-            failureThreshold: 6
+            failureThreshold: 18
             timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
               port: http
             initialDelaySeconds: 0
-            periodSeconds: 20
+            periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
@@ -55,7 +62,7 @@ spec:
               path: /readyz
               port: http
             initialDelaySeconds: 0
-            periodSeconds: 10
+            periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
           resources:

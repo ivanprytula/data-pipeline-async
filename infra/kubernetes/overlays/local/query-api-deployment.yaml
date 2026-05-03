@@ -16,6 +16,8 @@ spec:
         app.kubernetes.io/name: query-api
         app.kubernetes.io/component: api
     spec:
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: query-api
           image: data-zoo/query_api:latest
@@ -32,11 +34,19 @@ spec:
                   key: database_url
             - name: ENVIRONMENT
               value: local
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 20
+            initialDelaySeconds: 0
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
@@ -44,18 +54,21 @@ spec:
             httpGet:
               path: /readyz
               port: http
-            initialDelaySeconds: 10
+            initialDelaySeconds: 0
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "512Mi"
           securityContext:
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
             capabilities:

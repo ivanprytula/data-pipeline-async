@@ -6,4 +6,11 @@ resources:
   - ingestor-service.yaml
   - query-api-deployment.yaml
   - query-api-service.yaml
+  - ai-gateway-deployment.yaml
+  - ai-gateway-service.yaml
+  - processor-deployment.yaml
+  - processor-service.yaml
+  - dashboard-deployment.yaml
+  - dashboard-service.yaml
   - ingress.yaml
+  - ../../manifests/network-policies
