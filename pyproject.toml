@@ -33,9 +33,9 @@ dependencies = [
     # Caching
     "redis>=5.2.0",  # async redis client
     # Event streaming
-    "aiokafka>=0.11",  # async Kafka/Redpanda producer + consumer
+    "aiokafka>=0.14.0",  # async Kafka/Redpanda producer + consumer
     "motor>=3.3",
-    "playwright>=1.40",
+    "playwright>=1.59.0",
     "beautifulsoup4>=4.12",
     # Job scheduling (Phase 1) — lightweight, migrable to Celery/arq
     "apscheduler>=3.10,<4.0",
@@ -73,7 +73,7 @@ dev = [
     # Load testing
     "locust>=2.32.0",
     # Type checker
-    "ty>=0.0.32",
+    "ty>=0.0.34",
 ]
 
 [tool.pytest.ini_options]
