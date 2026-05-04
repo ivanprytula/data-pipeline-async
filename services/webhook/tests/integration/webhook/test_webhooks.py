@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 
 from services.webhook.core import secrets as secrets_module
-from tests.integration.webhook.conftest import SAMPLE_PAYLOAD
+from services.webhook.tests.integration.webhook.conftest import SAMPLE_PAYLOAD
 
 
 @pytest.fixture(autouse=True)

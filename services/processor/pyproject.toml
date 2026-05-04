@@ -1,6 +1,7 @@
 [project]
 name = "processor"
 version = "0.1.0"
+description = "Kafka enrichment consumer — processes pipeline events from Redpanda"
 requires-python = ">=3.14"
 dependencies = [
     "aiokafka>=0.11",

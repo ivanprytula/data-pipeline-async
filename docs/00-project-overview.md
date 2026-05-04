@@ -72,37 +72,13 @@ Next planned hardening:
 
 ## 8-Phase Roadmap
 
-Data Zoo progresses through **8 phases**, each adding one architectural layer:
-
-| Phase | Focus                | Status                 | Interview Q                                          |
-| ----- | -------------------- | ---------------------- | ---------------------------------------------------- |
-| **1** | Event Streaming      | ✅ Done                | Real-time ETL for 1000+ events/sec                   |
-| **2** | Data Scraping        | ✅ Done                | Design scraper for 100K URLs without ban             |
-| **3** | AI + Vector DB       | ✅ Done                | Semantic search over 100K docs                       |
-| **4** | Resilience Patterns  | ✅ Done                | Circuit breaker + DLQ for failures                   |
-| **5** | CQRS + Analytics     | 🚀 Active              | Read-optimized DB for 10M queries/day                |
-| **6** | Dashboard            | ✅ Implemented baseline| Server-rendered dashboard with SSE + admin workflows |
-| **7** | Cloud IaC            | ✅ Done                | Multi-env Terraform (dev/prod)                       |
-| **8** | Production Hardening | ⏹️ Queued              | Backup/chaos/observability strategy                  |
+See [README.md → 8-Phase Roadmap](../README.md#8-phase-roadmap).
 
 ---
 
 ## Tech Stack Summary
 
-| Layer               | Technology                                                      |
-| ------------------- | --------------------------------------------------------------- |
-| **API**             | FastAPI + Pydantic v2                                           |
-| **Database**        | PostgreSQL 17 + SQLAlchemy 2.0 (async)                          |
-| **Cache**           | Redis                                                           |
-| **Streaming**       | Redpanda (Kafka-compatible)                                     |
-| **Background Jobs** | APScheduler + in-process worker queue                           |
-| **Admin UI**        | HTMX + Jinja2 dashboard workflows                               |
-| **Observability**   | Prometheus + OpenTelemetry + Sentry + structured JSON logging   |
-| **Security/Auth**   | HTTP Basic (docs), v1 bearer/session auth, v2 JWT + RBAC guards |
-| **Testing**         | pytest + aiosqlite (in-memory for fast unit tests)              |
-| **CI/CD**           | GitHub Actions (split unit/integration workflows)               |
-| **IaC**             | Terraform (AWS Fargate + managed services)                      |
-| **Local Dev**       | Docker Compose + uv package manager                             |
+See [04 — Architecture Overview → Tech Stack Summary](04-architecture-overview.md#tech-stack-summary).
 
 ---
 

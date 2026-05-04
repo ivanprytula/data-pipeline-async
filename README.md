@@ -60,28 +60,6 @@ Then access:
 
 ## Documentation
 
-📖 **Quick Navigation** (numbered for clarity):
-
-### Table of Contents
-
-- [Data Zoo — Backend Platform](#data-zoo--backend-platform)
-  - [For Recruiters and Technical Interviewers](#for-recruiters-and-technical-interviewers)
-    - [What This Repository Demonstrates](#what-this-repository-demonstrates)
-    - [Evidence Map](#evidence-map)
-  - [Quick Start (One Command)](#quick-start-one-command)
-  - [Documentation](#documentation)
-    - [Table of Contents](#table-of-contents)
-    - [Core Learning Path (for developers)](#core-learning-path-for-developers)
-    - [Job Search \& Career Path](#job-search--career-path)
-    - [Additional Reference Docs](#additional-reference-docs)
-  - [Tech Stack](#tech-stack)
-    - [CI Pipeline (`.github/workflows/ci.yml`)](#ci-pipeline-githubworkflowsciyml)
-  - [8-Phase Roadmap](#8-phase-roadmap)
-  - [Project Layout](#project-layout)
-    - [Architecture Records](#architecture-records)
-    - [Pillars, Portfolio \& Weekly Progress](#pillars-portfolio--weekly-progress)
-  - [Dependency Cooldown Policy](#dependency-cooldown-policy)
-
 ### Core Learning Path (for developers)
 
 | Doc                                                                              | Purpose                                          |
@@ -168,13 +146,20 @@ Wave 6   14 build-summary               — final summary
 ## Project Layout
 
 ```text
-ingestor/              # Main application
+services/              # Microservices (each with its own README)
+  ingestor/            # Write-side CQRS — REST API, scraping, Kafka publish
+  analytics/           # Read-side CQRS — materialized views, query API
+  inference/           # AI adapter — embeddings, vector search (Qdrant)
+  processor/           # Kafka enrichment consumer
+  dashboard/           # Server-rendered UI — Jinja2 + SSE
+  webhook/             # Inbound webhook gateway
+libs/                  # Shared contracts and platform helpers
 docs/                  # Documentation (canonical docs + references)
 scripts/               # Automation & workflows
-tests/                 # Test suite (unit + integration)
+tests/                 # Shared fixtures, e2e, cross-service schema tests
 infra/                 # Infrastructure-as-Code (Terraform)
 docker-compose.yml     # Local dev services
-pyproject.toml         # Python dependencies
+pyproject.toml         # Root dependencies and tooling (single uv.lock)
 ```
 
 ### Architecture Records

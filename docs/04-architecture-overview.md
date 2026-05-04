@@ -365,11 +365,11 @@ See [docs/design/architecture.md](design/architecture.md) for full schema detail
    - Extract/generate correlation ID
    - Log request_start with method, path, user agent
    ↓
-4. FastAPI router (ingestor/routers/records.py):
+4. FastAPI router (services/ingestor/routers/records.py):
    - Validate request via Pydantic schema
    - Check authorization (if auth enabled)
    ↓
-5. CRUD layer (ingestor/crud.py):
+5. CRUD layer (services/ingestor/crud.py):
    - Build SQLAlchemy ORM object
    - Execute INSERT via async DB session
    ↓
@@ -490,7 +490,7 @@ POST /api/v1/records
 All configuration is environment-driven (12-factor app):
 
 ```python
-# ingestor/config.py
+# services/ingestor/config.py
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://..."
     log_level: str = "INFO"

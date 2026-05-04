@@ -77,7 +77,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "services/ingestor/tests", "services/webhook/tests", "services/dashboard/tests", "services/analytics/tests"]
 asyncio_mode = "auto"
 # Limit coverage collection to the package under test to avoid "module X was never imported" warnings
 addopts = "--cov=services/ingestor --cov-report=term-missing --cov-report=html -q -m 'not e2e'"
