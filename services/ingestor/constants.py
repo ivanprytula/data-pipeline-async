@@ -42,6 +42,7 @@ TAGS_MAX_COUNT: int = 10
 # ---------------------------------------------------------------------------
 V1_RATE_LIMIT: str = "1000/minute"
 HEALTH_RATE_LIMIT: str = "100/minute"
+AUTH_LOGIN_RATE_LIMIT: str = "10/minute"  # brute-force protection for /auth/token
 
 # ---------------------------------------------------------------------------
 # Rate limiting — v2 token bucket

@@ -215,7 +215,34 @@ log_level: str = "INFO"
 logger.info("record_created", extra={"cid": str(uuid4()), "record_id": record.id})
 ```
 
+**Error handling** — when catching an exception and raising a different one (e.g., converting database errors to HTTP errors), always use `raise ... from None` to avoid exception chaining (Ruff B904):
+```python
+# ✓ CORRECT — exception chaining suppressed
+try:
+    user = await create_user(db, username, email, password_hash)
+except IntegrityError:
+    raise HTTPException(status_code=409, detail="User exists") from None
+
+# ✗ WRONG — bare raise is flagged by Ruff B904
+try:
+    user = await create_user(db, username, email, password_hash)
+except IntegrityError:
+    raise HTTPException(status_code=409, detail="User exists")
+```
+
+**Type ignores for fakeredis** — when using `await` on Redis methods from `fakeredis.aioredis`, add `# ty: ignore[invalid-await]` because fakeredis returns `Awaitable[T] | T` unions:
+```python
+# ✓ CORRECT — type ignore for fakeredis union types
+await _session_client.ping()  # ty: ignore[invalid-await]
+session_data = await _session_client.hgetall(key)  # ty: ignore[invalid-await,assignment]
+await _session_client.hset(key, mapping=fields)  # ty: ignore[invalid-await,arg-type]
+
+# ✗ WRONG — mypy/pyright fails on fakeredis union types without ignore
+await _session_client.ping()
+```
+
 **Tests** — `asyncio_mode = "auto"` in `pyproject.toml`; do NOT add `@pytest.mark.asyncio` (redundant). Tests use `aiosqlite` in-memory SQLite — no Postgres required.
+
 
 ## Critical Gotchas
 

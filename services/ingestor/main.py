@@ -19,7 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 
-from services.ingestor.auth import verify_docs_credentials
+from services.ingestor.auth import (
+    connect_session_store,
+    disconnect_session_store,
+    verify_docs_credentials,
+)
 from services.ingestor.config import settings
 from services.ingestor.constants import HEALTH_RATE_LIMIT
 from services.ingestor.core.background_workers import BackgroundWorkerPool
@@ -47,6 +51,7 @@ from services.ingestor.notifications import notify_background_task_failed
 from services.ingestor.rate_limiting import limiter
 from services.ingestor.routers import (
     analytics,
+    auth,
     background_processing,
     health_ingestion_jobs,
     notifications,
@@ -200,6 +205,12 @@ async def lifespan(app: FastAPI):
     logger.info("startup", extra={"event": "application_started"})
     _validate_production_security_settings()
 
+    # Initialize session store (always-on, not gated by redis_enabled)
+    try:
+        await connect_session_store(settings.redis_url)
+    except Exception as e:
+        logger.warning("session_store_startup_failed", extra={"error": str(e)})
+
     # Initialize external services (Redis, Kafka, MongoDB)
     await initialize_external_services()
 
@@ -280,6 +291,9 @@ async def lifespan(app: FastAPI):
                 "background_workers_shutdown_error",
                 extra={"error": str(e)},
             )
+
+    # Cleanup session store
+    await disconnect_session_store()
 
     # Cleanup external services (Redis, Kafka, MongoDB)
     await cleanup_external_services()
@@ -392,6 +406,7 @@ if settings.docs_username and settings.docs_password:
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
+app.include_router(auth.router)
 app.include_router(records.router)
 app.include_router(records_v2.router)
 app.include_router(scraper.router)

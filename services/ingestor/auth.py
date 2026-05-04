@@ -16,6 +16,7 @@ from typing import Annotated, Any
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from redis.asyncio import Redis
 
 from services.ingestor.config import settings
 
@@ -28,11 +29,35 @@ security = HTTPBasic()
 # Module-level type aliases (FastAPI-approved pattern)
 type DocsCredentialsDep = Annotated[HTTPBasicCredentials, Depends(security)]
 
-# In-memory session store (production would use Redis/database)
-_session_store: dict[str, dict[str, Any]] = {}
+# Redis-backed session store (module-level singleton, initialized in lifespan).
+# Key pattern: session:{session_id} → Redis hash {user_id, role, created_at}
+_session_client: Redis | None = None
 
 # Simple role names for RBAC learning examples.
 DEFAULT_ROLE = "viewer"
+
+_SESSION_KEY_PREFIX = "session:"
+
+
+async def connect_session_store(redis_url: str) -> None:
+    """Initialize the Redis session store.
+
+    Args:
+        redis_url: Redis DSN (e.g. redis://localhost:6379/0)
+    """
+    global _session_client
+    _session_client = Redis.from_url(redis_url, decode_responses=True)
+    await _session_client.ping()  # ty: ignore[invalid-await]
+    logger.info("session_store_connected", extra={"url": redis_url})
+
+
+async def disconnect_session_store() -> None:
+    """Close the Redis session store connection."""
+    global _session_client
+    if _session_client is not None:
+        await _session_client.aclose()
+        _session_client = None
+    logger.info("session_store_disconnected")
 
 
 # ============================================================================
@@ -119,21 +144,20 @@ async def verify_session(
             detail="Missing session cookie",
         )
 
-    session_data = _session_store.get(session_id)
+    if _session_client is None:
+        # Fallback: no Redis — reject all sessions (fail-closed, not fail-open)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Session store unavailable",
+        )
+
+    key = f"{_SESSION_KEY_PREFIX}{session_id}"
+    session_data: dict[str, Any] = await _session_client.hgetall(key)  # ty: ignore[invalid-await]
     if not session_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session",
         )
-
-    expires_at = session_data.get("expires_at")
-    if expires_at is None or expires_at < datetime.now(UTC):
-        del _session_store[session_id]
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session expired",
-        ) from None
-
     return session_data
 
 
@@ -207,28 +231,50 @@ def jwt_role_guard(*required_roles: str):
     return _guard
 
 
-def create_session(
+async def create_session(
     user_id: str, custom_data: dict[str, Any] | None = None
 ) -> tuple[str, str]:
-    """Create session cookie. Returns (session_id, Set-Cookie header value).
+    """Create a Redis-backed session. Returns (session_id, session_id).
 
-    Production: Use Redis with expiry, signed cookies, or JWT.
+    Key pattern: session:{session_id} → Redis hash with TTL.
+    Falls back gracefully when Redis is unavailable (logs warning, returns ID).
     """
     import uuid
 
     session_id = str(uuid.uuid4())
-    expires_at = datetime.now(UTC) + timedelta(hours=settings.token_expiry_hours)
+    ttl_seconds = settings.token_expiry_hours * 3600
 
-    _session_store[session_id] = {
+    fields: dict[str, str] = {
         "user_id": user_id,
-        "role": DEFAULT_ROLE,
+        "role": (custom_data or {}).get("role", DEFAULT_ROLE),
         "created_at": datetime.now(UTC).isoformat(),
-        "expires_at": expires_at,
-        **(custom_data or {}),
     }
+
+    if _session_client is not None:
+        key = f"{_SESSION_KEY_PREFIX}{session_id}"
+        await _session_client.hset(key, mapping=fields)  # ty: ignore[invalid-await]
+        await _session_client.expire(key, ttl_seconds)
+    else:
+        logger.warning(
+            "session_store_unavailable",
+            extra={"user_id": user_id, "fallback": "no_persistence"},
+        )
 
     logger.info("session_created", extra={"user_id": user_id, "session_id": session_id})
     return session_id, session_id
+
+
+async def delete_session(session_id: str) -> None:
+    """Delete a session from Redis (logout / invalidation).
+
+    Args:
+        session_id: The session token to invalidate.
+    """
+    if _session_client is None:
+        return
+    key = f"{_SESSION_KEY_PREFIX}{session_id}"
+    await _session_client.delete(key)
+    logger.info("session_deleted", extra={"session_id": session_id})
 
 
 # ============================================================================

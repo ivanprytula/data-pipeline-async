@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from libs.contracts.schemas import (
     BackgroundBatchSubmitResponse,
@@ -342,4 +342,41 @@ __all__ = [
     "VectorSearchQueryResponse",
     "VectorSearchIndexResponse",
     "VectorSearchHealthResponse",
+    # Auth schemas
+    "UserCreate",
+    "UserResponse",
+    "TokenResponse",
 ]
+
+
+# ============================================================================
+# Auth schemas
+# ============================================================================
+
+
+class UserCreate(BaseModel):
+    """Request body for user registration."""
+
+    username: str = Field(..., min_length=3, max_length=64)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserResponse(BaseModel):
+    """Public user representation (never exposes password_hash)."""
+
+    model_config = {"from_attributes": True}
+
+    id: int
+    username: str
+    email: str
+    role: str
+    is_active: bool
+    created_at: datetime
+
+
+class TokenResponse(BaseModel):
+    """OAuth2 token response."""
+
+    access_token: str
+    token_type: str = "bearer"

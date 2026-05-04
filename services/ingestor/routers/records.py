@@ -314,7 +314,7 @@ async def login_session(user_id: str, role: str = DEFAULT_ROLE) -> SessionRespon
     Response includes Set-Cookie header with session_id.
     """
     normalized_role = role.strip().lower() if role.strip() else DEFAULT_ROLE
-    session_id, cookie_value = create_session(user_id, {"role": normalized_role})
+    session_id, cookie_value = await create_session(user_id, {"role": normalized_role})
     logger.info("login_success", extra={"user_id": user_id, "role": normalized_role})
 
     # Return token explicitly (FastAPI handles Set-Cookie automatically via Response)

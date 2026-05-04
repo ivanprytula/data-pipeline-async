@@ -16,7 +16,7 @@ dependencies = [
     # Database (sync, for Alembic migrations in production)
     "psycopg[binary]>=3.2",
     # Validation & config
-    "pydantic>=2.13.3",
+    "pydantic[email]>=2.13.3",  # EmailStr support (email-validator)
     "pydantic-settings>=2.14.0",
     "python-dotenv>=1.0.0",  # Load environment from .env files
     # Logging

@@ -9,7 +9,7 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.ingestor.models import Record, _utcnow
+from services.ingestor.models import Record, User, _utcnow
 from services.ingestor.schemas import EnrichedRecord, RecordRequest, UpdateRecordRequest
 
 
@@ -617,3 +617,74 @@ async def upsert_record(
             },
         )
         return existing, False
+
+
+# ============================================================================
+# User CRUD
+# ============================================================================
+
+
+async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
+    """Fetch a user by username.
+
+    Args:
+        session: Active async database session.
+        username: Exact username to look up.
+
+    Returns:
+        User ORM instance or None if not found.
+    """
+    result = await session.execute(
+        select(User).where(User.username == username, User.is_active.is_(True))
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
+    """Fetch an active user by primary key.
+
+    Args:
+        session: Active async database session.
+        user_id: Primary key of the user to retrieve.
+
+    Returns:
+        User ORM instance or None if not found or inactive.
+    """
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_active.is_(True))
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_user(
+    session: AsyncSession,
+    username: str,
+    email: str,
+    password_hash: str,
+    role: str = "viewer",
+) -> User:
+    """Insert a new user record.
+
+    Args:
+        session: Active async database session.
+        username: Unique username (3–64 characters).
+        email: Unique email address.
+        password_hash: Argon2id hash of the raw password.
+        role: Initial role assignment (default: viewer).
+
+    Returns:
+        Newly created User ORM instance.
+
+    Raises:
+        IntegrityError: If username or email already exists (unique constraint).
+    """
+    user = User(
+        username=username,
+        email=email,
+        password_hash=password_hash,
+        role=role,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user

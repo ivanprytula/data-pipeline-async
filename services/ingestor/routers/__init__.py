@@ -2,6 +2,7 @@
 
 from . import (  # noqa: F401
     analytics,
+    auth,
     background_processing,
     health_ingestion_jobs,
     notifications,
