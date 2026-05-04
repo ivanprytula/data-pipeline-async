@@ -307,6 +307,8 @@ jobs:
       - name: Prechecks — lint, guardrails, compile, type
         run: |
           set -euo pipefail
+          # Ensure workspace package deps (and optional extras) are present for ty imports.
+          uv sync --frozen --all-packages --all-extras
           uv run ruff check .
           uv run ruff format --check .
           uv run python scripts/ci/check_service_boundaries.py

@@ -22,11 +22,16 @@ ENV UV_COMPILE_BYTECODE=1
 # Layer 3: Workspace setup (cached — changes only if lockfile/pyproject changes)
 WORKDIR /workspace
 COPY uv.lock pyproject.toml .python-version ./
+COPY services/ai_gateway/pyproject.toml services/ai_gateway/pyproject.toml
+COPY services/dashboard/pyproject.toml services/dashboard/pyproject.toml
+COPY services/processor/pyproject.toml services/processor/pyproject.toml
+COPY services/query_api/pyproject.toml services/query_api/pyproject.toml
+COPY services/webhook/pyproject.toml services/webhook/pyproject.toml
 
 # Layer 4: Install dependencies (cached — reused if lockfile unchanged)
 # Even if only code changes, this layer is skipped
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen || true
+    uv sync --frozen --all-packages --all-extras
 
 # Layer 5: Default entrypoint (cached until entrypoint changes)
 ENTRYPOINT ["sh", "-lc", "python --version && pip --version && uv --version"]
