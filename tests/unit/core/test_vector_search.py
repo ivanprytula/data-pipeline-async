@@ -66,7 +66,7 @@ def test_build_record_search_document_contains_searchable_text() -> None:
     assert document["metadata"]["tags"] == ["alpha", "beta"]
 
 
-async def test_index_record_documents_calls_ai_gateway(
+async def test_index_record_documents_calls_inference(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _FakeHttpClient()

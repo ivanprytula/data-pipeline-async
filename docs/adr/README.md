@@ -47,7 +47,7 @@ ADRs are not "we built it this way" documentation. They're "we **decided** to bu
 
 ## Decision Timeline
 
-```
+```text
 Phase 1–3  → ADR 003 (HTMX)
 Phase 7    → ADRs 004, 005, 006, 007 (ECS, OIDC, Terraform, migration execution)
 Future     → ADR 008+
@@ -65,7 +65,7 @@ Future     → ADR 008+
 
 - Propose a new superseding ADR (e.g., "ADR 008: Migrate from ECS to EKS")
 
-3. **When in doubt** — Write an ADR before implementing
+1. **When in doubt** — Write an ADR before implementing
 
 ### For Onboarding
 
@@ -82,12 +82,12 @@ Future     → ADR 008+
 
 ## ADR Status Meanings
 
-| Status | Meaning | Example |
-|--------|---------|---------|
-| **Proposed** | Suggested but not approved | Not used yet (future) |
-| **Accepted** | Approved and implemented | ADRs 003–006 |
-| **Deprecated** | Was good; no longer applies | None yet |
-| **Superseded** | Replaced by newer ADR | None yet (e.g., if we migrate to EKS) |
+| Status         | Meaning                     | Example                               |
+| -------------- | --------------------------- | ------------------------------------- |
+| **Proposed**   | Suggested but not approved  | Not used yet (future)                 |
+| **Accepted**   | Approved and implemented    | ADRs 003–006                          |
+| **Deprecated** | Was good; no longer applies | None yet                              |
+| **Superseded** | Replaced by newer ADR       | None yet (e.g., if we migrate to EKS) |
 
 ---
 

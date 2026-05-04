@@ -46,7 +46,7 @@ Migrations automatically create the pgvector extension if not already present (`
 ### Step 3: Start Full Stack
 
 ```bash
-# Start all services (db, redis, kafka/redpanda, ai_gateway, query_api, etc.)
+# Start all services (db, redis, kafka/redpanda, inference, analytics, etc.)
 docker compose up -d
 
 # View logs

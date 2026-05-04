@@ -17,7 +17,7 @@ Where should Terraform state be stored?
 
 ## Decision
 
-**Use remote S3 backend with DynamoDB state locking.**
+#### Use remote S3 backend with DynamoDB state locking.
 
 ### Rationale
 
@@ -201,7 +201,7 @@ git push origin --force-all
 3. **No secrets in state** (hard-coded values only)
 4. **No CI/CD** (never deployed automatically)
 
-**For any production or team project: use remote state.**
+#### For any production or team project: use remote state.
 
 ---
 
@@ -242,7 +242,7 @@ git push origin --force-all
 
 - [ADR 004: ECS Fargate vs EKS](004-ecs-fargate-vs-eks.md) (what we're managing with Terraform)
 - [ADR 005: GitHub OIDC vs Long-Lived Keys](005-github-oidc-vs-long-lived-keys.md) (how CI/CD accesses state)
-- [Phase 7: Cloud Deployment](../../cloud-deployment.md) (complete S3 backend setup guide)
+- [Phase 7: Cloud Deployment](../cloud-deployment.md) (complete S3 backend setup guide)
 
 ---
 

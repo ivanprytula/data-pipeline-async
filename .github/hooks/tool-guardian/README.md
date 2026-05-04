@@ -120,7 +120,7 @@ echo '{"toolName":"bash","toolInput":"git push --force origin main"}' | \
   GUARD_MODE=block bash hooks/tool-guardian/guard-tool.sh
 ```
 
-```
+```text
 🛡️  Tool Guardian: 1 threat(s) detected in 'bash' invocation
 
   CATEGORY                 SEVERITY   MATCH                                    SUGGESTION

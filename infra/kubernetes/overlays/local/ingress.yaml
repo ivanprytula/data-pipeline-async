@@ -17,24 +17,24 @@ spec:
                 name: ingestor
                 port:
                   number: 8000
-    - host: query-api.127.0.0.1.nip.io
+    - host: analytics.127.0.0.1.nip.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: query-api
+                name: analytics
                 port:
                   number: 8005
-    - host: ai-gateway.127.0.0.1.nip.io
+    - host: inference.127.0.0.1.nip.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: ai-gateway
+                name: inference
                 port:
                   number: 8001
     - host: dashboard.127.0.0.1.nip.io

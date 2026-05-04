@@ -6,7 +6,7 @@
 
 ## Quick Summary
 
-The instruction (**[.github/instructions/middle-tier-grind-tracking.md](../.github/instructions/middle-tier-grind-tracking.md)**) defines:
+The instruction (**[.github/instructions/middle-tier-grind-tracking.md](../../.github/instructions/middle-tier-grind-tracking.md)**) defines:
 
 - **10 weeks** (70 days) organized into 7 phases (events → scrapers → docker+ci → AI+vectors → testing → database → security → terraform)
 - **7 core interview questions** (one per phase) with follow-ups and design scenarios
@@ -62,7 +62,7 @@ Link to [`docs/portfolio-phase-2-scrapers.md`](portfolio-phase-2-scrapers.md):
 
 ### 6. ADR (Architecture Decision Record)
 
-Link to [`docs/adr/004-scraper-architecture.md`](adr/004-scraper-architecture.md):
+Link to [`docs/adr/004-scraper-architecture.md`](../design/adr/004-scraper-architecture.md):
 
 - Decision statement
 - Rationale + trade-offs
@@ -210,11 +210,11 @@ This template answers all 3 yes.
 
 ## Related Files
 
-- **Instruction**: [.github/instructions/middle-tier-grind-tracking.md](../.github/instructions/middle-tier-grind-tracking.md)
-- **Portfolio Template**: [docs/templates/portfolio-item-template.md](templates/portfolio-item-template.md)
+- **Instruction**: [.github/instructions/middle-tier-grind-tracking.md](../../.github/instructions/middle-tier-grind-tracking.md)
+- **Portfolio Template**: [docs/templates/portfolio-item-template.md](../templates/portfolio-item-template.md)
 - **Phase 2 Output**: [docs/weekly-progress-phase-2.md](weekly-progress-phase-2.md) ← *Example*
 - **Phase 2 Portfolio**: [docs/portfolio-phase-2-scrapers.md](portfolio-phase-2-scrapers.md)
-- **Phase 2 ADR**: [docs/adr/004-scraper-architecture.md](adr/004-scraper-architecture.md)
+- **Phase 2 ADR**: [docs/adr/004-scraper-architecture.md](../design/adr/004-scraper-architecture.md)
 
 ---
 

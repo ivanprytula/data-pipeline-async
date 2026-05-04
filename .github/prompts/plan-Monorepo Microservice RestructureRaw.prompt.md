@@ -27,9 +27,9 @@ Update CI workflow path filters in ci.yml (ingestor/** → services/ingestor/**)
 Phase 2 — Fix Naming Inconsistencies
 Two naming mismatches between Docker Compose and Python modules:
 
-services/ai-gateway (compose build context path) vs services/ai_gateway (Python module) → standardize on ai_gateway (underscores) everywhere, including the compose develop.watch path and Dockerfile context
-query-api (compose) vs query_api (Python) → same: standardize on query_api
-This means renaming Docker Compose service keys ai-gateway → ai_gateway and query-api → query_api, and updating any references in nginx.conf, CI files, or scripts that reference the old hyphenated names.
+services/inference (compose build context path) vs services/inference (Python module) → standardize on inference (underscores) everywhere, including the compose develop.watch path and Dockerfile context
+analytics (compose) vs analytics (Python) → same: standardize on analytics
+This means renaming Docker Compose service keys inference → inference and analytics → analytics, and updating any references in nginx.conf, CI files, or scripts that reference the old hyphenated names.
 
 Phase 3 — Per-Service Directory Structure (Team Separation)
 Give each service in services/ the same skeleton so any team can onboard independently:
@@ -43,12 +43,12 @@ services/
 │   └── tests/             # Service-local tests (moved from root tests/)
 │       ├── unit/
 │       └── integration/
-├── ai_gateway/
+├── inference/
 │   ├── README.md
 │   ├── Dockerfile         # Already exists
 │   ├── pyproject.toml
 │   └── tests/
-├── query_api/
+├── analytics/
 │   ├── README.md
 │   ├── Dockerfile         # Already exists
 │   ├── pyproject.toml
@@ -77,14 +77,14 @@ Add governance artifacts that make the team-per-service model explicit:
 
 Code
 services/ingestor/    @org/team-ingestor
-services/ai_gateway/  @org/team-ai
-services/query_api/   @org/team-query
+services/inference/  @org/team-ai
+services/analytics/   @org/team-query
 services/processor/   @org/team-processor
 services/dashboard/   @org/team-dashboard
 libs/                 @org/platform-team
 Update check_service_boundaries.py — reflect new services/ingestor path; add note about test co-location being allowed (tests may import their own service)
 
-CI path-filter updates in ci.yml — per-service change detection already exists (ingestor_change, ai_gateway_change, etc.); update paths to match new layout. Consider adding per-service test jobs that only run the relevant service's tests on targeted changes
+CI path-filter updates in ci.yml — per-service change detection already exists (ingestor_change, inference_change, etc.); update paths to match new layout. Consider adding per-service test jobs that only run the relevant service's tests on targeted changes
 
 Document the monorepo trade-offs in a top-level docs/monorepo-structure.md:
 
@@ -107,17 +107,17 @@ libs/ stays at root (shared by all)
 All services still in the same Git repository
 
 
-## Q: Also, I'm thinking about services renaming, e.g. if/when I add API Gateway, there will be some confusion with 'ai-gateway'. Also, 'query-api' seems too generic name. What about system design pattern "service discovery" or 'service mesh' ? Do I need smth at current point of development?
+## Q: Also, I'm thinking about services renaming, e.g. if/when I add API Gateway, there will be some confusion with 'inference'. Also, 'analytics' seems too generic name. What about system design pattern "service discovery" or 'service mesh' ? Do I need smth at current point of development?
 
 Service Naming
 The Problem with Current Names
 Current name	Why it's problematic
-ai-gateway	Collides with the well-known API Gateway pattern. When you add an API Gateway (nginx/Kong/AWS API GW sits in front of ALL services), "ai-gateway" sounds like the system entry point, not an AI-specific microservice.
-query-api	Too generic — every HTTP service is a "query API" by that logic. Offers no domain signal.
+inference	Collides with the well-known API Gateway pattern. When you add an API Gateway (nginx/Kong/AWS API GW sits in front of ALL services), "inference" sounds like the system entry point, not an AI-specific microservice.
+analytics	Too generic — every HTTP service is a "query API" by that logic. Offers no domain signal.
 Recommended Renames
 Current	Suggested	Rationale
-ai-gateway	embeddings-service or vector-service	Names what it actually does (text embedding + Qdrant search). No confusion with networking gateway patterns.
-query-api	analytics-service	Reflects its domain: CQRS read-side, materialized views, window functions, analytics. Matches the existing router name analytics.py.
+inference	embeddings-service or vector-service	Names what it actually does (text embedding + Qdrant search). No confusion with networking gateway patterns.
+analytics	analytics-service	Reflects its domain: CQRS read-side, materialized views, window functions, analytics. Matches the existing router name analytics.py.
 Other services are well-named already:
 
 ingestor — clear write-side CQRS owner
@@ -134,9 +134,9 @@ Code
 Current inter-service communication
 ────────────────────────────────────
   dashboard  ──HTTP──► ingestor   (INGESTOR_URL env var)
-  dashboard  ──HTTP──► ai-gateway (AI_GATEWAY_URL env var)
-  ingestor   ──HTTP──► ai-gateway (AI_GATEWAY_URL env var)
-  query-api  ──SQL──►  postgres   (DATABASE_URL env var)
+  dashboard  ──HTTP──► inference (INFERENCE_URL env var)
+  ingestor   ──HTTP──► inference (INFERENCE_URL env var)
+  analytics  ──SQL──►  postgres   (DATABASE_URL env var)
   processor  ──Kafka►  redpanda   (KAFKA_BROKER_URL env var)
 What service discovery solves: dynamic location of services (IPs change at runtime, autoscaling creates/destroys instances, you can't hardcode URLs). Your services find each other via environment variables + Docker Compose DNS (http://ingestor:8000) — which IS a primitive form of service discovery (Compose's embedded DNS resolver).
 
@@ -173,7 +173,7 @@ Bottom line: Add the renames (embeddings-service, analytics-service) now — the
 ## Q: continue planning efforts: 1) what if I add another but simpler AI integrations, i.e. AI chat or kinda "proxy prompting using my AI vendors paid subscription"? can I out them into new suggested "embeddings-service" ? 2) what if I want to add more 'processors"-like services? should I add new features only to current "processor" or I'm free to create new services just to sure they act as events consumers?
 
 Question 1: AI Chat / Proxy Prompting — Where Does It Belong?
-The previous rename recommendation (ai-gateway → embeddings-service) was deliberately narrow: name it after what it does (embed text → store/query vectors). Adding chat and proxy prompting adds a second responsibility. Whether to co-locate or split depends on how you model the bounded context:
+The previous rename recommendation (inference → embeddings-service) was deliberately narrow: name it after what it does (embed text → store/query vectors). Adding chat and proxy prompting adds a second responsibility. Whether to co-locate or split depends on how you model the bounded context:
 
 Option A — Rename to ai-service (recommended for now)
 Widen the scope of the single service to cover all AI vendor interactions:
@@ -238,7 +238,7 @@ Avoid names like processor-2 or worker-new — name it after what it does to the
 Practical Next Steps
 Code
 Short term (you're here)
-  └─► Rename ai-gateway → ai-service
+  └─► Rename inference → ai-service
   └─► Add /chat and /prompt endpoints to ai-service
   └─► Keep processor focused on enrichment + Postgres writes
 

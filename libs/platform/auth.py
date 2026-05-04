@@ -16,7 +16,7 @@ Usage — outbound request (service making the call):
 
     headers = {"Authorization": f"Bearer {generate_internal_token('ingestor')}"}
     async with httpx.AsyncClient() as client:
-        resp = await client.post("http://ai-gateway:8001/api/v1/embed", headers=headers)
+        resp = await client.post("http://inference:8001/api/v1/embed", headers=headers)
 
 Usage — inbound route (service receiving the call):
 

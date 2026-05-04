@@ -59,8 +59,8 @@ jobs:
       prompts_change: ${{ steps.filter.outputs.prompts_change }}
       shared_libs_change: ${{ steps.filter.outputs.shared_libs_change }}
       ingestor_change: ${{ steps.filter.outputs.ingestor_change }}
-      ai_gateway_change: ${{ steps.filter.outputs.ai_gateway_change }}
-      query_api_change: ${{ steps.filter.outputs.query_api_change }}
+      inference_change: ${{ steps.filter.outputs.inference_change }}
+      analytics_change: ${{ steps.filter.outputs.analytics_change }}
       processor_change: ${{ steps.filter.outputs.processor_change }}
       dashboard_change: ${{ steps.filter.outputs.dashboard_change }}
       contracts_change: ${{ steps.filter.outputs.contracts_change }}
@@ -103,12 +103,12 @@ jobs:
             ingestor_change:
               - 'services/ingestor/**'
               - 'Dockerfile'
-            ai_gateway_change:
-              - 'services/ai_gateway/**'
-              - 'services/ai_gateway/Dockerfile'
-            query_api_change:
-              - 'services/query_api/**'
-              - 'services/query_api/Dockerfile'
+            inference_change:
+              - 'services/inference/**'
+              - 'services/inference/Dockerfile'
+            analytics_change:
+              - 'services/analytics/**'
+              - 'services/analytics/Dockerfile'
             processor_change:
               - 'services/processor/**'
               - 'services/processor/Dockerfile'
@@ -161,8 +161,8 @@ jobs:
         env:
           SHARED_LIBS_CHANGE: ${{ needs.change-impact.outputs.shared_libs_change }}
           INGESTOR_CHANGE: ${{ needs.change-impact.outputs.ingestor_change }}
-          AI_GATEWAY_CHANGE: ${{ needs.change-impact.outputs.ai_gateway_change }}
-          QUERY_API_CHANGE: ${{ needs.change-impact.outputs.query_api_change }}
+          INFERENCE_CHANGE: ${{ needs.change-impact.outputs.inference_change }}
+          ANALYTICS_CHANGE: ${{ needs.change-impact.outputs.analytics_change }}
           PROCESSOR_CHANGE: ${{ needs.change-impact.outputs.processor_change }}
           DASHBOARD_CHANGE: ${{ needs.change-impact.outputs.dashboard_change }}
         run: |
@@ -182,11 +182,11 @@ jobs:
           if [[ "$include_all" == "true" || "$INGESTOR_CHANGE" == "true" ]]; then
             include_service '{"name":"ingestor","path":"services/ingestor","dockerfile":"Dockerfile","image_name":"data-zoo/ingestor"}'
           fi
-          if [[ "$include_all" == "true" || "$AI_GATEWAY_CHANGE" == "true" ]]; then
-            include_service '{"name":"ai_gateway","path":"services/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile","image_name":"data-zoo/ai_gateway"}'
+          if [[ "$include_all" == "true" || "$INFERENCE_CHANGE" == "true" ]]; then
+            include_service '{"name":"inference","path":"services/inference","dockerfile":"services/inference/Dockerfile","image_name":"data-zoo/inference"}'
           fi
-          if [[ "$include_all" == "true" || "$QUERY_API_CHANGE" == "true" ]]; then
-            include_service '{"name":"query_api","path":"services/query_api","dockerfile":"services/query_api/Dockerfile","image_name":"data-zoo/query_api"}'
+          if [[ "$include_all" == "true" || "$ANALYTICS_CHANGE" == "true" ]]; then
+            include_service '{"name":"analytics","path":"services/analytics","dockerfile":"services/analytics/Dockerfile","image_name":"data-zoo/analytics"}'
           fi
           if [[ "$include_all" == "true" || "$PROCESSOR_CHANGE" == "true" ]]; then
             include_service '{"name":"processor","path":"services/processor","dockerfile":"services/processor/Dockerfile","image_name":"data-zoo/processor"}'
@@ -258,7 +258,7 @@ jobs:
           echo "- Infra change: ${{ needs.change-impact.outputs.infra_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Contracts change: ${{ needs.change-impact.outputs.contracts_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Shared libs change: ${{ needs.change-impact.outputs.shared_libs_change }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, ai_gateway=${{ needs.change-impact.outputs.ai_gateway_change }}, query_api=${{ needs.change-impact.outputs.query_api_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, inference=${{ needs.change-impact.outputs.inference_change }}, analytics=${{ needs.change-impact.outputs.analytics_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
 
   contracts-versioning-gate:
     name: 06 Contracts versioning gate
@@ -790,7 +790,7 @@ jobs:
       - name: Wait for all services — readyz 200
         run: |
           set -euo pipefail
-          declare -A PORTS=([ingestor]=8000 [ai-gateway]=8001 [processor]=8002 [dashboard]=8003 [query-api]=8005)
+          declare -A PORTS=([ingestor]=8000 [inference]=8001 [processor]=8002 [dashboard]=8003 [analytics]=8005)
           for svc in "${!PORTS[@]}"; do
             port="${PORTS[$svc]}"
             echo "Polling $svc /readyz on port $port (90s timeout)..."
@@ -811,7 +811,7 @@ jobs:
       - name: Assert readyz response body has status key
         run: |
           set -euo pipefail
-          declare -A PORTS=([ingestor]=8000 [ai-gateway]=8001 [processor]=8002 [dashboard]=8003 [query-api]=8005)
+          declare -A PORTS=([ingestor]=8000 [inference]=8001 [processor]=8002 [dashboard]=8003 [analytics]=8005)
           for svc in "${!PORTS[@]}"; do
             port="${PORTS[$svc]}"
             body=$(curl -s "http://localhost:${port}/readyz")
@@ -835,7 +835,7 @@ jobs:
       - name: Validate structured JSON logs — schema assertion
         run: |
           set -euo pipefail
-          for svc in ingestor ai-gateway processor dashboard query-api; do
+          for svc in ingestor inference processor dashboard analytics; do
             echo "Validating log schema for $svc..."
             raw=$(docker compose logs --no-log-prefix "$svc" 2>/dev/null | head -10 || true)
             if [[ -z "$raw" ]]; then

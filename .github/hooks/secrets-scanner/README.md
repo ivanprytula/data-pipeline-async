@@ -124,14 +124,14 @@ See the full list in `scan-secrets.sh`.
 
 ### Clean scan
 
-```
+```text
 🔍 Scanning 5 modified file(s) for secrets...
 ✅ No secrets detected in 5 scanned file(s)
 ```
 
 ### Findings detected (warn mode)
 
-```
+```text
 🔍 Scanning 3 modified file(s) for secrets...
 
 ⚠️  Found 2 potential secret(s) in modified files:
@@ -146,7 +146,7 @@ See the full list in `scan-secrets.sh`.
 
 ### Findings detected (block mode)
 
-```
+```text
 🔍 Scanning 3 modified file(s) for secrets...
 
 ⚠️  Found 1 potential secret(s) in modified files:

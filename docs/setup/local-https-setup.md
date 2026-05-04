@@ -19,25 +19,25 @@ Modern web standards increasingly require HTTPS even in development:
 
 ### 1. Install mkcert
 
-**macOS:**
+#### macOS
 
 ```bash
 brew install mkcert nss
 ```
 
-**Ubuntu/Debian:**
+#### Ubuntu/Debian
 
 ```bash
 sudo apt-get install -y mkcert libnss3-tools
 ```
 
-**Fedora/RHEL:**
+#### Fedora/RHEL
 
 ```bash
 sudo dnf install -y mkcert nss-tools
 ```
 
-**Windows (with Chocolatey):**
+#### Windows (with Chocolatey)
 
 ```bash
 choco install mkcert
@@ -59,9 +59,9 @@ mkcert localhost 127.0.0.1 "*.local"
 #   localhost+2.pem       (certificate)
 ```
 
-**Output:**
+#### Output
 
-```
+```text
 Created a new local CA at "/home/user/.local/share/mkcert"
 Installed in the system trust store ✓
 Installed in Firefox ✓
@@ -82,7 +82,7 @@ docker compose up -d
 #   http://localhost:80      (redirects to HTTPS)
 ```
 
-**Verify HTTPS is working:**
+#### Verify HTTPS is working
 
 ```bash
 curl -v https://localhost/api/v1/records
@@ -93,7 +93,7 @@ curl -v https://localhost/api/v1/records
 
 ## Architecture
 
-```
+```text
 ┌─ Your Browser ──────────┐
 │   https://localhost:443 │
 └──────────┬──────────────┘
@@ -105,13 +105,13 @@ curl -v https://localhost/api/v1/records
     └──────┬───────────┘
            │ HTTP :8000/:8001/:8003/...
            ├─► ingestor:8000
-           ├─► ai-gateway:8001
+           ├─► inference:8001
            ├─► dashboard:8003
-           ├─► query-api:8005
+           ├─► analytics:8005
            └─► [other services]
 ```
 
-**TLS termination at nginx means:**
+#### TLS termination at nginx means
 
 - Browser ↔ nginx: HTTPS (encrypted)
 - nginx ↔ services: HTTP (same Docker network, no encryption needed)
@@ -159,7 +159,7 @@ docker compose restart nginx
 
 **Issue:** mkcert CA not installed in OS trust store.
 
-**Solution:**
+#### Solution
 
 ```bash
 # Reinstall local CA
@@ -173,7 +173,7 @@ mkcert -install
 
 **Issue:** nginx not running or listening on 443.
 
-**Solution:**
+#### Solution
 
 ```bash
 # Check if nginx is running
@@ -202,7 +202,7 @@ ls -la infra/certs/localhost+*.pem
 
 **Issue:** mkcert CA not in system trust store on Linux.
 
-**Solution (Linux):**
+#### Solution (Linux)
 
 ```bash
 # Check where CA is installed
@@ -261,7 +261,7 @@ bash infra/scripts/chaos.sh gauntlet
 
 ## CI/CD Note
 
-**GitHub Actions & deployment environments don't need mkcert:**
+#### GitHub Actions & deployment environments don't need mkcert
 
 - CI runners generate certs via Let's Encrypt or cloud provider CA
 - Production uses externally-signed certificates

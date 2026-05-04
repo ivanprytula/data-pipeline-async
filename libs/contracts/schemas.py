@@ -116,10 +116,10 @@ class VectorSearchIndexResponse(BaseModel):
 
 
 class VectorSearchHealthResponse(BaseModel):
-    """Health status of the AI gateway bridge."""
+    """Health status of the inference service bridge."""
 
     status: str
-    ai_gateway_connected: bool
+    inference_connected: bool
     collection: str
 
 

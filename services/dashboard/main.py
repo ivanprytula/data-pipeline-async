@@ -4,7 +4,7 @@ Entry point: ``uvicorn services.dashboard.main:app``
 
 Backend-rendered 3-page dashboard:
   /           Records Explorer (HTMX infinite scroll)
-  /search     Semantic Search (calls ai-gateway)
+  /search     Semantic Search (calls inference)
   /metrics    Live Metrics (SSE from ingestor /metrics)
 """
 

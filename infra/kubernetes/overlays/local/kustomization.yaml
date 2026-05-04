@@ -4,10 +4,10 @@ namespace: data-zoo
 resources:
   - ingestor-deployment.yaml
   - ingestor-service.yaml
-  - query-api-deployment.yaml
-  - query-api-service.yaml
-  - ai-gateway-deployment.yaml
-  - ai-gateway-service.yaml
+  - analytics-deployment.yaml
+  - analytics-service.yaml
+  - inference-deployment.yaml
+  - inference-service.yaml
   - processor-deployment.yaml
   - processor-service.yaml
   - webhook-deployment.yaml

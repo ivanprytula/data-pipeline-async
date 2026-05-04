@@ -197,7 +197,7 @@ trivy image --format sarif --output report.sarif ingestor:latest
 trivy image --severity H GH,C ITICAL --exit-code 1 ingestor:latest
 
 # Scan multiple images
-trivy image ingestor:latest ai_gateway:latest
+trivy image ingestor:latest inference:latest
 
 # Scan and list only unfixed vulnerabilities
 trivy image --severity HIGH --list-all-pkgs ingestor:latest
@@ -420,10 +420,10 @@ jobs:
         image:
           - name: ingestor
             dockerfile: Dockerfile
-          - name: ai_gateway
-            dockerfile: services/ai_gateway/Dockerfile
-          - name: query_api
-            dockerfile: services/query_api/Dockerfile
+          - name: inference
+            dockerfile: services/inference/Dockerfile
+          - name: analytics
+            dockerfile: services/analytics/Dockerfile
           - name: processor
             dockerfile: services/processor/Dockerfile
           - name: dashboard
@@ -496,8 +496,8 @@ jobs:
       matrix:
         dockerfile:
           - {name: "ingestor", path: "Dockerfile"}
-          - {name: "ai_gateway", path: "services/ai_gateway/Dockerfile"}
-          - {name: "query_api", path: "services/query_api/Dockerfile"}
+          - {name: "inference", path: "services/inference/Dockerfile"}
+          - {name: "analytics", path: "services/analytics/Dockerfile"}
           - {name: "processor", path: "services/processor/Dockerfile"}
           - {name: "dashboard", path: "services/dashboard/Dockerfile"}
           - {name: "database", path: "infra/database/Dockerfile"}

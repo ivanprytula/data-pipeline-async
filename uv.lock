@@ -3,38 +3,17 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-04-26T21:55:25.196451061Z"
+exclude-newer = "2026-04-27T08:54:13.142393673Z"
 exclude-newer-span = "P7D"
 
 [manifest]
 members = [
-    "ai-gateway",
+    "analytics",
     "dashboard",
     "data-pipeline-async",
+    "inference",
     "processor",
-    "query-api",
     "webhook",
-]
-
-[[package]]
-name = "ai-gateway"
-version = "0.1.0"
-source = { virtual = "services/ai_gateway" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "pydantic" },
-    { name = "qdrant-client" },
-    { name = "sentence-transformers" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.135.2" },
-    { name = "pydantic", specifier = ">=2.13.3" },
-    { name = "qdrant-client", specifier = ">=1.12.0" },
-    { name = "sentence-transformers", specifier = ">=5.4.1" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
 ]
 
 [[package]]
@@ -149,6 +128,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/94/13/8b084e0f2efb0275a1d534838844926f798bd766566b1375174e2448cd31/alembic-1.18.4.tar.gz", hash = "sha256:cb6e1fd84b6174ab8dbb2329f86d631ba9559dd78df550b57804d607672cedbc", size = 2056725, upload-time = "2026-02-10T16:00:47.195Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/29/6533c317b74f707ea28f8d633734dbda2119bbadfc61b2f3640ba835d0f7/alembic-1.18.4-py3-none-any.whl", hash = "sha256:a5ed4adcf6d8a4cb575f3d759f071b03cd6e5c7618eb796cb52497be25bfe19a", size = 263893, upload-time = "2026-02-10T16:00:49.997Z" },
+]
+
+[[package]]
+name = "analytics"
+version = "0.1.0"
+source = { virtual = "services/analytics" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "python-json-logger" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "fastapi", specifier = ">=0.135.2" },
+    { name = "python-json-logger", specifier = ">=4.1.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
 ]
 
 [[package]]
@@ -1161,6 +1161,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f3/49/3b30cad09e7771a4982d9975a8cbf64f00d4a1ececb53297f1d9a7be1b10/importlib_metadata-8.7.1.tar.gz", hash = "sha256:49fef1ae6440c182052f407c8d34a68f72efc36db9ca90dc0113398f2fdde8bb", size = 57107, upload-time = "2025-12-21T10:00:19.278Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/5e/f8e9a1d23b9c20a551a8a02ea3637b4642e22c2626e3a13a9a29cdea99eb/importlib_metadata-8.7.1-py3-none-any.whl", hash = "sha256:5a1f80bf1daa489495071efbb095d75a634cf28a8bc299581244063b53176151", size = 27865, upload-time = "2025-12-21T10:00:18.329Z" },
+]
+
+[[package]]
+name = "inference"
+version = "0.1.0"
+source = { virtual = "services/inference" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "qdrant-client" },
+    { name = "sentence-transformers" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.135.2" },
+    { name = "pydantic", specifier = ">=2.13.3" },
+    { name = "qdrant-client", specifier = ">=1.12.0" },
+    { name = "sentence-transformers", specifier = ">=5.4.1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
 ]
 
 [[package]]
@@ -2350,27 +2371,6 @@ wheels = [
 ]
 
 [[package]]
-name = "query-api"
-version = "0.1.0"
-source = { virtual = "services/query_api" }
-dependencies = [
-    { name = "asyncpg" },
-    { name = "fastapi" },
-    { name = "python-json-logger" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asyncpg", specifier = ">=0.30.0" },
-    { name = "fastapi", specifier = ">=0.135.2" },
-    { name = "python-json-logger", specifier = ">=4.1.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.45.0" },
-]
-
-[[package]]
 name = "redis"
 version = "7.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2875,7 +2875,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.24.2"
+version = "0.25.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -2883,9 +2883,9 @@ dependencies = [
     { name = "rich" },
     { name = "shellingham" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/b8/9ebb531b6c2d377af08ac6746a5df3425b21853a5d2260876919b58a2a4a/typer-0.24.2.tar.gz", hash = "sha256:ec070dcfca1408e85ee203c6365001e818c3b7fffe686fd07ff2d68095ca0480", size = 119849, upload-time = "2026-04-22T17:45:34.413Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/27/ede8cec7596e0041ba7e7b80b47d132562f56ff454313a16f6084e555c9f/typer-0.25.0.tar.gz", hash = "sha256:123eaf9f19bb40fd268310e12a542c0c6b4fab9c98d9d23342a01ff95e3ce930", size = 120150, upload-time = "2026-04-26T08:46:14.767Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/d1/9484b497e0a0410b901c12b8251c3e746e1e863f7d28419ffe06f7892fda/typer-0.24.2-py3-none-any.whl", hash = "sha256:b618bc3d721f9a8d30f3e05565be26416d06e9bcc29d49bc491dc26aba674fa8", size = 55977, upload-time = "2026-04-22T17:45:33.055Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/72/193d4e586ec5a4db834a36bbeb47641a62f951f114ffd0fe5b1b46e8d56f/typer-0.25.0-py3-none-any.whl", hash = "sha256:ac01b48823d3db9a83c9e164338057eadbb1c9957a2a6b4eeb486669c560b5dc", size = 55993, upload-time = "2026-04-26T08:46:15.889Z" },
 ]
 
 [[package]]

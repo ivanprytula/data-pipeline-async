@@ -48,10 +48,10 @@ dependencies = [
 
 [tool.uv.workspace]
 members = [
-    "services/ai_gateway",
+    "services/inference",
     "services/dashboard",
     "services/processor",
-    "services/query_api",
+    "services/analytics",
     "services/webhook",
 ]
 

@@ -10,8 +10,8 @@ Checks implemented:
 
 The five service boundaries are:
 - ingestor
-- services/ai_gateway
-- services/query_api
+- services/inference
+- services/analytics
 - services/processor
 - services/dashboard
 
@@ -39,8 +39,8 @@ LIBS_ROOTS: dict[str, Path] = {
 
 SERVICE_ROOTS: dict[str, Path] = {
     "ingestor": REPO_ROOT / "services" / "ingestor",
-    "ai_gateway": REPO_ROOT / "services" / "ai_gateway",
-    "query_api": REPO_ROOT / "services" / "query_api",
+    "inference": REPO_ROOT / "services" / "inference",
+    "analytics": REPO_ROOT / "services" / "analytics",
     "processor": REPO_ROOT / "services" / "processor",
     "dashboard": REPO_ROOT / "services" / "dashboard",
 }
@@ -98,7 +98,7 @@ def module_to_service(module: str) -> str | None:
         parts = module.split(".")
         if len(parts) >= 2:
             svc = parts[1]
-            if svc in {"ai_gateway", "query_api", "processor", "dashboard"}:
+            if svc in {"inference", "analytics", "processor", "dashboard"}:
                 return svc
     return None
 

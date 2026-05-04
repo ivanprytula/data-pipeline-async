@@ -1,7 +1,7 @@
 ## Plan: Phase 12 — Kubernetes Pod Spec Probes
 
 Follows Phase 11 (CI Workflow Matrix Updates). All 5 services now have `/health` and `/readyz`
-endpoints (Phase 10). Kubernetes manifests currently exist only for `ingestor` and `query_api`
+endpoints (Phase 10). Kubernetes manifests currently exist only for `ingestor` and `analytics`
 and only in a local overlay. Phase 12 extends coverage to all 5 services, adds correct probe
 configuration, resource limits, security contexts, and aligns the local overlay for a full
 `k3d` stack run.
@@ -13,8 +13,8 @@ configuration, resource limits, security contexts, and aligns the local overlay 
 | Service | K8s manifest | `livenessProbe` | `readinessProbe` | `startupProbe` | Resources | SecurityContext |
 |---|---|---|---|---|---|---|
 | `ingestor` | ✅ manifests + chart + overlay | ✅ `/health` | ✅ `/readyz` | ❌ missing | ✅ requests+limits | ✅ non-root, drop ALL |
-| `query_api` | ✅ manifests + chart + overlay | ⚠️ needs verify | ⚠️ needs verify | ❌ missing | ⚠️ needs verify | ⚠️ needs verify |
-| `ai_gateway` | ❌ no manifest | — | — | — | — | — |
+| `analytics` | ✅ manifests + chart + overlay | ⚠️ needs verify | ⚠️ needs verify | ❌ missing | ⚠️ needs verify | ⚠️ needs verify |
+| `inference` | ❌ no manifest | — | — | — | — | — |
 | `processor` | ❌ no manifest | — | — | — | — | — |
 | `dashboard` | ❌ no manifest | — | — | — | — | — |
 
@@ -22,12 +22,12 @@ configuration, resource limits, security contexts, and aligns the local overlay 
 
 ### Critical Findings
 
-**Gap 1 — `ai_gateway`, `processor`, `dashboard` have no K8s manifests**
+**Gap 1 — `inference`, `processor`, `dashboard` have no K8s manifests**
 Three services cannot be deployed to Kubernetes at all. The local overlay only wires
-`ingestor` and `query-api`. A full stack local test (`k3d`) requires all 5 services.
+`ingestor` and `analytics`. A full stack local test (`k3d`) requires all 5 services.
 
 **Bug 2 — `startupProbe` missing from all manifests**
-Services with slow startup (ai_gateway loads sentence-transformers; processor waits for
+Services with slow startup (inference loads sentence-transformers; processor waits for
 Redpanda consumer group join) will flap under `livenessProbe` before they are ready.
 `startupProbe` with a generous `failureThreshold` prevents premature restarts during
 cold boot while keeping the liveness check tight for steady-state.
@@ -52,10 +52,10 @@ default-deny + allow-list `NetworkPolicy` resources closes this at the K8s layer
 | Service | `startupProbe` `failureThreshold` | `livenessProbe` period | `readinessProbe` period | Rationale |
 |---|---|---|---|---|
 | `ingestor` | 6 × 10s = 60s | 20s | 10s | Fast startup, DB ready quickly |
-| `ai_gateway` | 30 × 10s = 300s | 30s | 15s | sentence-transformers slow to load |
+| `inference` | 30 × 10s = 300s | 30s | 15s | sentence-transformers slow to load |
 | `processor` | 18 × 10s = 180s | 30s | 15s | Waits for Redpanda consumer join |
 | `dashboard` | 6 × 10s = 60s | 20s | 10s | No heavy startup dep |
-| `query_api` | 6 × 10s = 60s | 20s | 10s | DB pool created in lifespan |
+| `analytics` | 6 × 10s = 60s | 20s | 10s | DB pool created in lifespan |
 
 All probes use `httpGet` on the named `http` port — no exec, no tools in container.
 
@@ -96,12 +96,12 @@ Conservative starting values — tune after measuring with `kubectl top pod`:
 | Service | CPU request | CPU limit | Memory request | Memory limit |
 |---|---|---|---|---|
 | `ingestor` | 100m | 500m | 256Mi | 512Mi |
-| `ai_gateway` | 500m | 2000m | 1Gi | 2Gi |
+| `inference` | 500m | 2000m | 1Gi | 2Gi |
 | `processor` | 100m | 500m | 256Mi | 512Mi |
 | `dashboard` | 50m | 200m | 128Mi | 256Mi |
-| `query_api` | 100m | 500m | 256Mi | 512Mi |
+| `analytics` | 100m | 500m | 256Mi | 512Mi |
 
-`ai_gateway` is high because sentence-transformers loads a 400 MB model into memory.
+`inference` is high because sentence-transformers loads a 400 MB model into memory.
 Adjust limits downward after profiling — these are safe starting ceilings.
 
 #### Security Context (all services)
@@ -124,22 +124,22 @@ annotations:
 
 #### Kustomize Overlay Strategy
 
-The existing `overlays/local/` only patches `ingestor` and `query-api`. Phase 12 extends
+The existing `overlays/local/` only patches `ingestor` and `analytics`. Phase 12 extends
 it to include all 5 services. The overlay structure:
 
 ```
 infra/kubernetes/
   manifests/
     ingestor/           (exists)
-    query-api/          (exists)
-    ai-gateway/         (create)
+    analytics/          (exists)
+    inference/         (create)
     processor/          (create)
     dashboard/          (create)
   overlays/
     local/
       kustomization.yaml  (update — add 3 new services)
       ingress.yaml        (update — add routes for new services)
-      ai-gateway-deployment.yaml  (create — image tag patch)
+      inference-deployment.yaml  (create — image tag patch)
       processor-deployment.yaml   (create — image tag patch)
       dashboard-deployment.yaml   (create — image tag patch)
 ```
@@ -150,16 +150,16 @@ infra/kubernetes/
 
 **Phase 12.0: Verify and align existing manifests**
 
-1. Read `infra/kubernetes/manifests/query-api/deployment.yaml` — verify `livenessProbe`,
+1. Read `infra/kubernetes/manifests/analytics/deployment.yaml` — verify `livenessProbe`,
    `readinessProbe`, resource requests/limits, and securityContext match the standards
    above; update if stale
 2. Add `startupProbe` to `infra/kubernetes/manifests/ingestor/deployment.yaml` (currently
    missing) — use `failureThreshold: 6`, `periodSeconds: 10`, `httpGet: /health`
-3. Add `startupProbe` to `infra/kubernetes/manifests/query-api/deployment.yaml`
+3. Add `startupProbe` to `infra/kubernetes/manifests/analytics/deployment.yaml`
 
-**Phase 12.1: Create `ai_gateway` manifests**
+**Phase 12.1: Create `inference` manifests**
 
-4. Create `infra/kubernetes/manifests/ai-gateway/deployment.yaml`:
+4. Create `infra/kubernetes/manifests/inference/deployment.yaml`:
    - `containerPort: 8001`, named `http`
    - `startupProbe`: `failureThreshold: 30`, `periodSeconds: 10` (300s window for model load)
    - `livenessProbe`: `/health`, `periodSeconds: 30`
@@ -167,7 +167,7 @@ infra/kubernetes/
    - Resources: CPU 500m/2000m, Memory 1Gi/2Gi
    - Env: `QDRANT_URL` from Secret; `LOG_LEVEL` from ConfigMap
    - SecurityContext: non-root, drop ALL, `allowPrivilegeEscalation: false`
-5. Create `infra/kubernetes/manifests/ai-gateway/service.yaml` — `ClusterIP`, port 8001
+5. Create `infra/kubernetes/manifests/inference/service.yaml` — `ClusterIP`, port 8001
 
 **Phase 12.2: Create `processor` manifests**
 
@@ -200,29 +200,29 @@ infra/kubernetes/
 10. Create `infra/kubernetes/manifests/network-policies.yaml` — default deny-all ingress
     for the `data-zoo` namespace, then explicit allow rules:
     - `ingestor`: allow ingress from `ingress-nginx` namespace only
-    - `ai_gateway`: allow ingress from `ingestor` pod label only
+    - `inference`: allow ingress from `ingestor` pod label only
     - `processor`: no ingress (consumer only); allow egress to Redpanda + ingestor
     - `dashboard`: allow ingress from `ingress-nginx` namespace only
-    - `query_api`: allow ingress from `ingress-nginx` namespace only
+    - `analytics`: allow ingress from `ingress-nginx` namespace only
 
 **Phase 12.5: Update `overlays/local/`**
 
 11. Update `infra/kubernetes/overlays/local/kustomization.yaml` — add resources:
-    `../../manifests/ai-gateway`, `../../manifests/processor`, `../../manifests/dashboard`,
+    `../../manifests/inference`, `../../manifests/processor`, `../../manifests/dashboard`,
     `../../manifests/network-policies.yaml`
-12. Create overlay patches for `ai-gateway`, `processor`, `dashboard` — image tag set to
+12. Create overlay patches for `inference`, `processor`, `dashboard` — image tag set to
     `latest` for local k3d (same pattern as existing `ingestor-deployment.yaml` overlay)
 13. Update `infra/kubernetes/overlays/local/ingress.yaml` — add routing rules:
-    - `ai-gateway.127.0.0.1.nip.io:8080` → `ai-gateway` service port 8001
+    - `inference.127.0.0.1.nip.io:8080` → `inference` service port 8001
     - `dashboard.127.0.0.1.nip.io:8080` → `dashboard` service port 8003
-    - `query-api.127.0.0.1.nip.io:8080` → `query-api` service port 8005
+    - `analytics.127.0.0.1.nip.io:8080` → `analytics` service port 8005
     (processor has no ingress route — internal only)
 14. Update `infra/kubernetes/README.md` — add all 5 services to local apply commands and
     ingress host table
 
 **Phase 12.6: Helm chart scaffolding**
 
-15. Create `infra/kubernetes/charts/ai-gateway/` — scaffold from existing `charts/ingestor/`
+15. Create `infra/kubernetes/charts/inference/` — scaffold from existing `charts/ingestor/`
     pattern: `Chart.yaml`, `values.yaml` (image repo, tag, port 8001, resource defaults),
     `templates/deployment.yaml`, `templates/service.yaml`
 16. Create `infra/kubernetes/charts/processor/` — same pattern; `values.yaml` includes
@@ -234,17 +234,17 @@ infra/kubernetes/
 ### Relevant Files
 
 - `infra/kubernetes/manifests/ingestor/deployment.yaml` — add `startupProbe`
-- `infra/kubernetes/manifests/query-api/deployment.yaml` — verify + add `startupProbe`
-- `infra/kubernetes/manifests/ai-gateway/` — create (deployment + service)
+- `infra/kubernetes/manifests/analytics/deployment.yaml` — verify + add `startupProbe`
+- `infra/kubernetes/manifests/inference/` — create (deployment + service)
 - `infra/kubernetes/manifests/processor/` — create (deployment + service)
 - `infra/kubernetes/manifests/dashboard/` — create (deployment + service)
 - `infra/kubernetes/manifests/network-policies.yaml` — create
 - `infra/kubernetes/overlays/local/kustomization.yaml` — add 3 new services + network policies
 - `infra/kubernetes/overlays/local/ingress.yaml` — add 3 new routes
-- `infra/kubernetes/overlays/local/ai-gateway-deployment.yaml` — create (image patch)
+- `infra/kubernetes/overlays/local/inference-deployment.yaml` — create (image patch)
 - `infra/kubernetes/overlays/local/processor-deployment.yaml` — create (image patch)
 - `infra/kubernetes/overlays/local/dashboard-deployment.yaml` — create (image patch)
-- `infra/kubernetes/charts/ai-gateway/` — create
+- `infra/kubernetes/charts/inference/` — create
 - `infra/kubernetes/charts/processor/` — create
 - `infra/kubernetes/charts/dashboard/` — create
 - `infra/kubernetes/README.md` — update with all 5 services
@@ -261,10 +261,10 @@ kubectl create namespace data-zoo --dry-run=client -o yaml | kubectl apply -f -
 # Apply full overlay (all 5 services)
 kubectl apply -k infra/kubernetes/overlays/local
 kubectl -n data-zoo rollout status deployment/ingestor
-kubectl -n data-zoo rollout status deployment/ai-gateway
+kubectl -n data-zoo rollout status deployment/inference
 kubectl -n data-zoo rollout status deployment/processor
 kubectl -n data-zoo rollout status deployment/dashboard
-kubectl -n data-zoo rollout status deployment/query-api
+kubectl -n data-zoo rollout status deployment/analytics
 
 # All deployments available
 kubectl -n data-zoo get deployments
@@ -273,7 +273,7 @@ kubectl -n data-zoo get deployments
 kubectl -n data-zoo get pods
 
 # Probe verification per service
-for host in ingestor ai-gateway dashboard query-api; do
+for host in ingestor inference dashboard analytics; do
   code=$(curl -s -o /dev/null -w "%{http_code}" "http://$host.127.0.0.1.nip.io:8080/readyz")
   echo "$host readyz: $code"
 done
@@ -287,7 +287,7 @@ kubectl -n data-zoo exec deploy/dashboard -- \
 # Expected: connection refused / timeout (NetworkPolicy blocks it)
 
 # Non-root verification
-kubectl -n data-zoo exec deploy/ai-gateway -- id
+kubectl -n data-zoo exec deploy/inference -- id
 # Expected: uid=1001(appuser) gid=1001(appgroup)
 
 # Resource sanity
@@ -299,7 +299,7 @@ kubectl -n data-zoo top pods
 ### Decisions
 
 - **`startupProbe` everywhere**: Prevents flapping during cold boot without relaxing liveness
-  thresholds; `ai_gateway` needs up to 300s for sentence-transformers — unachievable with
+  thresholds; `inference` needs up to 300s for sentence-transformers — unachievable with
   `initialDelaySeconds` on liveness alone
 - **`processor` replicas: 1**: Kafka consumer group with 1 partition = 1 active consumer;
   scaling requires increasing topic partitions first — documented as annotation

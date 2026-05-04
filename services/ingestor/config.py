@@ -298,14 +298,14 @@ class Settings(BaseSettings):
     )
 
     # ============ Embeddings & vector search (Pillar 9) ============
-    ai_gateway_url: str = Field(
+    inference_url: str = Field(
         default="http://localhost:8001",
-        description="Base URL for the AI gateway service that handles embeddings/semantic search.",
+        description="Base URL for the inference service that handles embeddings/semantic search.",
     )
 
     vector_search_collection: str = Field(
         default=VECTOR_SEARCH_DEFAULT_COLLECTION,
-        description="Default AI gateway collection used for semantic record search.",
+        description="Default inference collection used for semantic record search.",
     )
 
     vector_search_http_timeout_seconds: int = Field(

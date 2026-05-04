@@ -42,25 +42,25 @@ sudo dnf install -y postgresql-contrib redis-tools mongodb-database-tools util-l
 
 | Package                     | macOS                    | Ubuntu/Debian       | Fedora/RHEL       | Purpose                     | When Used                                                                          |
 | --------------------------- | ------------------------ | ------------------- | ----------------- | --------------------------- | ---------------------------------------------------------------------------------- |
-| **PostgreSQL Client Tools** | `postgresql`             | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore`     | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
-| **MongoDB Tools**           | `mongodb-database-tools` | `mongodb-tools`     | `mongodb-tools`   | `mongodump`, `mongorestore` | [backup.sh](../infra/scripts/backup.sh), [restore.sh](../infra/scripts/restore.sh) |
+| **PostgreSQL Client Tools** | `postgresql`             | `postgresql-client` | `postgresql-libs` | `pg_dump`, `pg_restore`     | [backup.sh](../../infra/scripts/backup.sh), [restore.sh](../../infra/scripts/restore.sh) |
+| **MongoDB Tools**           | `mongodb-database-tools` | `mongodb-tools`     | `mongodb-tools`   | `mongodump`, `mongorestore` | [backup.sh](../../infra/scripts/backup.sh), [restore.sh](../../infra/scripts/restore.sh) |
 | **Gzip**                    | built-in                 | built-in            | built-in          | `gzip`, `zcat`              | Backup compression (automatic)                                                     |
 
-**Installation:**
+#### Installation:
 
-**macOS:**
+#### macOS:
 
 ```bash
 brew install postgresql mongodb-database-tools
 ```
 
-**Ubuntu/Debian:**
+#### Ubuntu/Debian:
 
 ```bash
 sudo apt-get install -y postgresql-client mongodb-tools
 ```
 
-**Fedora/RHEL:**
+#### Fedora/RHEL:
 
 ```bash
 sudo dnf install -y postgresql-contrib mongodb-tools
@@ -70,26 +70,26 @@ sudo dnf install -y postgresql-contrib mongodb-tools
 
 | Package        | macOS        | Ubuntu/Debian | Fedora/RHEL      | Purpose                                     | When Used                                               |
 | -------------- | ------------ | ------------- | ---------------- | ------------------------------------------- | ------------------------------------------------------- |
-| **util-linux** | `util-linux` | `util-linux`  | `util-linux`     | `nsenter` (enter container network ns)      | [chaos.sh](../infra/scripts/chaos.sh) network scenarios |
-| **iproute2**   | `iproute2`   | `iproute2`    | `iproute2-utils` | `tc` (traffic control, latency/packet loss) | [chaos.sh](../infra/scripts/chaos.sh) network chaos     |
+| **util-linux** | `util-linux` | `util-linux`  | `util-linux`     | `nsenter` (enter container network ns)      | [chaos.sh](../../infra/scripts/chaos.sh) network scenarios |
+| **iproute2**   | `iproute2`   | `iproute2`    | `iproute2-utils` | `tc` (traffic control, latency/packet loss) | [chaos.sh](../../infra/scripts/chaos.sh) network chaos     |
 
 **Note:** `tc` is only used when chaos containers have `iproute2` installed. The chaos script will warn and fall back to graceful degradation if unavailable.
 
-**Installation:**
+#### Installation:
 
-**macOS:**
+#### macOS:
 
 ```bash
 brew install util-linux iproute2
 ```
 
-**Ubuntu/Debian:**
+#### Ubuntu/Debian:
 
 ```bash
 sudo apt-get install -y util-linux iproute2
 ```
 
-**Fedora/RHEL:**
+#### Fedora/RHEL:
 
 ```bash
 sudo dnf install -y util-linux iproute2-utils
@@ -124,7 +124,7 @@ brew install util-linux iproute2
 brew install htop jq watch
 ```
 
-**Verify installation:**
+#### Verify installation:
 
 ```bash
 pg_dump --version
@@ -164,7 +164,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-**Verify installation:**
+#### Verify installation:
 
 ```bash
 pg_dump --version
@@ -204,7 +204,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-**Verify installation:**
+#### Verify installation:
 
 ```bash
 pg_dump --version
@@ -224,7 +224,7 @@ docker-compose --version
 
 ### `infra/scripts/backup.sh`
 
-**PostgreSQL backup to file:**
+#### PostgreSQL backup to file:
 
 ```bash
 # Required packages
@@ -235,7 +235,7 @@ gzip                 # built-in (all platforms)
 mongodump            # from: mongodb-tools (for MongoDB backup)
 ```
 
-**Usage:**
+#### Usage:
 
 ```bash
 bash infra/scripts/backup.sh
@@ -245,7 +245,7 @@ bash infra/scripts/backup.sh
 
 ### `infra/scripts/restore.sh`
 
-**PostgreSQL restore from file:**
+#### PostgreSQL restore from file:
 
 ```bash
 # Required packages
@@ -257,7 +257,7 @@ gzip / zcat          # built-in
 mongorestore         # from: mongodb-tools (for MongoDB restore)
 ```
 
-**Usage:**
+#### Usage:
 
 ```bash
 bash infra/scripts/restore.sh postgres backups/postgres/pg_data_pipeline_*.sql.gz
@@ -266,7 +266,7 @@ bash infra/scripts/restore.sh mongodb backups/mongodb/mongo_data_zoo_*.archive.g
 
 ### `infra/scripts/chaos.sh`
 
-**Service kill & network chaos:**
+#### Service kill & network chaos:
 
 ```bash
 # Required packages
@@ -278,7 +278,7 @@ iproute2 / tc        # network latency/packet loss scenarios
 iproute2 in containers  # tc in container network namespace
 ```
 
-**Usage:**
+#### Usage:
 
 ```bash
 bash infra/scripts/chaos.sh kill              # kill random service
@@ -348,7 +348,7 @@ bash scripts/setup/03-verify-system-requirements.sh
 
 **Error:** `pg_dump: command not found`
 
-**Solution:**
+#### Solution:
 
 - **macOS:** `brew install postgresql`
 - **Ubuntu:** `sudo apt-get install postgresql-client`
@@ -358,7 +358,7 @@ bash scripts/setup/03-verify-system-requirements.sh
 
 **Error:** `mongodump: command not found` or `mongorestore: command not found`
 
-**Solution:**
+#### Solution:
 
 - **macOS:** `brew install mongodb-database-tools`
 - **Ubuntu:** `sudo apt-get install mongodb-tools`
@@ -378,7 +378,7 @@ bash scripts/setup/03-verify-system-requirements.sh
 
 **Error:** `docker: permission denied while trying to connect to the Docker daemon`
 
-**Solution (Linux only):**
+#### Solution (Linux only):
 
 ```bash
 sudo usermod -aG docker $USER

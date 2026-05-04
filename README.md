@@ -8,7 +8,7 @@ Production-grade async data pipeline in Python. Learn scalable backend patterns 
 
 If you have 10 minutes, use this evaluation path:
 
-1. [CV](CV.md): Candidate scope, impact stories, role level.
+1. [CV](docs/CV.md): Candidate scope, impact stories, role level.
 2. [Architecture Overview](docs/04-architecture-overview.md): System thinking, design depth, trade-offs.
 3. [Backend Concepts and Patterns](docs/09-backend-concepts-and-patterns.md): Technical reasoning quality.
 4. [Interview Prep](docs/10-interview-prep-middle-plus.md): Communication clarity under interview-style questions.
@@ -31,7 +31,7 @@ If you have 10 minutes, use this evaluation path:
 | Reliability and resilience         | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md)                                 |
 | Security, auth, and RBAC           | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/progress/pillar-5-security.md](docs/progress/pillar-5-security.md), [docs/progress/roadmap.md](docs/progress/roadmap.md) |
 | Admin UI and user workflows        | [docs/04-architecture-overview.md](docs/04-architecture-overview.md), [docs/03-daily-development.md](docs/03-daily-development.md), [docs/progress/roadmap.md](docs/progress/roadmap.md)             |
-| Communication quality              | [CV.md](CV.md), [docs/10-interview-prep-middle-plus.md](docs/10-interview-prep-middle-plus.md)                                                                                                       |
+| Communication quality              | [docs/CV.md](docs/CV.md), [docs/10-interview-prep-middle-plus.md](docs/10-interview-prep-middle-plus.md)                                                                                                       |
 | Delivery workflow quality          | [docs/dev/commands.md](docs/dev/commands.md), [docs/cloud-deployment.md](docs/cloud-deployment.md), [docs/adr/README.md](docs/adr/README.md)                                                         |
 
 ---
@@ -97,7 +97,7 @@ Then access:
 
 | Doc                                                              | Purpose                                            |
 | ---------------------------------------------------------------- | -------------------------------------------------- |
-| **[CV.md](CV.md)**                                               | Recruiter-focused narrative + Data Zoo positioning |
+| **[CV.md](docs/CV.md)**                                               | Recruiter-focused narrative + Data Zoo positioning |
 | **[10 — Interview Prep](docs/10-interview-prep-middle-plus.md)** | Practical Q&A for middle/middle+ roles             |
 
 ### Additional Reference Docs
@@ -198,7 +198,6 @@ pyproject.toml         # Python dependencies
 | [docs/progress/pillar-7-data-etl.md](docs/progress/pillar-7-data-etl.md)                             | Pillar 7: Data / ETL                                                    |
 | [docs/progress/pillar-8-notifications-emailing.md](docs/progress/pillar-8-notifications-emailing.md) | Pillar 8: Notifications / Emailing                                      |
 | [docs/progress/portfolio-phase-2-scrapers.md](docs/progress/portfolio-phase-2-scrapers.md)           | Phase 2 portfolio item                                                  |
-| [docs/progress/portfolio-phase-3-ai-gateway.md](docs/progress/portfolio-phase-3-ai-gateway.md)       | Phase 3 portfolio item                                                  |
 | [docs/progress/portfolio-phase-4-resilience.md](docs/progress/portfolio-phase-4-resilience.md)       | Phase 4 portfolio item                                                  |
 | [docs/progress/portfolio-phase-7-cloud-iac.md](docs/progress/portfolio-phase-7-cloud-iac.md)         | Phase 7 portfolio item — Infrastructure as Code, Terraform, ECS Fargate |
 | [docs/progress/weekly-progress-phase-2.md](docs/progress/weekly-progress-phase-2.md)                 | Weekly progress — Phase 2                                               |

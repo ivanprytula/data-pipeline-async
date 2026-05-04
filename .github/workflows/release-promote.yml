@@ -10,8 +10,8 @@ on:
         options:
           - all
           - ingestor
-          - ai_gateway
-          - query_api
+          - inference
+          - analytics
           - processor
           - dashboard
       source-ref:
@@ -63,8 +63,8 @@ jobs:
               all)
                 matrix='[
                   {"repository":"data-zoo/ingestor"},
-                  {"repository":"data-zoo/ai_gateway"},
-                  {"repository":"data-zoo/query_api"},
+                  {"repository":"data-zoo/inference"},
+                  {"repository":"data-zoo/analytics"},
                   {"repository":"data-zoo/processor"},
                   {"repository":"data-zoo/dashboard"}
                 ]'
@@ -72,11 +72,11 @@ jobs:
               ingestor)
                 matrix='[{"repository":"data-zoo/ingestor"}]'
                 ;;
-              ai_gateway)
-                matrix='[{"repository":"data-zoo/ai_gateway"}]'
+              inference)
+                matrix='[{"repository":"data-zoo/inference"}]'
                 ;;
-              query_api)
-                matrix='[{"repository":"data-zoo/query_api"}]'
+              analytics)
+                matrix='[{"repository":"data-zoo/analytics"}]'
                 ;;
               processor)
                 matrix='[{"repository":"data-zoo/processor"}]'

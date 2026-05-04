@@ -4,7 +4,7 @@ Entry point: ``uvicorn services.dashboard.main:app``
 
 Pages:
 - /        Records Explorer (HTMX infinite scroll, calls ingestor)
-- /search  Semantic Search (calls ai-gateway /search)
+- /search  Semantic Search (calls inference /search)
 - /metrics Live Metrics (SSE stream from ingestor /metrics)
 
 Key submodules:

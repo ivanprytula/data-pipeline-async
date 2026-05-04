@@ -1,4 +1,4 @@
-"""Unit tests for Phase 5 analytics query-api service.
+"""Unit tests for Phase 5 analytics service.
 
 Tests for:
 - Query parameter validation and edge cases

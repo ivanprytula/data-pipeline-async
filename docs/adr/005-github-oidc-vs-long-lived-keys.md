@@ -17,7 +17,7 @@ How should GitHub Actions authenticate with AWS in the CI/CD pipeline?
 
 ## Decision
 
-**Use GitHub OIDC Provider with temporary AWS credentials.**
+#### Use GitHub OIDC Provider with temporary AWS credentials.
 
 ### Rationale
 
@@ -161,7 +161,7 @@ Only **non-sensitive** values:
 | `AWS_ACCOUNT_ID` | `123456789012` | No secrets; public info once you deploy |
 | `AWS_ROLE_ARN` | `arn:aws:iam::123456789012:role/data-zoo-github-actions` | Role name is deployment detail; no credentials |
 
-**NO secrets needed:**
+#### NO secrets needed:
 
 - ❌ `AWS_ACCESS_KEY_ID`
 - ❌ `AWS_SECRET_ACCESS_KEY`
@@ -231,7 +231,7 @@ Only **non-sensitive** values:
 ## Related Decisions
 
 - [ADR 004: ECS Fargate vs EKS](004-ecs-fargate-vs-eks.md) (compute choice)
-- [Phase 7: Cloud Deployment](../../cloud-deployment.md) (comprehensive setup guide)
+- [Phase 7: Cloud Deployment](../cloud-deployment.md) (comprehensive setup guide)
 
 ---
 

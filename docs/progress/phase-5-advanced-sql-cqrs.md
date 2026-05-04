@@ -2,7 +2,7 @@
 
 ## Summary
 
-Phase 5 introduces production-grade analytics capabilities through advanced PostgreSQL features and CQRS architecture. The ingestor remains unchanged; a new read-optimized `query_api` service handles all analytics queries using materialized views, window functions, and CTEs.
+Phase 5 introduces production-grade analytics capabilities through advanced PostgreSQL features and CQRS architecture. The ingestor remains unchanged; a new read-optimized `analytics` service handles all analytics queries using materialized views, window functions, and CTEs.
 
 ## Key Features Implemented
 
@@ -26,7 +26,7 @@ hour_stats AS (
 SELECT hour, record_count, processed_pct, avg_value, ...
 ```
 
-**Benefits:**
+Benefits:
 
 - Fast dashboard queries (pre-computed aggregates)
 - Manual refresh via `POST /analytics/refresh-materialized-view`
@@ -41,7 +41,7 @@ SELECT hour, record_count, processed_pct, avg_value, ...
 - Old partitions can be archived/deleted independently
 - 12-month partition plan pre-created
 
-**Benefits:**
+Benefits:
 
 - Faster queries on recent data (smaller indexes)
 - Archive strategy: Move 3+ month-old partitions to cold storage
@@ -73,11 +73,11 @@ FROM records
 
 Three endpoints demonstrate CTE patterns:
 
-| Endpoint | CTE Strategy | Use Case |
-|----------|-------------|----------|
-| `/analytics/summary` | Hourly bucketing → aggregation → enrichment | Dashboard top-level stats |
-| `/analytics/percentile` | Direct window function | Outlier detection |
-| `/analytics/top-by-source` | Filter → rank → postprocess | Top records per source |
+| Endpoint                   | CTE Strategy                                | Use Case                  |
+| -------------------------- | ------------------------------------------- | ------------------------- |
+| `/analytics/summary`       | Hourly bucketing → aggregation → enrichment | Dashboard top-level stats |
+| `/analytics/percentile`    | Direct window function                      | Outlier detection         |
+| `/analytics/top-by-source` | Filter → rank → postprocess                 | Top records per source    |
 
 ### 5. pgvector Extension (Comparison with Qdrant)
 
@@ -97,11 +97,11 @@ ORDER BY embedding <-> query_vector
 LIMIT 10;
 ```
 
-**See** [ADR 002: Qdrant vs pgvector](../../docs/adr/002-qdrant-vs-pgvector.md) for detailed trade-offs.
+**See** [ADR 002: Qdrant vs pgvector](../design/adr/002-qdrant-vs-pgvector.md) for detailed trade-offs.
 
 ## Architecture: CQRS Pattern
 
-**Write Side (Unchanged):**
+Write Side (Unchanged):
 
 ```text
 POST /api/v1/records
@@ -111,17 +111,17 @@ ingestor (app/) saves to records table
 Publishes record.created event → Kafka topic
 ```
 
-**Read Side (New):**
+Read Side (New):
 
 ```text
-query_api service (read-only)
+analytics service (read-only)
   ├── GET /analytics/summary → materialized view
   ├── GET /analytics/percentile → window function
   ├── GET /analytics/top-by-source → RANK() OVER
   └── POST /refresh-materialized-view → manual refresh
 ```
 
-**Eventual Consistency:**
+Eventual Consistency:
 
 - Writes immediately visible in raw `records` table
 - Aggregates in `records_hourly_stats` updated on-demand
@@ -209,7 +209,7 @@ Run the migration to create views, partitions, and extensions:
 uv run alembic upgrade head
 ```
 
-**Migration: `20260421_000001_phase5_advanced_sql_cqrs.py`**
+#### Migration: `20260421_000001_phase5_advanced_sql_cqrs.py`
 
 - Creates `records_hourly_stats` materialized view
 - Creates `records_archive` partitioned table (12-month plan)
@@ -223,7 +223,7 @@ uv run alembic upgrade head
 # Apply migrations
 uv run alembic upgrade head
 
-# Start services (including query_api on port 8005)
+# Start services (including analytics on port 8005)
 docker compose up --build
 
 # Query the analytics API
@@ -250,7 +250,7 @@ curl http://localhost:8005/analytics/top-by-source
 
    ```bash
    curl http://localhost:8005/health
-   # {"status": "healthy", "service": "query_api"}
+   # {"status": "healthy", "service": "analytics"}
    ```
 
 ## Advanced Python Patterns
@@ -292,7 +292,7 @@ PARTITION BY RANGE (timestamp)
 
 ## Future Extensions (Phase 6+)
 
-- **Kafka Consumer in query_api:** Subscribe to `record.created` events, maintain read-optimized projections in real-time
+- **Kafka Consumer in analytics:** Subscribe to `record.created` events, maintain read-optimized projections in real-time
 - **REFRESH MATERIALIZED VIEW CONCURRENTLY:** Requires unique index on view; removes blocking refreshes
 - **Background Tasks:** APScheduler for hourly materialized view refresh
 - **EXPLAIN ANALYZE** integration: Dashboard showing expensive queries
@@ -300,4 +300,4 @@ PARTITION BY RANGE (timestamp)
 
 ## Related ADRs
 
-- [ADR 002: Qdrant vs pgvector](../../docs/adr/002-qdrant-vs-pgvector.md) — Vector store decision
+- [ADR 002: Qdrant vs pgvector](../design/adr/002-qdrant-vs-pgvector.md) — Vector store decision

@@ -150,11 +150,11 @@ async def test_search_partial_missing_query_returns_422(client: AsyncClient) -> 
 
 
 @pytest.mark.integration
-async def test_search_partial_handles_ai_gateway_error(
+async def test_search_partial_handles_inference_error(
     client: AsyncClient,
     patch_pages_async_client,
 ) -> None:
-    """POST /partials/search gracefully handles ai_gateway unavailability."""
+    """POST /partials/search gracefully handles inference service unavailability."""
     patch_pages_async_client(error=HTTPError("Gateway timeout"))
 
     r = await client.post("/partials/search", data={"query": "test"})

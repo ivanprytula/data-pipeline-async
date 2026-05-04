@@ -50,10 +50,10 @@ Task definition changes needed per service:
 | Service | Port | `healthCheck.command` path |
 |---|---|---|
 | `ingestor` | 8000 | `/health` |
-| `ai_gateway` | 8001 | `/health` |
+| `inference` | 8001 | `/health` |
 | `processor` | 8002 | `/health` — **missing entirely** |
 | `dashboard` | 8003 | `/health` |
-| `query_api` | 8005 | `/health` |
+| `analytics` | 8005 | `/health` |
 | `webhook` | 8004 | `/health` — add after Phase 14 deploys |
 
 Terraform module pattern to use (reuse from existing `ingestor` task def as reference):
@@ -83,10 +83,10 @@ Expected findings per service:
 | Service | Expected writable paths | `emptyDir` mount |
 |---|---|---|
 | `ingestor` | `/tmp`, `/app/logs` (if log file configured) | `emptyDir: {}` at `/tmp` |
-| `ai_gateway` | `/tmp`, `/app/model_cache` (sentence-transformers cache) | `emptyDir: {medium: Memory}` at model cache |
+| `inference` | `/tmp`, `/app/model_cache` (sentence-transformers cache) | `emptyDir: {medium: Memory}` at model cache |
 | `processor` | `/tmp` | `emptyDir: {}` at `/tmp` |
 | `dashboard` | `/tmp`, Jinja2 template cache | `emptyDir: {}` at `/tmp` |
-| `query_api` | `/tmp` | `emptyDir: {}` at `/tmp` |
+| `analytics` | `/tmp` | `emptyDir: {}` at `/tmp` |
 
 After adding `emptyDir` mounts: set `readOnlyRootFilesystem: true` in all K8s deployment `securityContext` blocks. Also set same in ECS task definitions (`readonlyRootFilesystem: true` in container config).
 
@@ -97,7 +97,7 @@ Phase 10 OOS: _"Service-to-service authentication (JWT propagation, mTLS)"_ — 
 Pattern: each service generates a short-lived internal JWT (`iss: data-zoo-internal`, `sub: <service-name>`, `exp: now + 60s`) signed with a shared `INTERNAL_JWT_SECRET` (from Secrets Manager). Outbound requests include `Authorization: Bearer <token>`. Inbound routers validate the claim.
 
 ```text
-ingestor → ai_gateway (embeddings): Authorization: Bearer <internal-jwt>
+ingestor → inference (embeddings): Authorization: Bearer <internal-jwt>
 ingestor → processor (trigger replay): Authorization: Bearer <internal-jwt>
 dashboard → ingestor (admin reruns): already authenticated via session; add internal JWT for M2M
 ```
@@ -112,7 +112,7 @@ Routes that require internal-only access (no user auth):
 
 - `POST /api/v1/background/ingest/batch` — ingestor (currently open)
 - Processor `/admin/*` endpoints
-- `query_api` projection update endpoints
+- `analytics` projection update endpoints
 
 #### Phase 13.3 — Webhook Auth & Key Lifecycle
 
@@ -185,7 +185,7 @@ Implement `redis_lock()` async context manager in `ingestor/cache.py`.
 12. Create `libs/platform/auth.py` with `generate_internal_token()`, `verify_internal_token()`, `InternalAuthMiddleware`
 13. Add `INTERNAL_JWT_SECRET` to `ingestor/config.py`, `services/*/config.py` (reads from env/Secrets Manager)
 14. Tag internal-only routes with a dependency that calls `verify_internal_token()`
-15. Update `ingestor` outbound calls to `ai_gateway` and `processor` to inject `Authorization: Bearer <internal-jwt>`
+15. Update `ingestor` outbound calls to `inference` and `processor` to inject `Authorization: Bearer <internal-jwt>`
 16. Write unit tests: valid token, expired token, wrong issuer, missing header
 17. Update `docker-compose.yml` and `infra/kubernetes/manifests/*/deployment.yaml` to pass `INTERNAL_JWT_SECRET` from Secret
 
@@ -258,7 +258,7 @@ terraform -chdir=infra/terraform plan | grep "aws_ecs_task_definition"
 # Expected: 1 resource to change (processor); 4 unchanged
 
 # Phase 13.1: readOnlyRootFilesystem enforced
-for svc in ingestor ai-gateway processor dashboard query-api; do
+for svc in ingestor inference processor dashboard analytics; do
   kubectl -n data-zoo exec deploy/$svc -- touch /app/test 2>&1 | grep -q "Read-only" \
     && echo "$svc: HARDENED" || echo "$svc: FAIL"
 done
@@ -271,7 +271,7 @@ kubectl -n data-zoo exec deploy/ingestor -- touch /tmp/test && echo "tmp: OK"
 uv run pytest tests/unit/test_internal_auth.py -v
 # Expected: valid token passes, expired token rejected, missing header rejected
 
-# Integration: ingestor → ai_gateway call succeeds with valid internal JWT
+# Integration: ingestor → inference call succeeds with valid internal JWT
 uv run pytest tests/integration/test_service_to_service_auth.py -v
 
 # Phase 13.3: Webhook API key lifecycle

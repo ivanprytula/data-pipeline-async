@@ -10,19 +10,19 @@ All materials organized by **7 pillars** — each expands on the checklist with 
 
 ### 📚 Pillars (Core Learning)
 
-1. **[Pillar 1: Core Backend](./pillar-1-core-backend.md)** — Python, FastAPI, Pydantic, Testing
-2. **[Pillar 2: Database](./pillar-2-database.md)** — PostgreSQL, SQLAlchemy, Alembic, Query Optimization
-3. **[Pillar 3: Ops & Infrastructure](./pillar-3-ops-infrastructure.md)** — Docker, CI/CD, Cloud, Kubernetes
-4. **[Pillar 4: Observability](./pillar-4-observability.md)** — Logging, Metrics, Tracing
-5. **[Pillar 5: Security](./pillar-5-security.md)** — Auth, Input Validation, API Hardening
-6. **[Pillar 6: AI / LLM](./pillar-6-ai-llm.md)** — LLM APIs, RAG, Agent Frameworks
-7. **[Pillar 7: Data & ETL](./pillar-7-data-etl.md)** — Pandas, ETL Patterns, Scraping
+1. **[Pillar 1: Core Backend](../progress/pillar-1-core-backend.md)** — Python, FastAPI, Pydantic, Testing
+2. **[Pillar 2: Database](../progress/pillar-2-database.md)** — PostgreSQL, SQLAlchemy, Alembic, Query Optimization
+3. **[Pillar 3: Ops & Infrastructure](../progress/pillar-3-ops-infrastructure.md)** — Docker, CI/CD, Cloud, Kubernetes
+4. **[Pillar 4: Observability](../progress/pillar-4-observability.md)** — Logging, Metrics, Tracing
+5. **[Pillar 5: Security](../progress/pillar-5-security.md)** — Auth, Input Validation, API Hardening
+6. **[Pillar 6: AI / LLM](../progress/pillar-6-ai-llm.md)** — LLM APIs, RAG, Agent Frameworks
+7. **[Pillar 7: Data & ETL](../progress/pillar-7-data-etl.md)** — Pandas, ETL Patterns, Scraping
 
-### ⚠️ [Common Gotchas & Pitfalls](./gotchas.md)
+### ⚠️ [Common Gotchas & Pitfalls](../dev/gotchas.md)
 
 Things that trip up developers, solutions, and how to spot them.
 
-### 🔗 [References & External Resources](./references.md)
+### 🔗 [References & External Resources](../setup/references.md)
 
 Official docs, tutorials, tools, and where to learn more.
 
@@ -113,7 +113,7 @@ Checklist of competencies by end of pillar.
 
 ## Sync with Milestone Checklist
 
-This knowledge base **mirrors and expands** [/.github/prompts/plan-backendMilestoneChecklist.prompt.md](../.github/prompts/plan-backendMilestoneChecklist.prompt.md).
+This knowledge base **mirrors and expands** [/.github/prompts/plan-backendMilestoneChecklist.prompt.md](../../.github/prompts/plan-backendMilestoneChecklist.prompt.md).
 
 - Checklist = actionable, deliverable tasks
 - Docs = theory, patterns, contexts, gotchas
@@ -133,8 +133,8 @@ When you learn something new:
 
 1. Add it to the relevant pillar doc
 2. Update "You Should Be Able To" section
-3. Link it from [gotchas.md](./gotchas.md) if it's a common mistake
-4. Add external resources to [references.md](./references.md)
+3. Link it from [gotchas.md](../dev/gotchas.md) if it's a common mistake
+4. Add external resources to [references.md](../setup/references.md)
 
 ---
 

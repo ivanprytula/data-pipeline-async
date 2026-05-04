@@ -11,7 +11,7 @@
 The project runs 6 Dockerized services in development, CI/CD, and production:
 
 1. **Ingestor** (main app) - FastAPI REST API
-2. **AI Gateway** - Embedding service
+2. **Inference Service** - Embedding service
 3. **Query API** - Vector search
 4. **Processor** - Background worker
 5. **Dashboard** - UI service
@@ -438,8 +438,8 @@ Expected performance based on configuration:
   "images_scanned": 6,
   "sbom_artifacts": [
     "sbom-ingestor.json",
-    "sbom-ai_gateway.json",
-    "sbom-query_api.json",
+    "sbom-inference.json",
+    "sbom-analytics.json",
     "sbom-processor.json",
     "sbom-dashboard.json",
     "sbom-database.json"

@@ -146,8 +146,8 @@ jobs:
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           ECR_INGESTOR_URI: ${{ vars.ECR_INGESTOR_URI }}
-          ECR_AI_GATEWAY_URI: ${{ vars.ECR_AI_GATEWAY_URI }}
-          ECR_QUERY_API_URI: ${{ vars.ECR_QUERY_API_URI }}
+          ECR_INFERENCE_URI: ${{ vars.ECR_INFERENCE_URI }}
+          ECR_ANALYTICS_URI: ${{ vars.ECR_ANALYTICS_URI }}
           ECR_PROCESSOR_URI: ${{ vars.ECR_PROCESSOR_URI }}
           ECR_DASHBOARD_URI: ${{ vars.ECR_DASHBOARD_URI }}
         run: |
@@ -171,8 +171,8 @@ jobs:
 
           service_uris: dict[str, str] = {
               "ingestor": os.environ.get("ECR_INGESTOR_URI", "").strip(),
-              "ai_gateway": os.environ.get("ECR_AI_GATEWAY_URI", "").strip(),
-              "query_api": os.environ.get("ECR_QUERY_API_URI", "").strip(),
+              "inference": os.environ.get("ECR_INFERENCE_URI", "").strip(),
+              "analytics": os.environ.get("ECR_ANALYTICS_URI", "").strip(),
               "processor": os.environ.get("ECR_PROCESSOR_URI", "").strip(),
               "dashboard": os.environ.get("ECR_DASHBOARD_URI", "").strip(),
           }

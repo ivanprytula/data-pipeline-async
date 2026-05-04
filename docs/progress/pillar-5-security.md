@@ -37,13 +37,13 @@ This project demonstrates three distinct auth patterns for different use cases:
 
 **Use case:** Protecting sensitive documentation endpoints (`/docs`, `/redoc`, `/openapi.json`).
 
-**Mechanism:**
+#### Mechanism:
 
 - Credentials embedded in `Authorization: Basic base64(user:pass)` header
 - No server state (credentials validated against environment variables)
 - No expiry; credentials must be manually rotated
 
-**Production hardening:**
+#### Production hardening:
 
 - Always use HTTPS (never HTTP)
 - Rotate credentials quarterly
@@ -60,13 +60,13 @@ This project demonstrates three distinct auth patterns for different use cases:
 
 **Use case:** Service-to-service or static token authentication. No server-side session needed.
 
-**Mechanism:**
+#### Mechanism:
 
 - Static `Authorization: Bearer <token>` header
 - Validated via exact string match (no lookup, no expiry)
 - Simple but cannot be revoked before expiry
 
-**Production hardening:**
+#### Production hardening:
 
 - No static bearer tokens in production (cannot revoke)
 - Solution: **Key versioning**
@@ -88,14 +88,14 @@ This project demonstrates three distinct auth patterns for different use cases:
 
 **Use case:** Traditional web apps, browser-based UIs, need immediate revocation.
 
-**Mechanism:**
+#### Mechanism:
 
 - Server generates session ID and stores in Redis (or database)
 - `session_id` cookie sent to client (HttpOnly, Secure, SameSite=Strict)
 - Client returns cookie on future requests
 - Server looks up session in Redis and validates TTL
 
-**Production hardening:**
+#### Production hardening:
 
 - Use Redis (not in-memory dict) for session store
 - Set TTL on session key (expire after N hours of inactivity)
@@ -104,7 +104,7 @@ This project demonstrates three distinct auth patterns for different use cases:
 - Monitor session count as metric (detect credential stuffing)
 - Use rotating session IDs: generate new ID on privilege escalation
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Need to revoke NOW (not at expiry)?           -> Session-based (Redis)
@@ -174,7 +174,7 @@ async def delete_record(record_id: int, user: User = Depends(require_admin)):
     # Only admin can delete
 ```
 
-**When to use each auth mechanism:**
+#### When to use each auth mechanism:
 
 - HTTP Basic Auth: Protecting internal dashboards, documentation
 - Bearer Token: API keys for services, automation, integrations (with key versioning)

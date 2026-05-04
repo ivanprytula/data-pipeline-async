@@ -15,12 +15,12 @@ bash scripts/daily/01-start-dev-services.sh          # Start all dev services
 bash scripts/ops/02-compose-profile.sh dev up -d     # Dev resource profile (override file)
 bash scripts/ops/02-compose-profile.sh prod-like up -d  # Prod-like resource profile
 docker compose --profile monitoring up -d            # Optional monitoring stack
-docker compose --profile vector up -d                # Optional vector stack (qdrant + ai-gateway)
+docker compose --profile vector up -d                # Optional vector stack (qdrant + inference)
 docker compose --profile worker up -d                # Optional processor worker
 bash scripts/ops/02-compose-profile.sh dev up -d     # Dev resource profile (override file)
 bash scripts/ops/02-compose-profile.sh prod-like up -d  # Prod-like resource profile
 docker compose --profile monitoring up -d            # Optional monitoring stack
-docker compose --profile vector up -d                # Optional vector stack (qdrant + ai-gateway)
+docker compose --profile vector up -d                # Optional vector stack (qdrant + inference)
 docker compose --profile worker up -d                # Optional processor worker
 bash scripts/daily/03-run-tests.sh all         # Run all tests
 bash scripts/daily/03-run-tests.sh unit        # Run unit tests only
@@ -328,8 +328,8 @@ repo="ivanprytula/data-pipeline-async"
 
 # Rotate/update environment variable values
 scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME ingestor --env dev --repo "$repo"
-scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_AI_GATEWAY ai-gateway --env dev --repo "$repo"
-scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY ai-gateway --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_SERVICE_NAME_AI_GATEWAY inference --env dev --repo "$repo"
+scripts/ops/01-gh-actions-config.sh vars set ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY inference --env dev --repo "$repo"
 
 # Update signer identity policy used by CD verification
 scripts/ops/01-gh-actions-config.sh vars set COSIGN_CERTIFICATE_IDENTITY \

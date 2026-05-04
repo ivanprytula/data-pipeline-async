@@ -85,7 +85,7 @@ async def search_partial(
     request: Request,
     query: Annotated[str, Form()],
 ) -> HTMLResponse:
-    """HTMX partial — calls ai-gateway /search and returns results partial."""
+    """HTMX partial — calls inference /search and returns results partial."""
     results = await _fetch_search_results(query)
     return templates.TemplateResponse(
         request,
@@ -198,19 +198,19 @@ async def _fetch_records(
 
 
 async def _fetch_search_results(query: str) -> list[dict]:
-    """Call ai-gateway /search and return results list."""
-    ai_gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8001")
+    """Call inference /search and return results list."""
+    inference_url = os.getenv("INFERENCE_URL", "http://localhost:8001")
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
-                f"{ai_gateway_url}/search",
+                f"{inference_url}/search",
                 json={"query": query, "top_k": 10},
             )
             resp.raise_for_status()
             body = resp.json()
             return body.get("results", [])
     except httpx.HTTPError as exc:
-        logger.warning("ai_gateway_search_failed", extra={"error": str(exc)})
+        logger.warning("inference_search_failed", extra={"error": str(exc)})
         return []
 
 

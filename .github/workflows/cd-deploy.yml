@@ -16,8 +16,8 @@ on:
         type: choice
         options:
           - ingestor
-          - ai_gateway
-          - query_api
+          - inference
+          - analytics
           - processor
           - dashboard
       image-uri:
@@ -52,10 +52,10 @@ jobs:
     env:
       ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
       ECS_TASK_DEFINITION_FAMILY: ${{ vars.ECS_TASK_DEFINITION_FAMILY }}
-      ECS_SERVICE_NAME_AI_GATEWAY: ${{ vars.ECS_SERVICE_NAME_AI_GATEWAY }}
-      ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY: ${{ vars.ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY }}
-      ECS_SERVICE_NAME_QUERY_API: ${{ vars.ECS_SERVICE_NAME_QUERY_API }}
-      ECS_TASK_DEFINITION_FAMILY_QUERY_API: ${{ vars.ECS_TASK_DEFINITION_FAMILY_QUERY_API }}
+      ECS_SERVICE_NAME_INFERENCE: ${{ vars.ECS_SERVICE_NAME_INFERENCE }}
+      ECS_TASK_DEFINITION_FAMILY_INFERENCE: ${{ vars.ECS_TASK_DEFINITION_FAMILY_INFERENCE }}
+      ECS_SERVICE_NAME_ANALYTICS: ${{ vars.ECS_SERVICE_NAME_ANALYTICS }}
+      ECS_TASK_DEFINITION_FAMILY_ANALYTICS: ${{ vars.ECS_TASK_DEFINITION_FAMILY_ANALYTICS }}
       ECS_SERVICE_NAME_PROCESSOR: ${{ vars.ECS_SERVICE_NAME_PROCESSOR }}
       ECS_TASK_DEFINITION_FAMILY_PROCESSOR: ${{ vars.ECS_TASK_DEFINITION_FAMILY_PROCESSOR }}
       ECS_SERVICE_NAME_DASHBOARD: ${{ vars.ECS_SERVICE_NAME_DASHBOARD }}
@@ -77,15 +77,15 @@ jobs:
               default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY"
               default_container_name="ingestor"
               ;;
-            ai_gateway)
-              default_ecs_service="$ECS_SERVICE_NAME_AI_GATEWAY"
-              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY"
-              default_container_name="ai_gateway"
+            inference)
+              default_ecs_service="$ECS_SERVICE_NAME_INFERENCE"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_INFERENCE"
+              default_container_name="inference"
               ;;
-            query_api)
-              default_ecs_service="$ECS_SERVICE_NAME_QUERY_API"
-              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_QUERY_API"
-              default_container_name="query_api"
+            analytics)
+              default_ecs_service="$ECS_SERVICE_NAME_ANALYTICS"
+              default_task_definition_family="$ECS_TASK_DEFINITION_FAMILY_ANALYTICS"
+              default_container_name="analytics"
               ;;
             # NOTE (Phase 11.3 / Phase 13 pending):
             # processor now runs as FastAPI on port 8002 (since Phase 10.4).

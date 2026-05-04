@@ -11,8 +11,8 @@ in observability, operational readiness, and cross-service contracts.
 | Service | `/health` | `/readyz` | Structured JSON logging | Graceful shutdown |
 |---|---|---|---|---|
 | `ingestor` | ✅ | ✅ (DB ping) | ✅ `python-json-logger` | ✅ lifespan |
-| `ai_gateway` | ✅ | ❌ missing | ❌ stdlib `logging` only | ✅ lifespan |
-| `query_api` | ✅ | ✅ (DB ping) | ❌ stdlib `logging` only | ❌ no lifespan |
+| `inference` | ✅ | ❌ missing | ❌ stdlib `logging` only | ✅ lifespan |
+| `analytics` | ✅ | ✅ (DB ping) | ❌ stdlib `logging` only | ❌ no lifespan |
 | `dashboard` | ✅ | ✅ (shallow) | ❌ stdlib `logging` only | ❌ no lifespan |
 | `processor` | ❌ no HTTP (script) | ❌ no HTTP | ❌ stdlib `logging` only | ✅ SIGTERM via asyncio |
 
@@ -20,12 +20,12 @@ in observability, operational readiness, and cross-service contracts.
 
 ### Critical Findings
 
-**Bug 1 — `ai_gateway` has no `/readyz`**
+**Bug 1 — `inference` has no `/readyz`**
 `/health` returns a static `{"status": "ok"}`. No check that the vector store (Qdrant) is reachable.
 K8s readiness probe + docker-compose `depends_on` condition: service_healthy cannot distinguish
 "started" from "ready to serve traffic".
 
-**Bug 2 — `query_api` has no `lifespan` context manager**
+**Bug 2 — `analytics` has no `lifespan` context manager**
 DB connection pool is created at module load, never explicitly torn down. Leads to connection leaks
 on container restart and suppresses clean shutdown in docker-compose.
 
@@ -57,7 +57,7 @@ filters on `correlation_id`, `service`, `level` fields only work for ingestor lo
 | `/readyz` (readiness) | Can it serve traffic? | Remove from load balancer, do NOT restart |
 
 **Rule:** Liveness must never depend on upstream services. Readiness should check one critical
-upstream per service (DB for data services, vector store for ai_gateway, ingestor for dashboard).
+upstream per service (DB for data services, vector store for inference, ingestor for dashboard).
 Never check non-critical upstreams in readiness — a caching service being down should not mark
 the service unready.
 
@@ -156,19 +156,19 @@ the first log statement, inside the lifespan startup block.
 1. Create or extend `libs/platform/logging.py` — `setup_json_logger(service_name: str) -> None`
    using `python-json-logger`; adds `service`, `correlation_id` fields; respects `LOG_LEVEL` env var
 
-**Phase 10.1: `ai_gateway` hardening**
+**Phase 10.1: `inference` hardening**
 
 2. Add `/readyz` endpoint — check Qdrant reachability via `qdrant_client.health()` or
    `GET http://qdrant:6333/healthz`; return `503` if unreachable
-3. Replace `logging.basicConfig` → `setup_json_logger("ai_gateway")` from shared module
+3. Replace `logging.basicConfig` → `setup_json_logger("inference")` from shared module
 4. Add `lifespan` context manager — move vector store init into lifespan startup; graceful teardown
    on shutdown (flush pending embeddings, close client)
 
-**Phase 10.2: `query_api` hardening**
+**Phase 10.2: `analytics` hardening**
 
 5. Add `lifespan` context manager — create DB engine in startup, dispose in shutdown; eliminates
    connection leak on restart
-6. Replace `logging.basicConfig` → `setup_json_logger("query_api")`
+6. Replace `logging.basicConfig` → `setup_json_logger("analytics")`
 7. `/readyz` already performs DB ping — verify it returns `503` (not `500`) on failure
 
 **Phase 10.3: `dashboard` hardening**
@@ -208,8 +208,8 @@ the first log statement, inside the lifespan startup block.
 ### Relevant Files
 
 - `libs/platform/logging.py` — create/extend shared JSON logger setup
-- `services/ai_gateway/main.py` — add `/readyz`, lifespan, structured logging
-- `services/query_api/main.py` — add lifespan, fix `/readyz` status code, structured logging
+- `services/inference/main.py` — add `/readyz`, lifespan, structured logging
+- `services/analytics/main.py` — add lifespan, fix `/readyz` status code, structured logging
 - `services/dashboard/main.py` — improve `/readyz`, lifespan, structured logging
 - `services/processor/main.py` — refactor to FastAPI app; `consume()` as `asyncio.Task` in lifespan;
   add `/health`, `/readyz`, `ConsumerState`; structured logging
@@ -225,9 +225,9 @@ the first log statement, inside the lifespan startup block.
 ```bash
 # All readyz probes return correct status codes
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/readyz   # ingestor: 200
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/readyz   # ai_gateway: 200
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/readyz   # inference: 200
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8002/readyz   # processor: 200 when consuming
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8005/readyz   # query_api: 200
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8005/readyz   # analytics: 200
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8003/readyz   # dashboard: 200
 
 # Processor consumer state
@@ -240,13 +240,13 @@ docker compose up --build
 docker compose ps   # all app services: healthy
 
 # Structured JSON logging — every service emits parseable JSON
-for svc in ingestor ai_gateway processor query_api dashboard; do
+for svc in ingestor inference processor analytics dashboard; do
   echo "=== $svc ==="
   docker compose logs "$svc" | head -3 | python3 -c "import sys,json; [print(json.loads(l).get('service')) for l in sys.stdin if l.strip()]"
 done
 
 # Graceful shutdown — no connection leak errors on stop
-docker compose stop query_api && docker compose logs query_api | tail -5
+docker compose stop analytics && docker compose logs analytics | tail -5
 ```
 
 ---
@@ -256,8 +256,8 @@ docker compose stop query_api && docker compose logs query_api | tail -5
 - **Processor as FastAPI service**: Consistent deployment pattern; `asyncio.Task` in uvicorn's
   event loop avoids extra thread; `/readyz` can introspect task liveness directly; natural
   extension point for future admin endpoints and manual DLQ requeue
-- **Port 8002 for processor**: Consistent port numbering — 8000 ingestor, 8001 ai_gateway,
-  8002 processor, 8003 dashboard, 8005 query_api
+- **Port 8002 for processor**: Consistent port numbering — 8000 ingestor, 8001 inference,
+  8002 processor, 8003 dashboard, 8005 analytics
 - **Shared logging module in `libs/platform/`**: Single implementation, no duplication across 5
   services; every future service imports `setup_json_logger` rather than calling `basicConfig`
 - **`/readyz` returns `503` (not `500`)**: `503 Service Unavailable` is the correct HTTP signal

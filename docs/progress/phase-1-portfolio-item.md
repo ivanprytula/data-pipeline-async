@@ -54,7 +54,7 @@ A monolithic app can only scale by adding compute to a single service. To enable
 
 ### 1. Infrastructure: Redpanda Service
 
-**Added to `docker-compose.yml`:**
+#### Added to `docker-compose.yml`:
 
 - Redpanda image: `redpandadata/redpanda:v24.1.1`
 - No Zookeeper dependency (major simplification vs traditional Kafka)
@@ -87,14 +87,14 @@ event: EventPayload[dict[str, Any]] = EventPayload(
 
 Mypy type-checks the payload structure, preventing accidental null fields.
 
-**Singleton Producer Pattern (modeled on `ingestor/cache.py`):**
+#### Singleton Producer Pattern (modeled on `ingestor/cache.py`):
 
 - Module-level `_producer: AIOKafkaProducer | None = None`
 - `connect_producer(bootstrap_servers)` called in `ingestor/main.py` lifespan
 - `disconnect_producer()` called on shutdown (graceful connection close)
 - `publish_record_created(record_id, payload)` → sends JSON to Kafka
 
-**Fail-Open Strategy:**
+#### Fail-Open Strategy:
 
 ```python
 try:
@@ -110,7 +110,7 @@ If Kafka broker is down, API remains responsive. Event is lost, but that trade-o
 
 ### 3. Consumer: services/processor/main.py
 
-**AIOKafkaConsumer Loop:**
+#### AIOKafkaConsumer Loop:
 
 ```python
 consumer = AIOKafkaConsumer(
@@ -121,20 +121,20 @@ consumer = AIOKafkaConsumer(
 )
 ```
 
-**Retry Logic on Startup:**
+#### Retry Logic on Startup:
 
 - Redpanda leader election can take 30–60 seconds after `docker-compose up`
 - Retry loop: 12 attempts × 5s = 60s timeout before giving up
 - Logs: `processor_waiting_for_broker` → `processor_connected` progression
 
-**Message Processing:**
+#### Message Processing:
 
 - Consumes JSON messages, deserializes to dict
 - Handles malformed JSON gracefully (logs + skips)
 - Prints structured log per event received
 - SIGTERM handling: asyncio recognizes `docker stop` and exits cleanly
 
-**Horizontal Scalability:**
+#### Horizontal Scalability:
 If you run 2 processor replicas, they form a single consumer group (`processor-group`).
 Redpanda automatically partitions the topic — each replica consumes disjoint events.
 
@@ -142,7 +142,7 @@ Redpanda automatically partitions the topic — each replica consumes disjoint e
 
 ### 4. Router Integration: ingestor/routers/records.py
 
-**POST /api/v1/records Updated:**
+#### POST /api/v1/records Updated:
 
 ```python
 @router.post("/api/v1/records", response_model=RecordResponse, status_code=201)
@@ -162,7 +162,7 @@ async def create_record(body: RecordCreate, db: DbDep) -> RecordResponse:
 
 ### 5. Lifespan Wiring: ingestor/main.py
 
-**Startup → Connect producer:**
+#### Startup → Connect producer:
 
 ```python
 @app.lifespan
@@ -252,18 +252,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 ## Deployment Notes
 
-**Local Development:**
+#### Local Development:
 
 - `docker compose up` starts Redpanda + Processor automatically
 - No manual configuration required
 - Events logged to stdout (easily inspected)
 
-**Docker (Next Phase):**
+#### Docker (Next Phase):
 
 - Processor service Dockerfile already created (`services/processor/Dockerfile`)
 - Ready to push to container registry (Phase 7: ECS/ECR)
 
-**Kubernetes (Future):**
+#### Kubernetes (Future):
 
 - Redpanda Helm chart available, but local Docker sufficient for learning
 - Consumer group membership automatic (no manual coordination)

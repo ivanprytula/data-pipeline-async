@@ -7,14 +7,14 @@
 
 ## Implemented Baseline
 
-- Notification abstraction in [ingestor/notifications.py](../../ingestor/notifications.py)
+- Notification abstraction in [ingestor/notifications.py](../../services/ingestor/notifications.py)
 - Supported channels:
   - `slack` (incoming webhook)
   - `telegram` (bot token + chat id)
   - `webhook` (generic JSON webhook, suitable for Jira automation)
   - `email` (Resend transactional API)
-- Background worker failure alert hook integrated in [ingestor/core/background_workers.py](../../ingestor/core/background_workers.py)
-- Manual dispatch API route in [ingestor/routers/notifications.py](../../ingestor/routers/notifications.py)
+- Background worker failure alert hook integrated in [ingestor/core/background_workers.py](../../services/ingestor/core/background_workers.py)
+- Manual dispatch API route in [ingestor/routers/notifications.py](../../services/ingestor/routers/notifications.py)
 - Test endpoint: `POST /api/v1/notifications/test`
 - Sentry SDK integration wired at app startup for centralized exception tracking
 

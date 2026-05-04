@@ -63,4 +63,4 @@ Each service is deployed independently:
 
 ---
 
-**Related:** See [Architecture — Data Zoo Platform](../docs/architecture.md) for the full system design.
+**Related:** See [Architecture — Data Zoo Platform](../docs/design/architecture.md) for the full system design.

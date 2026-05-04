@@ -10,7 +10,7 @@ This guide documents the implementation of the Core Data Model & Migrations pill
 
 ### 1. ✅ Data Model Finalized
 
-**File**: [ingestor/models.py](../../ingestor/models.py)
+**File**: [ingestor/models.py](../../services/ingestor/models.py)
 
 - [x] `Record` model with TimestampMixin (soft-delete support)
 - [x] `ProcessedEvent` model with Kafka metadata and idempotency tracking

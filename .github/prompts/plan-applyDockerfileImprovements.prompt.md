@@ -15,15 +15,15 @@
    - Verification: File has syntax directive on line 1, SHELL directive after each FROM
    - *Parallel with steps 2-6*
 
-2. **Replace `/services/ai_gateway/Dockerfile`**
-   - File path: `/home/$USER/<directory>/data-pipeline-async/services/ai_gateway/Dockerfile`
+2. **Replace `/services/inference/Dockerfile`**
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/inference/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL directives, replace apt-get pattern with cache mounts
    - Verification: File has syntax directive, BuildKit cache mount on apt-get call
    - *Parallel with steps 1, 3-6*
 
-3. **Replace `/services/query_api/Dockerfile`**
-   - File path: `/home/$USER/<directory>/data-pipeline-async/services/query_api/Dockerfile`
+3. **Replace `/services/analytics/Dockerfile`**
+   - File path: `/home/$USER/<directory>/data-pipeline-async/services/analytics/Dockerfile`
    - Action: Overwrite with improved version
    - Key changes: Add syntax + digest + SHELL to both builder and final stage, replace apt-get with cache mounts
    - Verification: Both FROM blocks have digest + SHELL
@@ -95,8 +95,8 @@
 
 ### Target (Files to be modified)
 - `/Dockerfile` — Main ingestor, multi-stage builder → final
-- `/services/ai_gateway/Dockerfile` — Embedding service, single stage
-- `/services/query_api/Dockerfile` — Query service, multi-stage
+- `/services/inference/Dockerfile` — Embedding service, single stage
+- `/services/analytics/Dockerfile` — Query service, multi-stage
 - `/services/processor/Dockerfile` — Background processor, multi-stage
 - `/services/dashboard/Dockerfile` — Dashboard UI, single stage
 - `/infra/database/Dockerfile` — PostgreSQL 17 + pgvector, single stage

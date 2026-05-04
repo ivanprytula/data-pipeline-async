@@ -48,7 +48,7 @@ async def vector_search_health() -> VectorSearchHealthResponse:
 
     return VectorSearchHealthResponse(
         status=str(raw.get("status", "ok")),
-        ai_gateway_connected=bool(raw.get("qdrant_connected", True)),
+        inference_connected=bool(raw.get("qdrant_connected", True)),
         collection=vector_search.settings.vector_search_collection,
     )
 

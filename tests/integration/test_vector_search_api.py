@@ -111,7 +111,7 @@ async def test_vector_search_health_endpoint(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["ai_gateway_connected"] is True
+    assert body["inference_connected"] is True
 
 
 @pytest.mark.integration

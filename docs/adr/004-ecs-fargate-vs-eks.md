@@ -17,22 +17,22 @@ Which AWS container orchestration service should we use?
 
 ## Decision
 
-**Use ECS Fargate for this project.**
+### Use ECS Fargate for this project
 
-### Rationale
+#### Rationale
 
-| Factor | ECS Fargate | EKS | Winner |
-|--------|------------|-----|--------|
-| **Ops Burden** | None (managed by AWS) | High (node upgrades, CNI, control plane) | Fargate |
-| **Learning Curve** | Low (ALB, IAM, ECS API) | High (K8s API, CRDs, RBAC) | Fargate |
-| **Setup Time** | 1 hour (Terraform) | 4 hours (Terraform + configuration) | Fargate |
-| **Cost (dev)** | ~$85/month (Spot instances) | ~$100+/month (control plane + nodes) | Fargate |
-| **Cost (prod)** | ~$280/month (On-Demand) | ~$400+/month (control plane + nodes) | Fargate |
-| **CI/CD Integration** | `aws ecs update-service` (simple) | `kubectl set image` + GitOps (complex) | Fargate |
-| **Service Count** | Ideal for 1–10 services | Ideal for 50+ services | Fargate (for this project) |
-| **Auto-scaling** | Manual + ALB target group | Native Kubernetes HPA | EKS |
+| Factor                | ECS Fargate                       | EKS                                      | Winner                     |
+| --------------------- | --------------------------------- | ---------------------------------------- | -------------------------- |
+| **Ops Burden**        | None (managed by AWS)             | High (node upgrades, CNI, control plane) | Fargate                    |
+| **Learning Curve**    | Low (ALB, IAM, ECS API)           | High (K8s API, CRDs, RBAC)               | Fargate                    |
+| **Setup Time**        | 1 hour (Terraform)                | 4 hours (Terraform + configuration)      | Fargate                    |
+| **Cost (dev)**        | ~$85/month (Spot instances)       | ~$100+/month (control plane + nodes)     | Fargate                    |
+| **Cost (prod)**       | ~$280/month (On-Demand)           | ~$400+/month (control plane + nodes)     | Fargate                    |
+| **CI/CD Integration** | `aws ecs update-service` (simple) | `kubectl set image` + GitOps (complex)   | Fargate                    |
+| **Service Count**     | Ideal for 1–10 services           | Ideal for 50+ services                   | Fargate (for this project) |
+| **Auto-scaling**      | Manual + ALB target group         | Native Kubernetes HPA                    | EKS                        |
 
-### Why Not EKS?
+#### Why Not EKS?
 
 1. **Overkill for 5 services** — Kubernetes adds complexity without corresponding benefit
 2. **Distraction from learning** — Node management, CRD configuration, and CNI setup distract from distributed systems patterns
@@ -85,18 +85,21 @@ If this project grows to 50+ microservices and Fargate becomes a bottleneck:
 ## Alternatives Considered
 
 ### 1. Self-Managed EC2 + Docker Compose
+
 - ❌ Full ops burden (patching, monitoring, failover)
 - ❌ No auto-scaling
 - ❌ Higher cost ($400+/month for always-on instances)
 - ✅ Maximum flexibility
 
 ### 2. Lambda (Serverless Compute)
+
 - ❌ Cold starts (15s–30s latency for infrequently used services)
 - ❌ 15-minute execution timeout (not suitable for long-running processor)
 - ❌ Complex async orchestration (Step Functions)
 - ✅ Ultra-low ops burden for simple APIs
 
 ### 3. App Engine / Cloud Run (GCP / AWS equivalent)
+
 - ❌ Vendor lock-in (harder to migrate if needed)
 - ✅ Simpler than EKS
 - ❌ Less mature observability integration
@@ -106,8 +109,7 @@ If this project grows to 50+ microservices and Fargate becomes a bottleneck:
 
 ## Related Decisions
 
-- [ADR 005: RDS PostgreSQL vs Aurora](005-rds-postgres-vs-aurora.md) (database choice)
-- [ADR 006: GitHub OIDC vs Long-Lived Keys](006-github-oidc-vs-keys.md) (CI/CD auth)
+- [ADR 005: GitHub OIDC vs Long-Lived Keys](005-github-oidc-vs-long-lived-keys.md) (CI/CD auth)
 
 ---
 

@@ -77,8 +77,8 @@ data-pipeline-async/
 │
 ├── services/                      (← Phase 1+: New microservices)
 │   ├── processor/                 (Phase 1: Kafka consumer)
-│   ├── ai_gateway/               (Phase 3: Embeddings + Qdrant)
-│   ├── query_api/                (Phase 5: Analytics + CQRS)
+│   ├── inference/               (Phase 3: Embeddings + Qdrant)
+│   ├── analytics/                (Phase 5: Analytics + CQRS)
 │   └── dashboard/                (Phase 6: HTMX + Jinja2 + SSE dashboard)
 │
 ├── infra/
@@ -122,9 +122,9 @@ data-pipeline-async/
 | **0** | Docs & Planning           | —                   | ADRs, architecture, ACTION_PLAN, monorepo structure                       |
 | **1** | Event Streaming           | ingestor, processor | Redpanda, Kafka producer/consumer, fail-open events                       |
 | **2** | Data Scraping             | + scrapers          | HTTP/HTML/browser scrapers, MongoDB client                                |
-| **3** | AI + Vector DB            | ai_gateway          | Qdrant, sentence-transformers, embeddings                                 |
+| **3** | AI + Vector DB            | inference           | Qdrant, sentence-transformers, embeddings                                 |
 | **4** | Resilience Patterns       | processor (updated) | Circuit breaker, DLQ, OpenTelemetry, Jaeger                               |
-| **5** | Background Workers + CQRS | ingestor, query_api | In-process worker queue prototype, task status APIs, analytics read layer |
+| **5** | Background Workers + CQRS | ingestor, analytics | In-process worker queue prototype, task status APIs, analytics read layer |
 | **6** | Dashboard                 | dashboard           | HTMX, Jinja2, SSE, backend-rendered UI                                    |
 | **7** | Cloud Deployment ✅       | (all services)      | Terraform, AWS ECS Fargate, RDS, MSK, ElastiCache                         |
 | **8** | Production Hardening      | (all services)      | Prometheus, Grafana, backups, chaos testing                               |
@@ -142,7 +142,7 @@ graph TB
         Ingestor["📝 Ingestor<br/>(ingestor/)"]
         Scraper["🕷️ Scraper<br/>(Phase 2)"]
         Processor["⚙️ Processor<br/>(services/)"]
-        AIGateway["🤖 AI Gateway<br/>(embeddings)"]
+        AIGateway["🤖 Inference Service<br/>(embeddings)"]
         QueryAPI["📊 Query API<br/>(analytics)"]
         Dashboard["🎨 Dashboard<br/>(HTMX + Jinja2)"]
       Notifier["🔔 Notification Service<br/>(ingestor/notifications.py)"]
@@ -295,7 +295,7 @@ graph TB
     style ProcessorService fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
 
-**Phase 1 Flows:**
+Phase 1 Flows:
 
 - **Ingest**: POST `/api/v1/records` → validate → store in PostgreSQL → publish Kafka event
 - **Event**: Redpanda topic receives `{record_id, source}` payload
@@ -310,7 +310,7 @@ graph TB
 
 **Location**: \`ingestor/main.py\`, \`ingestor/routers/\`
 
-**Responsibilities:**
+Responsibilities:
 
 - HTTP endpoint routing (\`/api/v1/records/*\`)
 - Request validation via Pydantic v2
@@ -322,14 +322,14 @@ graph TB
 
 **Location**: \`ingestor/crud.py\`
 
-**Responsibilities:**
+Responsibilities:
 
 - Pure async database operations
 - SQLAlchemy 2.0 ORM queries (\`select()\`, \`insert()\`, \`update()\`)
 - Session lifecycle management
 - Transaction handling (\`commit/rollback\`)
 
-**Key Pattern:**
+Key Pattern:
 \`\`\`python
 async def get_record(db: AsyncSession, record_id: int) -> Record | None:
     result = await db.execute(select(Record).where(Record.id == record_id))
@@ -340,7 +340,7 @@ async def get_record(db: AsyncSession, record_id: int) -> Record | None:
 
 **Location**: \`ingestor/database.py\`
 
-**Configuration:**
+Configuration:
 
 - \`pool_size=5\`: Connections in pool
 - \`max_overflow=10\`: Extra connections under load
@@ -356,14 +356,14 @@ Tracks requests end-to-end via ContextVar, injected into every log.
 
 **Location**: `ingestor/events.py`
 
-**Responsibilities:**
+Responsibilities:
 
 - Singleton AIOKafkaProducer connected in `ingestor/main.py` lifespan
 - `publish_record_created(record_id, payload)` — publishes to `records.events` topic
 - Fail-open: logs KafkaError but doesn't crash the request
 - Generic type: `EventPayload[T]` for typed event payloads
 
-**Key Pattern:**
+Key Pattern:
 
 ```python
 async def publish_record_created(record_id: int, payload: dict) -> None:
@@ -382,7 +382,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 
 **Location**: `ingestor/storage/events.py`
 
-**Why it exists**: Processor needs to track consumed events with **industry-standard patterns**:
+Why it exists: Processor needs to track consumed events with **industry-standard patterns**:
 
 - **Idempotency**: Duplicate messages don't cause double-processing
 - **Status tracking**: Event moves pending → processing → completed/failed/dead_letter
@@ -392,7 +392,7 @@ async def publish_record_created(record_id: int, payload: dict) -> None:
 
 **Shared by**: Both ingestor service and processor service (decoupled from `ingestor/crud.py` which is ingestor-specific)
 
-**Core Functions:**
+Core Functions:
 
 ```python
 # Deduplication on consume
@@ -429,7 +429,7 @@ await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (h
 
 **Location**: `services/processor/main.py`
 
-**Responsibilities:**
+Responsibilities:
 
 - Runs as standalone service in Docker
 - Subscribes to `records.events` topic with group `processor-group`
@@ -437,7 +437,7 @@ await mark_event_dlq(db, event.id, "max retries exceeded")  # → dead_letter (h
 - Logs each event as JSON to stdout
 - Handles malformed messages gracefully
 
-**Execution:**
+Execution:
 
 ```bash
 docker compose up processor
@@ -447,15 +447,17 @@ cd services/processor && python main.py
 
 ### 📊 Environment-Aware Logging
 
-**Development:**
-\`\`\`
-2026-04-16 11:18:05 | INFO | ingestor/routers/records.py:45:create_record | [cid-123] record created
-\`\`\`
+Development:
 
-**Production:**
-\`\`\`json
+```text
+2026-04-16 11:18:05 | INFO | ingestor/routers/records.py:45:create_record | [cid-123] record created
+```
+
+Production:
+
+```json
 {"message": "record_created", "user_id": 42, "cid": "cid-123"}
-\`\`\`
+```
 
 ### 🧪 Testing Pyramid
 
@@ -488,7 +490,7 @@ Record created → Kafka event → Processor consumes asynchronously
 No tight dependency between ingestor and processor
 ```
 
-**Benefits:**
+Benefits:
 
 - Processor can be down; ingestor still works (fail-open)
 - Multiple consumers can process same event (add more services later)
@@ -618,7 +620,7 @@ class ScrapeResponse(BaseModel):
     event_published: bool    # Kafka event published?
 ```
 
-**📤 Kafka Event: `doc.scraped`**
+#### 📤 Kafka Event: `doc.scraped`
 
 - Published after **every** scrape (success or partial failure)
 - Payload: `{source, count, timestamp}`
@@ -665,7 +667,7 @@ class ScrapeResponse(BaseModel):
 
 ### Data Flows
 
-**Happy Path:**
+Happy Path:
 
 ```text
 POST /api/v1/scrape/hn?limit=50
@@ -681,7 +683,7 @@ POST /api/v1/scrape/hn?limit=50
   Return ScrapeResponse {source: "hn", items_scraped: 50, items_stored: 50, event_published: true}
 ```
 
-**Degraded (MongoDB down):**
+Degraded (MongoDB down):
 
 ```text
 POST /api/v1/scrape/hn
@@ -698,7 +700,7 @@ POST /api/v1/scrape/hn
      ⬆️ User sees what happened; can retry; on-call can replay
 ```
 
-**Cascading Failure (both MongoDB + Kafka down):**
+Cascading Failure (both MongoDB + Kafka down):
 
 ```text
 Scrape succeeds → MongoDB fails → Kafka fails
@@ -829,7 +831,7 @@ async def _send_to_kafka(topic: str, value: bytes) -> None:
     await _producer.send_and_wait(topic, value=value)
 ```
 
-**State machine**:
+State machine:
 
 ```text
 CLOSED ──(failures >= 5)──► OPEN
@@ -860,7 +862,7 @@ CLOSED ──(failures >= 5)──► OPEN
 
 **Why DLQ prevents head-of-line blocking**: Poison pill messages (malformed JSON, invalid schema) are forwarded to DLQ after 3 retries. Processor continues processing next message instead of blocking entire queue.
 
-**🔍 OpenTelemetry Distributed Tracing** (`ingestor/core/tracing.py`)
+🔍 OpenTelemetry Distributed Tracing (`ingestor/core/tracing.py`)
 
 - TracerProvider with OTLP gRPC exporter → Jaeger backend (port 4317)
 - FastAPI auto-instrumentation: `FastAPIInstrumentor.instrument_app(app)`
@@ -869,7 +871,7 @@ CLOSED ──(failures >= 5)──► OPEN
   - Dev format: `[trace:abc12345] record_created`
   - Prod JSON: `{"trace_id": "abc12345...", "message": "record_created"}`
 
-**End-to-end trace example**:
+End-to-end trace example:
 
 ```text
 Jaeger UI → Trace abc12345 →
@@ -879,7 +881,7 @@ Jaeger UI → Trace abc12345 →
     → All linked by trace_id
 ```
 
-**📊 Prometheus Metrics** (`ingestor/metrics.py`)
+📊 Prometheus Metrics (`ingestor/metrics.py`)
 
 - Circuit breaker state: `pipeline_circuit_breaker_state` (Gauge, 0=CLOSED, 1=OPEN, 2=HALF_OPEN)
   - Labels: `circuit` (e.g., `_send_to_kafka`, `_mongo_insert_one`)
@@ -916,7 +918,7 @@ if _METRICS_AVAILABLE:
 
 ### Data Flows
 
-**Happy Path (with tracing):**
+Happy Path (with tracing):
 
 ```text
 POST /api/v1/records
@@ -934,7 +936,7 @@ POST /api/v1/records
   Jaeger UI: Full trace (ingestor → Kafka → processor)
 ```
 
-**Degraded (Circuit open):**
+Degraded (Circuit open):
 
 ```text
 POST /api/v1/records
@@ -950,7 +952,7 @@ POST /api/v1/records
   After 30s: Circuit → HALF_OPEN (1 probe allowed)
 ```
 
-**Poison Pill (DLQ routing):**
+Poison Pill (DLQ routing):
 
 ```text
 Kafka message: {malformed json...}
@@ -1012,7 +1014,7 @@ otel_service_name: str = "ingestor"
 
 ### ADR
 
-See [ADR #005: Circuit Breaker Pattern](adr/005-circuit-breaker-pattern.md) for detailed decision rationale.
+See ADR #005: Circuit Breaker Pattern for detailed decision rationale.
 
 ---
 
@@ -1035,8 +1037,8 @@ graph TB
   end
 
   subgraph ReadSide["Read Services"]
-    QueryAPI["📊 Query API\nservices/query_api/"]
-    AIGateway["🤖 AI Gateway\nservices/ai_gateway/"]
+    QueryAPI["📊 Query API\nservices/analytics/"]
+    AIGateway["🤖 Inference Service\nservices/inference/"]
     Prometheus["📈 Prometheus\nmetrics"]
   end
 
@@ -1085,7 +1087,7 @@ graph TB
 
 ```text
 Browser -> Dashboard -> Query API -> PostgreSQL read model
-Browser -> Dashboard -> AI Gateway -> Qdrant search
+Browser -> Dashboard -> Inference Service -> Qdrant search
 Browser -> Dashboard -> SSE -> Prometheus metrics stream
 ```
 
@@ -1120,8 +1122,8 @@ See [ADR 003: HTMX vs React](../adr/003-htmx-vs-react.md) for the dashboard UI d
 │  Local Development (docker-compose.yml)                │
 │  ┌─ ingestor:8000                                      │
 │  ├─ processor (Kafka consumer)                         │
-│  ├─ ai_gateway:8001                                    │
-│  ├─ query_api:8002                                     │
+│  ├─ inference:8001                                    │
+│  ├─ analytics:8002                                     │
 │  ├─ dashboard:8003                                     │
 │  ├─ redpanda:9092 (Kafka-compatible)                   │
 │  ├─ postgres:5432                                      │
@@ -1143,8 +1145,8 @@ See [ADR 003: HTMX vs React](../adr/003-htmx-vs-react.md) for the dashboard UI d
 │  │  ECS Cluster (Container Orchestration)  │           │
 │  │  ├─ ingestor task (1–2 replicas)        │           │
 │  │  ├─ processor task (1–2 replicas)       │           │
-│  │  ├─ ai_gateway task (1–2 replicas)      │           │
-│  │  ├─ query_api task (1–2 replicas)       │           │
+│  │  ├─ inference task (1–2 replicas)      │           │
+│  │  ├─ analytics task (1–2 replicas)       │           │
 │  │  └─ dashboard task (1–2 replicas)       │           │
 │  │     (All: Fargate Spot for dev,         │           │
 │  │      Fargate for prod; rolling update)  │           │
@@ -1191,7 +1193,7 @@ Location: `infra/terraform/`
 
 ### CI/CD: queued CI + manual promotion/deploy
 
-**Active workflows**:
+Active workflows:
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/docker-build.yml`
@@ -1225,13 +1227,13 @@ Manual cd-deploy.yml
     - update ECS service using environment-specific vars
 ```
 
-**Authentication**: GitHub OIDC provider (no AWS access keys in GitHub Secrets)
+Authentication: GitHub OIDC provider (no AWS access keys in GitHub Secrets)
 
 - Reduces credential rotation burden
 - Provides audit trail (role assumption logged in CloudTrail)
 - Role trust policy restricted to `main` and `develop` branches
 
-**Current CD model**:
+Current CD model:
 
 1. Enable ECS deploy permissions in IAM/Terraform
 2. Push and sign the desired image manually when needed
@@ -1240,14 +1242,14 @@ Manual cd-deploy.yml
 
 ### Local Development → AWS: First Deploy
 
-**Prerequisites**:
+Prerequisites:
 
 1. AWS named profile (`data-zoo-dev` / `data-zoo-prod`) or aws-vault
 2. S3 backend bucket + DynamoDB lock table (created once per AWS account)
 3. GitHub Actions secrets: `AWS_ACCOUNT_ID`, `AWS_ROLE_ARN`, `DEV_ALB_URL` (post-apply)
 4. ACM certificate ARN (if using custom domain)
 
-**Manual deployment example**:
+Manual deployment example:
 
 ```bash
 cd infra/terraform/environments/dev
@@ -1365,20 +1367,20 @@ CMD ["uvicorn", "ingestor.main:app"]
 
 ### Services & Image Sizes
 
-| Service    | Base        | Build Time (cached) | Final Size | Notes                                   |
-| ---------- | ----------- | ------------------- | ---------- | --------------------------------------- |
-| Ingestor   | 3.14-slim   | 30s                 | 280MB      | FastAPI REST, Playwright browser        |
-| Processor  | 3.14-slim   | 15s                 | 250MB      | Async consumer, simple deps             |
-| AI Gateway | 3.14-slim   | 45s                 | 480MB      | sentence-transformers (large model)     |
-| Query API  | 3.14-slim   | 20s                 | 260MB      | Analytics + CQRS read model             |
-| Dashboard  | 3.14-slim   | 15s                 | 240MB      | Jinja2 templates, minimal deps          |
-| Database   | postgres:17 | 90s                 | 150MB      | pgvector extension compiled from source |
+| Service           | Base        | Build Time (cached) | Final Size | Notes                                   |
+| ----------------- | ----------- | ------------------- | ---------- | --------------------------------------- |
+| Ingestor          | 3.14-slim   | 30s                 | 280MB      | FastAPI REST, Playwright browser        |
+| Processor         | 3.14-slim   | 15s                 | 250MB      | Async consumer, simple deps             |
+| Inference Service | 3.14-slim   | 45s                 | 480MB      | sentence-transformers (large model)     |
+| Query API         | 3.14-slim   | 20s                 | 260MB      | Analytics + CQRS read model             |
+| Dashboard         | 3.14-slim   | 15s                 | 240MB      | Jinja2 templates, minimal deps          |
+| Database          | postgres:17 | 90s                 | 150MB      | pgvector extension compiled from source |
 
 **Total stack**: ~1.7GB across 6 images (compressed in registry: ~400MB)
 
 ### Security Scanning Pipeline
 
-**Local Development**:
+Local Development:
 
 ```bash
 # Pre-commit hook catches vulnerable Python dependencies
@@ -1388,13 +1390,13 @@ pre-commit run pip-audit --all-files
 trivy image ingestor:local
 ```
 
-**GitHub Actions CI/CD**:
+GitHub Actions CI/CD:
 
 1. **Python dependency check** (`pip-audit`) — scans for known CVEs in pip packages
 2. **Container image scan** (`Trivy`) — scans for OS-level vulns (libc, openssl, etc.)
 3. **Results** → GitHub Code Scanning dashboard (SARIF format)
 
-**Threat Model Addressed**:
+Threat Model Addressed:
 
 - A05 (Security Misconfiguration): Unpatched base images caught by digest pinning + Trivy
 - A06 (Vulnerable Components): pip-audit catches known CVE packages; Trivy catches OS vulns
@@ -1430,8 +1432,7 @@ See [ADR 004: Docker BuildKit & Security Scanning](../adr/004-docker-buildkit-an
 
 ## Related Documents
 
-- [API Routes](../ingestor/routers/records.py)
-- [Database Models](../ingestor/models.py)
-- [Performance Benchmarks](../tests/integration/records/test_performance.py)
-- [6-Week Action Plan](../learning_docs/ACTION_PLAN.md)
+- [API Routes](../../services/ingestor/routers/records.py)
+- [Database Models](../../services/ingestor/models.py)
+- [Performance Benchmarks](../../tests/integration/records/test_performance.py)
 - [Frontend Strategy ADR](../adr/003-htmx-vs-react.md)

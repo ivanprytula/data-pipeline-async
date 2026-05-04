@@ -155,4 +155,4 @@ Then measure: Qdrant (Qdrant service) vs pgvector (PostgreSQL) at scale.
 
 - Phase 5 benchmark will compare query latency (Qdrant vs pgvector) on 100K vectors
 - Sync strategy: Processor publishes embedding event → both services subscribe (eventual consistency)
-- Fallback: If Qdrant down, query_api can degrade to pgvector search
+- Fallback: If Qdrant down, analytics can degrade to pgvector search

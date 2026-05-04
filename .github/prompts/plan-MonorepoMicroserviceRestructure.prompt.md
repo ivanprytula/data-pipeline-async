@@ -1,6 +1,6 @@
 # Monorepo Microservice Restructure (Pre-Phase 15)
 
-**TL;DR**: Five phases (0–4). Phase 0 establishes the import convention that makes all subsequent renames safe. Phase 1 (high risk) moves `ingestor/` under `services/`. Phase 2 (medium) renames `ai_gateway` → `inference` and `query_api` → `analytics` — full dir + module rename, using a shim bridge. Phases 3–4 are skeletons + governance.
+**TL;DR**: Five phases (0–4). Phase 0 establishes the import convention that makes all subsequent renames safe. Phase 1 (high risk) moves `ingestor/` under `services/`. Phase 2 (medium) renames `inference` → `inference` and `analytics` → `analytics` — full dir + module rename, using a shim bridge. Phases 3–4 are skeletons + governance.
 
 **What does NOT change**: single `uv.lock`, root `pyproject.toml` tooling, root `alembic/`, `libs/` at root, single Git repository.
 
@@ -11,14 +11,14 @@
 | Inconsistency | Location |
 |---|---|
 | `ingestor/` lives at repo root, not under `services/` | Breaks team-per-service symmetry |
-| Compose keys use hyphens (`ai-gateway`, `query-api`) but dirs use underscores (`ai_gateway`, `query_api`) | Mixed naming conventions |
-| `query-api` develop.watch path is `./services/query-api` but actual dir is `services/query_api` | Active bug — hot-reload broken |
+| Compose keys use hyphens (`inference`, `analytics`) but dirs use underscores (`inference`, `analytics`) | Mixed naming conventions |
+| `analytics` develop.watch path is `./services/analytics` but actual dir is `services/analytics` | Active bug — hot-reload broken |
 | No CODEOWNERS file | No ownership mapping |
 | All tests in root `tests/` | Not co-located with services |
 | `check_service_boundaries.py` maps `ingestor` to `REPO_ROOT / "ingestor"` | Will need updating in Phase 1 |
 
 Already consistent — no change needed:
-- All `services/` subdirs already use underscores (`ai_gateway`, `query_api`, `processor`, `dashboard`, `webhook`)
+- All `services/` subdirs already use underscores (`inference`, `analytics`, `processor`, `dashboard`, `webhook`)
 - All 5 services in `services/` already have Dockerfiles and `pyproject.toml`
 
 ---
@@ -59,7 +59,7 @@ When `crud.py` gets split into submodules, only `ingestor/__init__.py` (or `crud
 **2. Compatibility shim pattern for directory renames** — when renaming a package dir, leave the old `__init__.py` as a one-commit bridge before removing it:
 
 ```python
-# services/ai_gateway/__init__.py — temporary shim, remove in next commit
+# services/inference/__init__.py — temporary shim, remove in next commit
 from services.inference import *  # noqa: F401, F403
 ```
 
@@ -93,24 +93,24 @@ This decouples "rename the dir" from "update all internal callers" into separate
 
 | Old dir/module | New dir/module | Rationale |
 |---|---|---|
-| `ai_gateway` | `inference` | Covers embeddings + future /chat, /prompt. No collision with API Gateway pattern. |
-| `query_api` | `analytics` | Matches existing `analytics.py` router. CQRS read-side domain signal. |
+| `inference` | `inference` | Covers embeddings + future /chat, /prompt. No collision with API Gateway pattern. |
+| `analytics` | `analytics` | Matches existing `analytics.py` router. CQRS read-side domain signal. |
 
 **Pre-step** — bound the cross-service import surface before starting:
 
 ```bash
-grep -r "from services\.ai_gateway\|from services\.query_api" --include="*.py" .
+grep -r "from services\.inference\|from services\.analytics" --include="*.py" .
 ```
 
 **Steps:**
 
-1. `git mv services/ai_gateway/ services/inference/` and `git mv services/query_api/ services/analytics/`
+1. `git mv services/inference/ services/inference/` and `git mv services/analytics/ services/analytics/`
 2. Add shim `__init__.py` at old paths re-exporting from new locations (one-commit bridge)
-3. `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod-like.yml`: keys `ai-gateway → inference`, `query-api → analytics`; fix broken watch path `./services/query-api → ./services/analytics`
+3. `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod-like.yml`: keys `inference → inference`, `analytics → analytics`; fix broken watch path `./services/analytics → ./services/analytics`
 4. `infra/nginx.conf`: update upstream block names
 5. `scripts/ci/check_service_boundaries.py`: `SERVICE_ROOTS` keys `"inference"`, `"analytics"`; remove old keys
 6. `.github/workflows/ci.yml`: path filters updated to `services/inference/**`, `services/analytics/**`
-7. Update all Python imports: `from services.ai_gateway.X → from services.inference.X`; `from services.query_api.X → from services.analytics.X` (shim covers callers during transition)
+7. Update all Python imports: `from services.inference.X → from services.inference.X`; `from services.analytics.X → from services.analytics.X` (shim covers callers during transition)
 8. Remove shims
 
 **Verification:** `docker compose config` exits 0; `uv run ruff check .`; `uv run pytest -q`; `uv run python scripts/ci/check_service_boundaries.py`
@@ -138,7 +138,7 @@ All 5 existing `services/*/pyproject.toml` files already exist — verify each h
 | `tests/unit/test_cache*.py`, `tests/unit/test_redis_lock.py`, `tests/unit/test_internal_auth.py` | `services/ingestor/tests/unit/` |
 | `tests/unit/test_webhook_api_keys.py`, `tests/integration/webhook/` | `services/webhook/tests/` |
 | `tests/unit/dashboard/`, `tests/integration/dashboard/` | `services/dashboard/tests/` |
-| `tests/unit/query_api/` | `services/analytics/tests/` |
+| `tests/unit/analytics/` | `services/analytics/tests/` |
 
 Root `tests/` keeps: `conftest.py` (shared fixtures), `shared/` (payloads, factories), `e2e/` (cross-service tests), `integration/schema/` (cross-service schema tests).
 

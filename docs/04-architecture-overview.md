@@ -136,8 +136,8 @@ Goal: move from shared-data assumptions to independent deployable services with 
 | ------------ | --------------------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
 | `ingestor`   | Ingestion API, write path, record validation                    | `ingestor_db`                        | REST first, events out                   |
 | `processor`  | Async enrichment, retries, DLQ handling, workflow orchestration | `processor_db`                       | Events in/out, optional gRPC for control |
-| `query_api`  | Read API, analytics/query projections                           | `query_db` (read model)              | REST first, optional gRPC read API       |
-| `ai_gateway` | Embeddings, vector indexing/search integration                  | `ai_db` (metadata) + vector store    | REST first, optional gRPC                |
+| `analytics`  | Read API, analytics/query projections                           | `query_db` (read model)              | REST first, optional gRPC read API       |
+| `inference` | Embeddings, vector indexing/search integration                  | `ai_db` (metadata) + vector store    | REST first, optional gRPC                |
 | `dashboard`  | Admin UI and operational workflows                              | `dashboard_db` (UI/session metadata) | REST to gateway/backend-for-frontend     |
 
 ### DB-Per-Service Rule
@@ -208,7 +208,7 @@ Service discovery rollout:
    - Move write models to service-owned stores.
    - Keep legacy reads behind adapters during transition only.
 3. Read model isolation (Week 3-4)
-   - `query_api` consumes events and builds its own projection tables.
+   - `analytics` consumes events and builds its own projection tables.
    - Remove direct dependency on ingestion write tables.
 4. Async workflow isolation (Week 4-5)
    - Move enrichment/indexing orchestration fully into `processor` events.
@@ -232,7 +232,7 @@ Service discovery rollout:
 
 - Each service can run, deploy, and rollback independently.
 - Removing one service DB does not corrupt another service's correctness domain.
-- Query surfaces (`query_api`, `dashboard`) rely only on published APIs/events, not foreign tables.
+- Query surfaces (`analytics`, `dashboard`) rely only on published APIs/events, not foreign tables.
 - SLOs are defined and measured per service (latency, error rate, queue lag, freshness).
 
 ---

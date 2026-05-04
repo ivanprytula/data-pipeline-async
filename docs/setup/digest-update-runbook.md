@@ -11,7 +11,8 @@
 
 Base image digests (Python, PostgreSQL) must be reviewed monthly for security patches. This runbook guides scanning for vulnerabilities, identifying new digests, testing, and merging updates.
 
-**Why digest pinning matters:**
+Why digest pinning matters:
+
 - ✅ Ensures reproducible builds across team
 - ✅ Allows detection of base image vulnerabilities
 - ✅ Prevents silent breakage from image updates
@@ -21,15 +22,15 @@ Base image digests (Python, PostgreSQL) must be reviewed monthly for security pa
 
 ## Monthly Schedule
 
-| Date | Task | Approx Time |
-|------|------|-------------|
-| **1st Monday, 9:00 AM** | Scan current base images for vulns | 5 min |
-| **1st Monday, 9:10 AM** | Research new digests if vulns found | 10 min |
-| **1st Monday, 9:25 AM** | Update Dockerfiles with new digests | 5 min |
-| **1st Monday, 9:35 AM** | Run local build & security tests | 10-15 min |
-| **1st Monday, 10:00 AM** | Push to develop, create PR for review | 5 min |
+| Date                     | Task                                  | Approx Time |
+| ------------------------ | ------------------------------------- | ----------- |
+| **1st Monday, 9:00 AM**  | Scan current base images for vulns    | 5 min       |
+| **1st Monday, 9:10 AM**  | Research new digests if vulns found   | 10 min      |
+| **1st Monday, 9:25 AM**  | Update Dockerfiles with new digests   | 5 min       |
+| **1st Monday, 9:35 AM**  | Run local build & security tests      | 10-15 min   |
+| **1st Monday, 10:00 AM** | Push to develop, create PR for review | 5 min       |
 
-**Calendar reminders**: Set recurring calendar event on **1st Monday of month at 9:00 AM UTC**
+Calendar reminders: Set recurring calendar event on **1st Monday of month at 9:00 AM UTC**
 
 ---
 
@@ -87,7 +88,8 @@ else
 fi
 ```
 
-**Run it:**
+Run it:
+
 ```bash
 chmod +x scripts/scan_base_images.sh
 bash scripts/scan_base_images.sh
@@ -95,7 +97,7 @@ bash scripts/scan_base_images.sh
 
 ### Expected Output
 
-```
+```sh
 📋 Scanning base images for vulnerabilities...
 
 🐍 Scanning python:3.14-slim...
@@ -108,7 +110,7 @@ bash scripts/scan_base_images.sh
 ⚠️  Vulnerabilities detected — proceed to Step 2
 ```
 
-**If vulnerabilities found → proceed to Step 2**
+If vulnerabilities found → proceed to Step 2
 
 ---
 
@@ -131,8 +133,9 @@ docker pull python:3.14-slim 2>&1 | grep "Digest:"
 skopeo inspect docker://python:3.14-slim | jq -r '.Digest'
 ```
 
-**Example output**:
-```
+Example output:
+
+```sh
 sha256:NEW_DIGEST_12345abcde...
 ```
 
@@ -155,15 +158,16 @@ docker inspect --format='{{index .RepoDigests 0}}' \
   $(docker pull postgres:17-bookworm -q)
 ```
 
-**Decision: Alpine vs Bookworm?**
+Decision: Alpine vs Bookworm?
 
-| Variant | Size | Vulns | Notes |
-|---------|------|-------|-------|
-| `postgres:17-alpine` | ~100 MB | Fewer (smaller base) | ❌ Limited apk packages for pgvector build tools |
-| `postgres:17-bookworm` | ~250 MB | Fewer than postgres:17 | **✅ Chosen** — Debian tools available, full pgvector v0.7.4 compatibility |
-| `postgres:17` (default) | ~250 MB | 1 CRITICAL + 13 HIGH | ❌ Avoid; vulnerable |
+| Variant                 | Size    | Vulns                  | Notes                                                                      |
+| ----------------------- | ------- | ---------------------- | -------------------------------------------------------------------------- |
+| `postgres:17-alpine`    | ~100 MB | Fewer (smaller base)   | ❌ Limited apk packages for pgvector build tools                           |
+| `postgres:17-bookworm`  | ~250 MB | Fewer than postgres:17 | **✅ Chosen** — Debian tools available, full pgvector v0.7.4 compatibility |
+| `postgres:17` (default) | ~250 MB | 1 CRITICAL + 13 HIGH   | ❌ Avoid; vulnerable                                                       |
 
 **⚠️ Current status (April 22, 2026)**: Switched from `postgres:17` to `postgres:17-bookworm`.
+
 - Alpine was initially considered (smaller image) but pgvector build requires `/bin/bash` and Debian build tools unavailable in Alpine apk
 - Bookworm provides reliable builds with acceptable image size (~250MB) and pinned digest for reproducibility
 
@@ -206,8 +210,8 @@ cat /tmp/digest_update_checklist.md
 ```bash
 # Python services (update all 6)
 - /Dockerfile                              # Main ingestor
-- /services/ai_gateway/Dockerfile
-- /services/query_api/Dockerfile
+- /services/inference/Dockerfile
+- /services/analytics/Dockerfile
 - /services/processor/Dockerfile
 - /services/dashboard/Dockerfile
 
@@ -217,17 +221,20 @@ cat /tmp/digest_update_checklist.md
 
 ### Python Image Update (if new digest available)
 
-**Current line in all 6 Python Dockerfiles:**
+Current line in all 6 Python Dockerfiles:
+
 ```dockerfile
 FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 ```
 
-**Update to:**
+Update to:
+
 ```dockerfile
 FROM python:3.14-slim@sha256:NEW_DIGEST_HERE
 ```
 
-**Apply to all 6 files:**
+Apply to all 6 files:
+
 ```bash
 # Backup originals first
 git stash
@@ -242,23 +249,27 @@ grep "python:3.14-slim@sha256:" Dockerfile services/*/Dockerfile
 
 ### PostgreSQL Image Update (Special Case)
 
-**Current line in `/infra/database/Dockerfile`:**
+Current line in `/infra/database/Dockerfile`:
+
 ```dockerfile
 FROM postgres:17
 ```
 
-**Update to:**
+Update to:
+
 ```dockerfile
 FROM postgres:17-alpine@sha256:NEW_POSTGRES_ALPINE_DIGEST
 ```
 
-**Why Alpine?**
+Why Alpine?
+
 - 🎯 Smaller image (100 MB vs 250 MB)
 - 🔒 Fewer OS packages → fewer vulnerabilities
 - ⚡ Faster builds and deploys
 - ✅ Fully compatible with pgvector extension
 
-**Update file:**
+Update file:
+
 ```bash
 # Edit /infra/database/Dockerfile
 sed -i 's/FROM postgres:17/FROM postgres:17-alpine@sha256:NEW_POSTGRES_ALPINE_DIGEST/' \
@@ -286,8 +297,8 @@ echo ""
 
 services=(
   "ingestor:Dockerfile"
-  "ai_gateway:services/ai_gateway/Dockerfile"
-  "query_api:services/query_api/Dockerfile"
+  "inference:services/inference/Dockerfile"
+  "analytics:services/analytics/Dockerfile"
   "processor:services/processor/Dockerfile"
   "dashboard:services/dashboard/Dockerfile"
   "database:infra/database/Dockerfile"
@@ -322,7 +333,8 @@ echo ""
 echo "✅ All builds and scans complete!"
 ```
 
-**Run it:**
+Run it:
+
 ```bash
 chmod +x scripts/test_digest_updates.sh
 bash scripts/test_digest_updates.sh
@@ -399,7 +411,8 @@ gh pr create \
   --label "area/docker-images"
 ```
 
-**Or manually**:
+Or manually:
+
 1. Go to **Pull Requests** → **New Pull Request**
 2. Base: `develop`, Compare: `chore/update-base-image-digests-...`
 3. Title: `chore(deps): update base image digests — YYYY-MM`
@@ -410,6 +423,7 @@ gh pr create \
 ### Merge Checklist
 
 Before merging:
+
 - [ ] All CI checks passing (build, lint, tests)
 - [ ] Security scan shows no new vulns
 - [ ] Code review approved
@@ -420,7 +434,7 @@ Before merging:
 
 ## Digest Update Decision Tree
 
-```
+```sh
 ┌─────────────────────────────────────────────┐
 │ Monthly Digest Review                       │
 └──────────────┬──────────────────────────────┘
@@ -487,8 +501,9 @@ Before merging:
 
 ### Issue: "Failed to get digest from Docker Hub"
 
-**Solution**:
-```bash
+Solution:
+
+```sh
 # Ensure Docker is running
 docker ps
 
@@ -502,8 +517,9 @@ docker inspect $(docker images -q python:3.14-slim | head -1)
 
 ### Issue: New image fails to build
 
-**Solution**:
-```bash
+Solution:
+
+```sh
 # Get full build output
 DOCKER_BUILDKIT=0 docker build -f Dockerfile . --progress=plain
 
@@ -514,8 +530,9 @@ docker run --rm postgres:17-alpine psql --version   # Verify PostgreSQL version
 
 ### Issue: postgres:17-alpine incompatible with pgvector
 
-**Solution**: Alpine is fully compatible. If you see errors:
-```bash
+Solution: Alpine is fully compatible. If you see errors:
+
+```sh
 # Test pgvector build in Alpine
 docker build -f infra/database/Dockerfile . -t postgres-pgvector:test
 docker run --rm postgres-pgvector:test psql -U postgres -c "CREATE EXTENSION pgvector;"
@@ -539,13 +556,14 @@ If Alpine fails, fall back to `postgres:17-bookworm@sha256:...` (Debian-based, m
 
 **Monthly tasks** (1st Monday of each month):
 
-```bash
+```sh
 # Add to crontab for automated reminders
 0 9 1 * * [ $(date +\%u) -eq 1 ] && echo "🔔 Monthly digest review day!"
 ```
 
-**Sample calendar entry:**
-```
+Sample calendar entry:
+
+```sh
 Title: 🔐 Monthly Base Image Digest Review
 Recurrence: Monthly on 1st Monday
 Time: 9:00 AM UTC
@@ -563,8 +581,8 @@ Notes:
 
 ## Changelog
 
-| Date | Update | Reason |
-|------|--------|--------|
-| 2026-04-22 | Initial runbook | Created for Phase 3 compliance |
-| 2026-04-22 | Identified postgres:17 issue | 1 CRITICAL, 13 HIGH vulns |
-| 2026-05-01 | First scheduled review | Monthly cycle begins |
+| Date       | Update                       | Reason                         |
+| ---------- | ---------------------------- | ------------------------------ |
+| 2026-04-22 | Initial runbook              | Created for Phase 3 compliance |
+| 2026-04-22 | Identified postgres:17 issue | 1 CRITICAL, 13 HIGH vulns      |
+| 2026-05-01 | First scheduled review       | Monthly cycle begins           |

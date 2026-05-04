@@ -75,7 +75,7 @@ groups:
   - name: saturation
     rules:
       - alert: ServiceDown
-        expr: up{job=~"ingestor|query_api|ai_gateway"} == 0
+        expr: up{job=~"ingestor|analytics|inference"} == 0
         for: 1m
         labels:
           severity: critical

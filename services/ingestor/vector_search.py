@@ -43,7 +43,7 @@ async def index_record_documents(
     collection_name = collection or settings.vector_search_collection
     client = await get_http_client()
     response = await client.post(
-        f"{settings.ai_gateway_url.rstrip('/')}/index",
+        f"{settings.inference_url.rstrip('/')}/index",
         json={
             "collection": collection_name,
             "documents": [build_record_search_document(record) for record in records],
@@ -68,7 +68,7 @@ async def search_record_documents(
     collection_name = collection or settings.vector_search_collection
     client = await get_http_client()
     response = await client.post(
-        f"{settings.ai_gateway_url.rstrip('/')}/search",
+        f"{settings.inference_url.rstrip('/')}/search",
         json={
             "query": query,
             "top_k": top_k,
@@ -89,7 +89,7 @@ async def get_vector_search_health() -> dict[str, Any]:
     """Read AI gateway health for the product-facing bridge."""
     client = await get_http_client()
     response = await client.get(
-        f"{settings.ai_gateway_url.rstrip('/')}/health",
+        f"{settings.inference_url.rstrip('/')}/health",
         timeout=settings.vector_search_http_timeout_seconds,
     )
     response.raise_for_status()

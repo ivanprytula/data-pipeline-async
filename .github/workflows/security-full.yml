@@ -75,10 +75,10 @@ jobs:
         dockerfile:
           - name: ingestor
             path: Dockerfile
-          - name: ai_gateway
-            path: services/ai_gateway/Dockerfile
-          - name: query_api
-            path: services/query_api/Dockerfile
+          - name: inference
+            path: services/inference/Dockerfile
+          - name: analytics
+            path: services/analytics/Dockerfile
           - name: processor
             path: services/processor/Dockerfile
           - name: dashboard

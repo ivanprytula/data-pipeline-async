@@ -113,7 +113,7 @@ services:
       KAFKA_ENABLED: "true"
       MONGO_URL: mongodb://mongodb:27017
       MONGO_ENABLED: "true"
-      AI_GATEWAY_URL: http://ai-gateway:8001
+      INFERENCE_URL: http://inference:8001
       OTEL_ENABLED: "true"
       OTEL_ENDPOINT: http://jaeger:4317
       OTEL_SERVICE_NAME: ingestor
@@ -300,11 +300,11 @@ services:
           memory: '256M'
 
 
-  ai-gateway:
+  inference:
     build:
       context: .
-      dockerfile: services/ai_gateway/Dockerfile
-    container_name: data-pipeline-ai-gateway
+      dockerfile: services/inference/Dockerfile
+    container_name: data-pipeline-inference
     environment:
       QDRANT_URL: http://qdrant:6333
       LOG_LEVEL: info
@@ -324,7 +324,7 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./services/ai_gateway
+          path: ./services/inference
           target: /app
     deploy:
       restart_policy:
@@ -367,11 +367,11 @@ services:
           cpus: '0.25'
           memory: '256M'
 
-  query-api:
+  analytics:
     build:
       context: .
-      dockerfile: services/query_api/Dockerfile
-    container_name: data-pipeline-query-api
+      dockerfile: services/analytics/Dockerfile
+    container_name: data-pipeline-analytics
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/data_pipeline
       LOG_LEVEL: info
@@ -389,8 +389,8 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./services/query-api
-          target: /app/services/query-api
+          path: ./services/analytics
+          target: /app/services/analytics
     deploy:
       restart_policy:
         condition: on-failure
@@ -411,7 +411,7 @@ services:
     container_name: data-pipeline-dashboard
     environment:
       INGESTOR_URL: http://ingestor:8000
-      AI_GATEWAY_URL: http://ai-gateway:8001
+      INFERENCE_URL: http://inference:8001
       LOG_LEVEL: info
     ports:
       - '8003:8003'
@@ -455,7 +455,7 @@ services:
     depends_on:
       - ingestor
       - dashboard
-      - query-api
+      - analytics
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost/nginx-status']
       interval: 10s

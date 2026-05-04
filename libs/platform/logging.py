@@ -50,7 +50,7 @@ def setup_json_logger(service_name: str) -> None:
 
     Args:
         service_name: Short identifier emitted in every log record's
-            ``service`` field (e.g. ``"processor"``, ``"ai_gateway"``).
+            ``service`` field (e.g. ``"processor"``, ``"inference``").
 
     The log level is taken from the ``LOG_LEVEL`` environment variable
     (default ``"INFO"``).  Valid values: ``DEBUG``, ``INFO``, ``WARNING``,

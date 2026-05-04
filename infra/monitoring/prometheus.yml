@@ -30,17 +30,17 @@ scrape_configs:
         target_label: instance
         replacement: ingestor
 
-  # ── Query API ───────────────────────────────────────────────────────────────
-  - job_name: query_api
+  # ── Analytics ─────────────────────────────────────────────────────────────────────────
+  - job_name: analytics
     static_configs:
-      - targets: ['query-api:8005']
+      - targets: ['analytics:8005']
     metrics_path: /metrics
     scrape_interval: 10s
 
-  # ── AI Gateway ──────────────────────────────────────────────────────────────
-  - job_name: ai_gateway
+  # ── Inference ───────────────────────────────────────────────────────────────────────
+  - job_name: inference
     static_configs:
-      - targets: ['ai-gateway:8001']
+      - targets: ['inference:8001']
     metrics_path: /metrics
     scrape_interval: 15s
 

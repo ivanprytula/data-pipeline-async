@@ -170,16 +170,19 @@ def run_migrations_online():
 ```
 
 **Why this works**:
+
 - `async_engine_from_config()` creates an async engine (no greenlets)
 - `asyncio.run()` at top-level creates fresh event loop (no existing loop conflicts)
 - `run_sync()` wraps sync DDL execution, but from a "clean" async context
 
 **Caveats**:
+
 - `alembic upgrade head` and `alembic revision` work fine
 - Do NOT call Alembic from within FastAPI's running event loop (e.g., startup hook) — Python 3.14 will refuse to spawn the new event loop
 - If you must auto-create schema on app startup, use `Base.metadata.create_all()` via `run_sync()` instead (that's safe because it's inside existing async app context)
 
 **Testing** (migrations don't run):
+
 - Tests use in-memory SQLite (`aiosqlite`), not PostgreSQL
 - So test suite passes even if Alembic would fail
 - To test Alembic on Python 3.14, run manually: `uv run alembic upgrade head`
@@ -194,7 +197,7 @@ def run_migrations_online():
 
 **Solution**: Use `pg_hba.conf` with role-based auth rules:
 
-```
+```ini
 # pg_hba.conf
 # IPv4 local connections : trust (no password)
 host    all             all             127.0.0.1/32            trust
@@ -205,11 +208,13 @@ local   all             all                                     trust
 ```
 
 **Result**:
+
 - `psql -h localhost -U postgres` (dev/Alembic) → no password prompt
 - `psql -h remote-host -U postgres` (DBeaver, pgAdmin, prod) → password required
 - `docker compose exec db psql -U postgres` (socket) → no password
 
 **Docker setup**:
+
 ```yaml
 # docker-compose.yml
 services:
@@ -226,6 +231,7 @@ services:
 ```
 
 **Caveats**:
+
 - `trust` auth only secure for localhost (can't reach from outside)
 - Production: use VPC/network security, SSL certs, strong passwords
 - Alembic URL in alembic.ini can be bare (no password) → works with `trust` auth

@@ -41,7 +41,7 @@ Interview answer: [1-3 sentences you can say out loud]
 
 **Trade-off FastAPI:** smaller ecosystem than Django; no built-in admin or ORM; you assemble your own stack.
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Need rapid JSON API development?          → FastAPI
@@ -76,7 +76,7 @@ Need simple, synchronous, minimal?       → Flask
 
 **Common mistake:** choosing MongoDB to "avoid schema design." You still need schema design — you just lose the database's ability to enforce it.
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Need ACID + joins + complex aggregations?   → PostgreSQL
@@ -126,7 +126,7 @@ Truly need horizontal write sharding?       → MongoDB or Cassandra
 
 **Skip Redis when:** your queries are already fast (< 5ms), data freshness requirements are strict, or you're adding complexity before measuring a bottleneck.
 
-**Choose TTL vs active invalidation:**
+#### Choose TTL vs active invalidation:
 
 ```text
 Writes rare, staleness acceptable (1h)?       → TTL expiry only
@@ -166,7 +166,7 @@ High write volume, counting/analytics?        → Write-back (cache then async f
 
 **Key distinction:** Kafka/Redpanda = durable event log (consumers can replay from any offset). RabbitMQ = message queue (messages disappear after consumption).
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Need replay / audit log?                  → Kafka / Redpanda
@@ -175,7 +175,7 @@ Already have Redis, low volume?           → Redis Streams
 Local dev simplicity + Kafka compat?     → Redpanda
 ```
 
-**Interview answer:** "I chose Redpanda because it's Kafka API-compatible — same `aiokafka` producer/consumer code works unchanged — but runs as a single binary without Zookeeper. That cuts local setup from 3 containers to 1. For production on AWS, I'd switch to MSK Serverless which is also Kafka-compatible, so the application code never changes. The key architectural reason for Kafka over RabbitMQ here is the event log — consumers can replay events from any offset, which is essential for the CQRS read model in query_api."
+**Interview answer:** "I chose Redpanda because it's Kafka API-compatible — same `aiokafka` producer/consumer code works unchanged — but runs as a single binary without Zookeeper. That cuts local setup from 3 containers to 1. For production on AWS, I'd switch to MSK Serverless which is also Kafka-compatible, so the application code never changes. The key architectural reason for Kafka over RabbitMQ here is the event log — consumers can replay events from any offset, which is essential for the CQRS read model in analytics."
 
 ---
 
@@ -189,7 +189,7 @@ Local dev simplicity + Kafka compat?     → Redpanda
 
 **Choose Pinecone when:** you're going fully managed, don't want to operate infrastructure, and can accept vendor lock-in.
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Already on Postgres, < 10M vectors?       → pgvector (simpler)
@@ -226,7 +226,7 @@ Fully managed, cloud-first?               → Pinecone
 
 **Choose Lambda when:** your workload is event-triggered, bursty, and can tolerate cold starts. Cost-optimized for intermittent workloads.
 
-**Decision tree:**
+#### Decision tree:
 
 ```text
 Event-driven, bursty, short-lived?        → Lambda
@@ -266,7 +266,7 @@ Long-running service, want managed?       → ECS Fargate
 
 ### Metrics: What to Instrument
 
-**The Four Golden Signals (SRE):**
+#### The Four Golden Signals (SRE):
 
 - **Latency** — how long requests take (histogram, P50/P95/P99)
 - **Traffic** — requests per second (counter)
@@ -281,7 +281,7 @@ Long-running service, want managed?       → ECS Fargate
 
 ### Distributed Tracing: When to Add
 
-**Add tracing when** you have more than one service and need to correlate work across service boundaries (e.g., ingestor HTTP span → processor Kafka consumer span → ai-gateway embed span). Logs + metrics alone can't show you where time was spent across services.
+**Add tracing when** you have more than one service and need to correlate work across service boundaries (e.g., ingestor HTTP span → processor Kafka consumer span → inference embed span). Logs + metrics alone can't show you where time was spent across services.
 
 **OpenTelemetry vs proprietary SDKs:** Always OpenTelemetry. Vendor-neutral, swap the exporter (Jaeger, Tempo, Datadog) without changing application code.
 
@@ -319,7 +319,7 @@ Long-running service, want managed?       → ECS Fargate
 
 **Add a circuit breaker when** you're calling a downstream service that could fail or degrade slowly. Without it, slow downstream failures create a cascade: your service's thread pool fills with slow requests, your service becomes slow, its callers back up, and so on.
 
-**Three states:**
+#### Three states:
 
 - **CLOSED** — calls go through normally
 - **OPEN** — calls are short-circuited immediately (fast fail)
@@ -365,14 +365,14 @@ Long-running service, want managed?       → ECS Fargate
 
 ### ECS Fargate vs EKS (Kubernetes)
 
-**Choose ECS Fargate when:**
+#### Choose ECS Fargate when:
 
 - 1–10 microservices (not a platform team running 100+ services)
 - Learning distributed patterns (not learning Kubernetes operations)
 - Budget matters (ops labor is expensive; managed is cheaper)
 - CI/CD is simple (`aws ecs update-service` vs `kubectl set image` + GitOps)
 
-**Choose EKS when:**
+#### Choose EKS when:
 
 - 20+ microservices (Kubernetes pays for itself in automation)
 - You have a platform team to own upgrades, CRDs, CNI
@@ -393,21 +393,21 @@ Long-running service, want managed?       → ECS Fargate
 
 ### RDS PostgreSQL vs Aurora vs DocumentDB (AWS managed databases)
 
-**Choose RDS PostgreSQL when:**
+#### Choose RDS PostgreSQL when:
 
 - You know SQL well (strong ACID, complex queries, CTEs, window functions)
 - Existing PostgreSQL expertise in team
 - Cost matters (RDS is cheapest AWS SQL option)
 - Schema is stable
 
-**Choose Aurora PostgreSQL when:**
+#### Choose Aurora PostgreSQL when:
 
 - You need read replicas + automatic failover (but costs 2-3x more)
 - You exceed 200 concurrent connections (Aurora has higher limit)
 - You need fast backups/restore
 - You're willing to pay for Serverless
 
-**Choose DocumentDB when:**
+#### Choose DocumentDB when:
 
 - Data is genuinely document-shaped (high schema variance)
 - You prefer document queries over SQL
@@ -421,19 +421,19 @@ Long-running service, want managed?       → ECS Fargate
 
 ### ElastiCache Redis vs Memcached vs DynamoDB (managed caches)
 
-**Choose ElastiCache Redis when:**
+#### Choose ElastiCache Redis when:
 
 - You need persistence (AOF, snapshots) or complex data structures (sorted sets, streams)
 - You want Lua scripting for atomic operations
 - You prefer multi-AZ failover (ElastiCache cluster mode)
 
-**Choose Memcached when:**
+#### Choose Memcached when:
 
 - You only need simple key-value cache (no structures)
 - You want simplicity and speed (simpler than Redis)
 - You don't need persistence
 
-**Choose DynamoDB when:**
+#### Choose DynamoDB when:
 
 - Cache is really a database (queries are complex)
 - You want full AWS-managed (no patching)
@@ -445,11 +445,11 @@ Long-running service, want managed?       → ECS Fargate
 
 ### MSK Serverless (AWS-managed Kafka) vs Self-Managed Kafka vs Redpanda
 
-**Local (docker-compose, Phase 1–6):**
+#### Local (docker-compose, Phase 1–6):
 
 - Use Redpanda: no Zookeeper, simpler Docker setup, Kafka-compatible API
 
-**Production (Phase 7 onwards):**
+#### Production (Phase 7 onwards):
 
 - Use MSK Serverless: AWS-managed, IAM auth (no password management), auto-scaling, high availability
 
@@ -465,13 +465,13 @@ Long-running service, want managed?       → ECS Fargate
 
 ### S3 Backend + DynamoDB State Locking (Terraform)
 
-**Choose S3 + DynamoDB when:**
+#### Choose S3 + DynamoDB when:
 
 - Team > 1 person (multiple people apply Terraform)
 - You need audit trail (S3 versioning, DynamoDB locks prevent concurrent writes)
 - You want remote state (not .tfstate on laptop)
 
-**Choose local state only when:**
+#### Choose local state only when:
 
 - Solo project, never collaborating
 - You're OK with merge conflicts if two people apply simultaneously
@@ -484,13 +484,13 @@ Long-running service, want managed?       → ECS Fargate
 
 ### GitHub OIDC vs Long-Lived Access Keys (CI/CD authentication)
 
-**Choose GitHub OIDC when:**
+#### Choose GitHub OIDC when:
 
 - You're deploying from GitHub Actions
 - You want no long-lived secrets in GitHub Secrets
 - You want CloudTrail audit trail of all role assumptions
 
-**Choose long-lived keys only when:**
+#### Choose long-lived keys only when:
 
 - You have no alternative (old CI/CD system)
 - You're OK with rotating keys every 90 days
@@ -504,12 +504,12 @@ Long-running service, want managed?       → ECS Fargate
 
 ### dev vs prod environment strategy (different instance types, Spot pricing)
 
-**Separation Strategy:**
+#### Separation Strategy:
 
 - **dev:** Fargate Spot (saves 70%), db.t3.micro, 1 NAT Gateway, 14-day backup retention
 - **prod:** Fargate On-Demand, db.t3.medium Multi-AZ, 3 NAT Gateways (HA), 90-day backups
 
-**Why separate:**
+#### Why separate:
 
 - Costs are different (dev should be cheap to experiment)
 - HA requirements differ (dev can tolerate outages; prod cannot)
@@ -531,14 +531,14 @@ Long-running service, want managed?       → ECS Fargate
 
 **In practice:** always use BuildKit for production. The syntax is cleaner, cache mounts reduce bandwidth, and it's been stable since Docker 20.10.
 
-**Setup:**
+#### Setup:
 
 ```bash
 export DOCKER_BUILDKIT=1  # Permanent in ~/.bashrc
 docker build -t service:latest .  # BuildKit enabled
 ```
 
-**Key patterns:**
+#### Key patterns:
 
 - `# syntax=docker/dockerfile:1.4` as first line enables BuildKit features
 - `SHELL ["/bin/bash", "-o", "pipefail", "-c"]` after each FROM (fail-fast)
@@ -558,7 +558,7 @@ docker build -t service:latest .  # BuildKit enabled
 
 **Security rationale:** uncontrolled base image drift can introduce vulnerabilities without your knowledge. Pinning gives you explicit control and audit trail.
 
-**Example:**
+#### Example:
 
 ```dockerfile
 # PINNED — reproducible, secure
@@ -582,7 +582,7 @@ FROM python:3.14-slim
 
 **In this project:** Trivy is ideal for GitHub Actions workflows and local development because it's zero-cost and requires no external accounts.
 
-**What each scans:**
+#### What each scans:
 
 - **Trivy**: OS packages (libc, openssl, curl), Python packages, Node packages, image misconfigurations
 - **Snyk**: Same + supply chain analysis + policy enforcement + license compliance
@@ -594,20 +594,20 @@ FROM python:3.14-slim
 
 ### Dependency Scanning: pip-audit vs Safety vs Bandit
 
-**pip-audit (Python dependencies):**
+#### pip-audit (Python dependencies):
 
 - Checks for known CVEs in pip packages
 - Official PyPA tool, trusted source
 - Can auto-upgrade vulnerable packages
 - Pre-commit hook friendly
 
-**Safety (Python dependencies):**
+#### Safety (Python dependencies):
 
 - Older tool, less frequently updated
 - Requires online DB check (slower)
 - Deprecated in favor of pip-audit for most use cases
 
-**Bandit (Python code security):**
+#### Bandit (Python code security):
 
 - Scans code for security anti-patterns (hardcoded secrets, SQL injection risks, etc.)
 - Complementary to pip-audit (different scope: code vs dependencies)

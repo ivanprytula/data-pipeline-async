@@ -459,8 +459,6 @@ See [docker-security-scanning-setup.md](docker-security-scanning-setup.md) for d
 - Supply chain security (audit all dependencies)
 - Compliance investigations (SOC2, ISO27001)
 
-See [compliance-dashboard-guide.md](compliance-dashboard-guide.md) for detailed usage and workflows.
-
 ### Automated Dependency Updates (Dependabot)
 
 Dependabot automatically creates PRs for dependency updates targeting the `develop` branch:

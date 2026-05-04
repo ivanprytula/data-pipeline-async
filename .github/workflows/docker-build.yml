@@ -10,8 +10,8 @@ on:
         options:
           - all
           - ingestor
-          - ai_gateway
-          - query_api
+          - inference
+          - analytics
           - processor
           - dashboard
       push_image:
@@ -54,8 +54,8 @@ jobs:
 
           all_services='[
             {"name":"ingestor","image_name":"data-zoo/ingestor","dockerfile":"Dockerfile"},
-            {"name":"ai_gateway","image_name":"data-zoo/ai_gateway","dockerfile":"services/ai_gateway/Dockerfile"},
-            {"name":"query_api","image_name":"data-zoo/query_api","dockerfile":"services/query_api/Dockerfile"},
+            {"name":"inference","image_name":"data-zoo/inference","dockerfile":"services/inference/Dockerfile"},
+            {"name":"analytics","image_name":"data-zoo/analytics","dockerfile":"services/analytics/Dockerfile"},
             {"name":"processor","image_name":"data-zoo/processor","dockerfile":"services/processor/Dockerfile"},
             {"name":"dashboard","image_name":"data-zoo/dashboard","dockerfile":"services/dashboard/Dockerfile"}
           ]'

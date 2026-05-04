@@ -225,10 +225,10 @@ Environment-level values (`dev`, `prod`):
 | Variable | `ECS_CLUSTER_NAME` | `data-zoo-dev` | Cluster target for deploy workflow |
 | Variable | `ECS_SERVICE_NAME` | `ingestor` | Default ingestor ECS service |
 | Variable | `ECS_TASK_DEFINITION_FAMILY` | `ingestor` | Default ingestor task definition family |
-| Variable | `ECS_SERVICE_NAME_AI_GATEWAY` | `ai-gateway` | Per-service deploy target |
-| Variable | `ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY` | `ai-gateway` | Per-service task definition family |
-| Variable | `ECS_SERVICE_NAME_QUERY_API` | `query-api` | Per-service deploy target |
-| Variable | `ECS_TASK_DEFINITION_FAMILY_QUERY_API` | `query-api` | Per-service task definition family |
+| Variable | `ECS_SERVICE_NAME_AI_GATEWAY` | `inference` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_AI_GATEWAY` | `inference` | Per-service task definition family |
+| Variable | `ECS_SERVICE_NAME_QUERY_API` | `analytics` | Per-service deploy target |
+| Variable | `ECS_TASK_DEFINITION_FAMILY_QUERY_API` | `analytics` | Per-service task definition family |
 | Variable | `ECS_SERVICE_NAME_PROCESSOR` | `processor` | Per-service deploy target |
 | Variable | `ECS_TASK_DEFINITION_FAMILY_PROCESSOR` | `processor` | Per-service task definition family |
 | Variable | `ECS_SERVICE_NAME_DASHBOARD` | `dashboard` | Per-service deploy target |
