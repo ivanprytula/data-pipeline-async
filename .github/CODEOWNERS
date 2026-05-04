@@ -1,0 +1,39 @@
+# CODEOWNERS — Service Ownership Map
+
+#
+
+# Each services/ directory maps to a placeholder team
+
+# Update team slugs when GitHub teams are created
+
+# Syntax: <path-pattern>  <@org/team> [<@org/team>...]
+
+#
+
+# Last changed at: Phase 4 monorepo restructure (pre-phase 15)
+
+# --- Services ---
+
+services/ingestor/   @org/team-ingestor
+services/inference/  @org/team-ai
+services/analytics/  @org/team-analytics
+services/processor/  @org/team-processor
+services/dashboard/  @org/team-dashboard
+services/webhook/    @org/team-ingestor
+
+# --- Shared libraries ---
+
+libs/                @org/platform-team
+
+# --- Infrastructure & CI ---
+
+infra/               @org/platform-team
+.github/             @org/platform-team
+docker-compose*.yml  @org/platform-team
+Dockerfile           @org/team-ingestor
+
+# --- Root configuration ---
+
+pyproject.toml       @org/platform-team
+uv.lock              @org/platform-team
+alembic/             @org/team-ingestor

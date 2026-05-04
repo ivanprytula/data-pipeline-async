@@ -63,6 +63,7 @@ jobs:
       analytics_change: ${{ steps.filter.outputs.analytics_change }}
       processor_change: ${{ steps.filter.outputs.processor_change }}
       dashboard_change: ${{ steps.filter.outputs.dashboard_change }}
+      webhook_change: ${{ steps.filter.outputs.webhook_change }}
       contracts_change: ${{ steps.filter.outputs.contracts_change }}
       contracts_version_change: ${{ steps.filter.outputs.contracts_version_change }}
       contracts_changelog_change: ${{ steps.filter.outputs.contracts_changelog_change }}
@@ -116,6 +117,9 @@ jobs:
             dashboard_change:
               - 'services/dashboard/**'
               - 'services/dashboard/Dockerfile'
+            webhook_change:
+              - 'services/webhook/**'
+              - 'services/webhook/Dockerfile'
             contracts_change:
               - 'libs/contracts/**/*.py'
             contracts_version_change:
@@ -165,6 +169,7 @@ jobs:
           ANALYTICS_CHANGE: ${{ needs.change-impact.outputs.analytics_change }}
           PROCESSOR_CHANGE: ${{ needs.change-impact.outputs.processor_change }}
           DASHBOARD_CHANGE: ${{ needs.change-impact.outputs.dashboard_change }}
+          WEBHOOK_CHANGE: ${{ needs.change-impact.outputs.webhook_change }}
         run: |
           set -euo pipefail
 
@@ -193,6 +198,9 @@ jobs:
           fi
           if [[ "$include_all" == "true" || "$DASHBOARD_CHANGE" == "true" ]]; then
             include_service '{"name":"dashboard","path":"services/dashboard","dockerfile":"services/dashboard/Dockerfile","image_name":"data-zoo/dashboard"}'
+          fi
+          if [[ "$include_all" == "true" || "$WEBHOOK_CHANGE" == "true" ]]; then
+            include_service '{"name":"webhook","path":"services/webhook","dockerfile":"services/webhook/Dockerfile","image_name":"data-zoo/webhook"}'
           fi
 
           count=$(jq 'length' <<< "$matrix_json")
@@ -258,7 +266,7 @@ jobs:
           echo "- Infra change: ${{ needs.change-impact.outputs.infra_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Contracts change: ${{ needs.change-impact.outputs.contracts_change }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Shared libs change: ${{ needs.change-impact.outputs.shared_libs_change }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, inference=${{ needs.change-impact.outputs.inference_change }}, analytics=${{ needs.change-impact.outputs.analytics_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service changes: ingestor=${{ needs.change-impact.outputs.ingestor_change }}, inference=${{ needs.change-impact.outputs.inference_change }}, analytics=${{ needs.change-impact.outputs.analytics_change }}, processor=${{ needs.change-impact.outputs.processor_change }}, dashboard=${{ needs.change-impact.outputs.dashboard_change }}, webhook=${{ needs.change-impact.outputs.webhook_change }}" >> "$GITHUB_STEP_SUMMARY"
 
   contracts-versioning-gate:
     name: 06 Contracts versioning gate

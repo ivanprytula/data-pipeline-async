@@ -2,22 +2,30 @@
 """Phase 2 guardrails for service boundary enforcement.
 
 Checks implemented:
-1. No cross-service Python imports between the five service boundaries.
+1. No cross-service Python imports between the six service boundaries.
 2. No direct access to another service's persistence modules
    (database/models/crud/storage/repository/repositories).
 3. libs.platform and libs.contracts are shared namespaces — any service
    may import from them, but they must not import back into any service.
 
-The five service boundaries are:
+The six service boundaries are:
 - ingestor
-- services/inference
-- services/analytics
-- services/processor
-- services/dashboard
+- inference
+- analytics
+- processor
+- dashboard
+- webhook
 
 Allowed shared namespaces (any service may import):
 - libs.platform
 - libs.contracts
+
+Test co-location:
+Each service owns its tests under services/<name>/tests/. The boundary
+scanner maps those files to the same service owner as the service code, so
+imports from services/<name>/* inside services/<name>/tests/* are permitted
+(owner == target). No special-casing is needed — detect_service_owner()
+handles it by longest-prefix matching on SERVICE_ROOTS.
 """
 
 from __future__ import annotations
@@ -43,6 +51,7 @@ SERVICE_ROOTS: dict[str, Path] = {
     "analytics": REPO_ROOT / "services" / "analytics",
     "processor": REPO_ROOT / "services" / "processor",
     "dashboard": REPO_ROOT / "services" / "dashboard",
+    "webhook": REPO_ROOT / "services" / "webhook",
 }
 
 PERSISTENCE_MODULE_HINTS = {
